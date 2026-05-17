@@ -1,0 +1,32 @@
+import {
+  bids,
+  blacklist,
+  contents,
+  contracts,
+  deposits,
+  enterprises,
+  files,
+  logs,
+  lots,
+  notifications,
+  refunds,
+  results,
+  stats,
+} from '../data/mock';
+
+export const api = {
+  getStats: () => stats,
+  getLots: () => lots,
+  getLot: (id?: string) => lots.find((lot) => lot.id === id) ?? lots[0],
+  getEnterprises: () => enterprises,
+  getDeposits: () => deposits,
+  getBids: () => bids,
+  getResults: () => results,
+  getContracts: () => contracts,
+  getRefunds: () => refunds,
+  getContents: () => contents,
+  getNotifications: () => notifications,
+  getBlacklist: () => blacklist,
+  getFiles: () => files,
+  getLogs: () => logs,
+};

@@ -1,0 +1,51 @@
+import type { TableColumn } from '../types';
+
+export function DataTable<T extends object>({
+  columns,
+  rows,
+  emptyText = '暂无数据',
+}: {
+  columns: TableColumn<T>[];
+  rows: T[];
+  emptyText?: string;
+}) {
+  return (
+    <div className="table-card">
+      <table className="data-table">
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th key={String(column.key)} style={{ width: column.width }}>
+                {column.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={String((row as Record<string, unknown>).id ?? index)}>
+              {columns.map((column) => {
+                const value = (row as Record<string, unknown>)[String(column.key)];
+                return <td key={String(column.key)}>{column.render ? column.render(row) : String(value ?? '-')}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rows.length === 0 ? <div className="empty-state">{emptyText}</div> : null}
+      <div className="table-footer">
+        <span>共 {rows.length || 0} 条记录</span>
+        <div className="pagination">
+          <button type="button">‹</button>
+          <button className="active" type="button">
+            1
+          </button>
+          <button type="button">2</button>
+          <button type="button">3</button>
+          <span>...</span>
+          <button type="button">›</button>
+        </div>
+      </div>
+    </div>
+  );
+}

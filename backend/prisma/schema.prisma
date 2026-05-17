@@ -1,0 +1,509 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  ADMIN      @map("管理员")
+  ENTERPRISE @map("企业用户")
+
+  @@map("role_code")
+}
+
+enum UserStatus {
+  ACTIVE  @map("启用")
+  BLOCKED @map("封禁")
+
+  @@map("user_status")
+}
+
+enum LotStatus {
+  DRAFT                 @map("草稿")
+  PENDING_RELEASE_REVIEW @map("待发布复核")
+  RELEASE_REJECTED      @map("发布驳回")
+  ANNOUNCING            @map("公示中")
+  BIDDING               @map("竞拍中")
+  ENDED                 @map("已结束")
+  RESULT_ANNOUNCING     @map("成交公示中")
+  PENDING_CONTRACT      @map("待签约")
+  SIGNED                @map("已签约")
+  COMPLETED             @map("已完成")
+  DEFAULTED             @map("违约")
+  CANCELED              @map("已取消")
+
+  @@map("lot_status")
+}
+
+enum EnterpriseCertificationStatus {
+  NOT_SUBMITTED @map("未提交")
+  PENDING       @map("待审核")
+  APPROVED      @map("审核通过")
+  REJECTED      @map("审核驳回")
+
+  @@map("enterprise_certification_status")
+}
+
+enum DepositVoucherStatus {
+  NOT_SUBMITTED @map("未提交")
+  PENDING       @map("待审核")
+  APPROVED      @map("审核通过")
+  REJECTED      @map("审核驳回")
+
+  @@map("deposit_voucher_status")
+}
+
+enum ContractStatus {
+  PENDING_SIGN @map("待签约")
+  SIGNED       @map("已签约")
+  COMPLETED    @map("已完成")
+  DEFAULTED    @map("违约")
+
+  @@map("contract_status")
+}
+
+enum RefundStatus {
+  NOT_REFUNDED @map("未退款")
+  REVIEWING    @map("审核中")
+  REFUNDED     @map("已退款")
+
+  @@map("refund_status")
+}
+
+enum NotificationType {
+  WIN  @map("成交通知")
+  LOSE @map("失败通知")
+
+  @@map("notification_type")
+}
+
+enum NotificationChannel {
+  IN_APP @map("站内消息")
+  SMS    @map("短信")
+
+  @@map("notification_channel")
+}
+
+enum NotificationSendStatus {
+  PENDING @map("待发送")
+  SENT    @map("已发送")
+  FAILED  @map("发送失败")
+
+  @@map("notification_send_status")
+}
+
+enum AttachmentCategory {
+  LOT_IMAGE              @map("拍品图片")
+  INSPECTION_REPORT      @map("检测报告")
+  ENTERPRISE_QUALIFICATION @map("企业资质")
+  BUSINESS_LICENSE       @map("营业执照")
+  DEPOSIT_VOUCHER        @map("意向金凭证")
+  CONTENT_IMAGE          @map("内容图片")
+  OTHER                  @map("其他")
+
+  @@map("attachment_category")
+}
+
+enum AuctionResultStatus {
+  GENERATED @map("已生成")
+  PUBLISHED @map("已公示")
+
+  @@map("auction_result_status")
+}
+
+enum ContentCategory {
+  POLICY               @map("政策法规")
+  TRADE_ANNOUNCEMENT   @map("交易公告")
+  MINING_NEWS          @map("矿能动态")
+  BLACKLIST_RULES      @map("用户黑名单管理说明")
+  PUBLISH_REVIEW_RULES @map("信息发布审核机制")
+  AUCTION_RULES        @map("竞拍规则说明")
+  DEPOSIT_RULES        @map("保证金缴纳与退还说明")
+
+  @@map("content_category")
+}
+
+enum ContentStatus {
+  DRAFT       @map("草稿")
+  PUBLISHED   @map("已发布")
+  UNPUBLISHED @map("已下架")
+
+  @@map("content_status")
+}
+
+enum OperationLogAction {
+  CREATE                 @map("创建")
+  UPDATE                 @map("更新")
+  SUBMIT_REVIEW          @map("提交审核")
+  APPROVE                @map("审核通过")
+  REJECT                 @map("审核驳回")
+  CLOSE                  @map("关闭")
+  BID                    @map("出价")
+  PUBLISH                @map("发布")
+  MARK_SIGNED            @map("标记已签约")
+  MARK_COMPLETED         @map("标记已完成")
+  MARK_DEFAULTED         @map("标记违约")
+  MARK_REFUND_REVIEWING  @map("标记退款审核中")
+  MARK_REFUNDED          @map("标记已退款")
+  BLACKLIST              @map("拉黑")
+  RELEASE_BLACKLIST      @map("解除拉黑")
+  LOGIN                  @map("登录")
+  LOGOUT                 @map("退出")
+
+  @@map("operation_log_action")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        RoleCode @unique
+  name        String   @db.VarChar(50)
+  description String?  @db.VarChar(200)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  username     String     @unique @db.VarChar(80)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  avatarUrl    String?    @map("avatar_url") @db.VarChar(500)
+  status       UserStatus @default(ACTIVE)
+  roleId       String     @map("role_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id])
+  enterpriseId String?    @map("enterprise_id") @db.Uuid
+  enterprise   Enterprise? @relation(fields: [enterpriseId], references: [id])
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  reviewedEnterprises Enterprise[]   @relation("EnterpriseReviewer")
+  reviewedDeposits    DepositVoucher[] @relation("DepositReviewer")
+  uploadedAttachments Attachment[]   @relation("AttachmentUploader")
+  createdContents     Content[]      @relation("ContentCreator")
+  operatedLogs        OperationLog[] @relation("OperationLogOperator")
+  blacklistedRecords  Blacklist[]    @relation("BlacklistOperator")
+  releasedBlacklists  Blacklist[]    @relation("BlacklistReleaseOperator")
+
+  @@index([roleId])
+  @@index([enterpriseId])
+  @@map("users")
+}
+
+model Enterprise {
+  id                         String   @id @default(uuid()) @db.Uuid
+  name                       String   @db.VarChar(160)
+  contactPerson              String   @map("contact_person") @db.VarChar(80)
+  contactPhone               String   @map("contact_phone") @db.VarChar(40)
+  mainCategory               String   @map("main_category") @db.VarChar(120)
+  legalRepresentative        String   @map("legal_representative") @db.VarChar(80)
+  legalRepresentativeIdNo    String   @map("legal_representative_id_no") @db.VarChar(40)
+  email                      String   @db.VarChar(120)
+  userCategory               String   @map("user_category") @db.VarChar(80)
+  userType                   String   @map("user_type") @db.VarChar(80)
+  registeredCapital          Decimal? @map("registered_capital") @db.Decimal(18, 2)
+  region                     String   @db.VarChar(120)
+  address                    String   @db.VarChar(300)
+  unifiedSocialCreditCode    String   @unique @map("unified_social_credit_code") @db.VarChar(80)
+  companyProfile             String   @map("company_profile") @db.Text
+  businessScope              String   @map("business_scope") @db.Text
+  paymentBankAccount         String   @map("payment_bank_account") @db.VarChar(120)
+  paymentAccountName         String   @map("payment_account_name") @db.VarChar(120)
+  paymentBankName            String   @map("payment_bank_name") @db.VarChar(160)
+  paymentBankLineNo          String   @map("payment_bank_line_no") @db.VarChar(80)
+  paymentIsBankOfChina       Boolean  @default(false) @map("payment_is_bank_of_china")
+  receivingBankAccount       String   @map("receiving_bank_account") @db.VarChar(120)
+  receivingAccountName       String   @map("receiving_account_name") @db.VarChar(120)
+  receivingBankName          String   @map("receiving_bank_name") @db.VarChar(160)
+  receivingBankLineNo        String   @map("receiving_bank_line_no") @db.VarChar(80)
+  receivingIsBankOfChina     Boolean  @default(false) @map("receiving_is_bank_of_china")
+  agreementAccepted          Boolean  @default(false) @map("agreement_accepted")
+  certificationStatus        EnterpriseCertificationStatus @default(NOT_SUBMITTED) @map("certification_status")
+  certificationSubmittedAt   DateTime? @map("certification_submitted_at")
+  certificationReviewedAt    DateTime? @map("certification_reviewed_at")
+  certificationReviewerId    String?  @map("certification_reviewer_id") @db.Uuid
+  certificationReviewer      User?    @relation("EnterpriseReviewer", fields: [certificationReviewerId], references: [id])
+  certificationRejectReason  String?  @map("certification_reject_reason") @db.Text
+  isBlacklisted              Boolean  @default(false) @map("is_blacklisted")
+  servicePhone               String?  @map("service_phone") @db.VarChar(40)
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  users          User[]
+  attachments    Attachment[]
+  depositVouchers DepositVoucher[]
+  bids           BidRecord[]
+  resultsWon     AuctionResult[]
+  contracts      Contract[]
+  refunds        Refund[]
+  notifications  Notification[]
+  blacklistRecords Blacklist[]
+
+  @@index([certificationStatus])
+  @@map("enterprises")
+}
+
+model Lot {
+  id                    String    @id @default(uuid()) @db.Uuid
+  title                 String    @db.VarChar(200)
+  imageOneUrl           String    @map("image_one_url") @db.VarChar(500)
+  imageTwoUrl           String    @map("image_two_url") @db.VarChar(500)
+  startPrice            Decimal   @map("start_price") @db.Decimal(18, 2)
+  quantity              Decimal   @db.Decimal(18, 3)
+  quantityUnit          String    @default("吨") @map("quantity_unit") @db.VarChar(20)
+  supplier              String    @db.VarChar(160)
+  origin                String    @db.VarChar(160)
+  deadlineAt            DateTime  @map("deadline_at")
+  deliveryMethod        String    @map("delivery_method") @db.VarChar(120)
+  productInfo           String    @map("product_info") @db.Text
+  productDetail         String    @map("product_detail") @db.Text
+  inspectionReportUrl   String    @map("inspection_report_url") @db.VarChar(500)
+  email                 String    @db.VarChar(120)
+  phone                 String?   @db.VarChar(40)
+  mineralCategory       String?   @map("mineral_category") @db.VarChar(120)
+  grade                 String?   @db.VarChar(120)
+  assessedPrice         Decimal?  @map("assessed_price") @db.Decimal(18, 2)
+  depositRatio          Decimal?  @map("deposit_ratio") @db.Decimal(8, 4)
+  depositAmount         Decimal   @map("deposit_amount") @db.Decimal(18, 2)
+  bidIncrement          Decimal   @map("bid_increment") @db.Decimal(18, 2)
+  announcementStartAt   DateTime  @map("announcement_start_at")
+  announcementEndAt     DateTime  @map("announcement_end_at")
+  biddingStartAt        DateTime  @map("bidding_start_at")
+  biddingEndAt          DateTime  @map("bidding_end_at")
+  customerNotice        String    @map("customer_notice") @db.Text
+  extensionEnabled      Boolean   @default(false) @map("extension_enabled")
+  extensionRule         String?   @map("extension_rule") @db.Text
+  currentHighestPrice   Decimal?  @map("current_highest_price") @db.Decimal(18, 2)
+  status                LotStatus @default(DRAFT)
+  releaseRejectReason   String?   @map("release_reject_reason") @db.Text
+  releaseSubmittedAt    DateTime? @map("release_submitted_at")
+  releaseReviewedAt     DateTime? @map("release_reviewed_at")
+  createdById           String?   @map("created_by_id") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  attachments     Attachment[]
+  depositVouchers DepositVoucher[]
+  bidRecords      BidRecord[]
+  auctionResult   AuctionResult?
+  contracts       Contract[]
+  refunds         Refund[]
+  notifications   Notification[]
+  blacklistRecords Blacklist[]
+
+  @@index([status])
+  @@index([announcementStartAt, announcementEndAt])
+  @@index([biddingStartAt, biddingEndAt])
+  @@map("lots")
+}
+
+model Attachment {
+  id           String             @id @default(uuid()) @db.Uuid
+  category     AttachmentCategory
+  fileName     String             @map("file_name") @db.VarChar(255)
+  fileUrl      String             @map("file_url") @db.VarChar(500)
+  mimeType     String?            @map("mime_type") @db.VarChar(120)
+  fileSize     Int?               @map("file_size")
+  isSensitive  Boolean            @default(false) @map("is_sensitive")
+  lotId        String?            @map("lot_id") @db.Uuid
+  lot          Lot?               @relation(fields: [lotId], references: [id])
+  enterpriseId String?            @map("enterprise_id") @db.Uuid
+  enterprise   Enterprise?        @relation(fields: [enterpriseId], references: [id])
+  uploadedById String?            @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User?              @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  depositVouchers DepositVoucher[]
+
+  @@index([lotId])
+  @@index([enterpriseId])
+  @@map("attachments")
+}
+
+model DepositVoucher {
+  id               String               @id @default(uuid()) @db.Uuid
+  lotId            String               @map("lot_id") @db.Uuid
+  lot              Lot                  @relation(fields: [lotId], references: [id])
+  enterpriseId     String               @map("enterprise_id") @db.Uuid
+  enterprise       Enterprise           @relation(fields: [enterpriseId], references: [id])
+  attachmentId     String               @map("attachment_id") @db.Uuid
+  attachment       Attachment           @relation(fields: [attachmentId], references: [id])
+  requiredAmount   Decimal              @map("required_amount") @db.Decimal(18, 2)
+  paidAmount       Decimal?             @map("paid_amount") @db.Decimal(18, 2)
+  status           DepositVoucherStatus @default(PENDING)
+  submittedAt      DateTime             @default(now()) @map("submitted_at")
+  reviewedAt       DateTime?            @map("reviewed_at")
+  reviewerId       String?              @map("reviewer_id") @db.Uuid
+  reviewer         User?                @relation("DepositReviewer", fields: [reviewerId], references: [id])
+  rejectReason     String?              @map("reject_reason") @db.Text
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  refunds Refund[]
+
+  @@unique([lotId, enterpriseId])
+  @@index([status])
+  @@map("deposit_vouchers")
+}
+
+model BidRecord {
+  id                   String   @id @default(uuid()) @db.Uuid
+  sequenceNo           Int      @map("sequence_no")
+  lotId                String   @map("lot_id") @db.Uuid
+  lot                  Lot      @relation(fields: [lotId], references: [id])
+  enterpriseId         String   @map("enterprise_id") @db.Uuid
+  enterprise           Enterprise @relation(fields: [enterpriseId], references: [id])
+  enterpriseName       String   @map("enterprise_name") @db.VarChar(160)
+  maskedEnterpriseName String   @map("masked_enterprise_name") @db.VarChar(160)
+  amount               Decimal  @db.Decimal(18, 2)
+  incrementCount       Int      @map("increment_count")
+  bidAt                DateTime @default(now()) @map("bid_at")
+  isCurrentHighest     Boolean  @default(false) @map("is_current_highest")
+
+  @@unique([lotId, sequenceNo])
+  @@index([lotId, bidAt])
+  @@index([enterpriseId])
+  @@map("bid_records")
+}
+
+model AuctionResult {
+  id                String              @id @default(uuid()) @db.Uuid
+  lotId             String              @unique @map("lot_id") @db.Uuid
+  lot               Lot                 @relation(fields: [lotId], references: [id])
+  winningEnterpriseId String            @map("winning_enterprise_id") @db.Uuid
+  winningEnterprise Enterprise          @relation(fields: [winningEnterpriseId], references: [id])
+  finalPrice        Decimal             @map("final_price") @db.Decimal(18, 2)
+  status            AuctionResultStatus @default(GENERATED)
+  generatedAt       DateTime            @default(now()) @map("generated_at")
+  publishedAt       DateTime?           @map("published_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  contract Contract?
+
+  @@index([status])
+  @@map("auction_results")
+}
+
+model Contract {
+  id              String         @id @default(uuid()) @db.Uuid
+  auctionResultId String         @unique @map("auction_result_id") @db.Uuid
+  auctionResult   AuctionResult  @relation(fields: [auctionResultId], references: [id])
+  lotId           String         @map("lot_id") @db.Uuid
+  lot             Lot            @relation(fields: [lotId], references: [id])
+  enterpriseId    String         @map("enterprise_id") @db.Uuid
+  enterprise      Enterprise     @relation(fields: [enterpriseId], references: [id])
+  status          ContractStatus @default(PENDING_SIGN)
+  signedAt        DateTime?      @map("signed_at")
+  completedAt     DateTime?      @map("completed_at")
+  defaultedAt     DateTime?      @map("defaulted_at")
+  remark          String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([status, completedAt])
+  @@index([lotId])
+  @@index([enterpriseId])
+  @@map("contracts")
+}
+
+model Refund {
+  id               String         @id @default(uuid()) @db.Uuid
+  lotId            String         @map("lot_id") @db.Uuid
+  lot              Lot            @relation(fields: [lotId], references: [id])
+  enterpriseId     String         @map("enterprise_id") @db.Uuid
+  enterprise       Enterprise     @relation(fields: [enterpriseId], references: [id])
+  depositVoucherId String?        @map("deposit_voucher_id") @db.Uuid
+  depositVoucher   DepositVoucher? @relation(fields: [depositVoucherId], references: [id])
+  amount           Decimal        @db.Decimal(18, 2)
+  status           RefundStatus   @default(NOT_REFUNDED)
+  reviewedAt       DateTime?      @map("reviewed_at")
+  refundedAt       DateTime?      @map("refunded_at")
+  remark           String?        @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([lotId, enterpriseId])
+  @@index([status])
+  @@map("refunds")
+}
+
+model Blacklist {
+  id                 String      @id @default(uuid()) @db.Uuid
+  enterpriseId       String      @map("enterprise_id") @db.Uuid
+  enterprise         Enterprise  @relation(fields: [enterpriseId], references: [id])
+  lotId              String?     @map("lot_id") @db.Uuid
+  lot                Lot?        @relation(fields: [lotId], references: [id])
+  reason             String      @db.Text
+  operatorId         String?     @map("operator_id") @db.Uuid
+  operator           User?       @relation("BlacklistOperator", fields: [operatorId], references: [id])
+  blacklistedAt      DateTime    @default(now()) @map("blacklisted_at")
+  releasedAt         DateTime?   @map("released_at")
+  releaseReason      String?     @map("release_reason") @db.Text
+  releaseOperatorId  String?     @map("release_operator_id") @db.Uuid
+  releaseOperator    User?       @relation("BlacklistReleaseOperator", fields: [releaseOperatorId], references: [id])
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  @@index([enterpriseId, releasedAt])
+  @@map("blacklist")
+}
+
+model Content {
+  id          String          @id @default(uuid()) @db.Uuid
+  title       String          @unique @db.VarChar(200)
+  category    ContentCategory
+  summary     String?         @db.VarChar(500)
+  body        String          @db.Text
+  status      ContentStatus   @default(DRAFT)
+  publishedAt DateTime?       @map("published_at")
+  createdById String?         @map("created_by_id") @db.Uuid
+  createdBy   User?           @relation("ContentCreator", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@index([category, status])
+  @@map("contents")
+}
+
+model Notification {
+  id              String                 @id @default(uuid()) @db.Uuid
+  type            NotificationType
+  channel         NotificationChannel
+  receiverEnterpriseId String            @map("receiver_enterprise_id") @db.Uuid
+  receiverEnterprise   Enterprise        @relation(fields: [receiverEnterpriseId], references: [id])
+  lotId           String?                @map("lot_id") @db.Uuid
+  lot             Lot?                   @relation(fields: [lotId], references: [id])
+  lotTitle        String                 @map("lot_title") @db.VarChar(200)
+  content         String                 @db.Text
+  sendStatus      NotificationSendStatus @default(PENDING) @map("send_status")
+  sentAt          DateTime?              @map("sent_at")
+  readAt          DateTime?              @map("read_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  @@index([receiverEnterpriseId, readAt])
+  @@index([sendStatus, sentAt])
+  @@map("notifications")
+}
+
+model OperationLog {
+  id          String             @id @default(uuid()) @db.Uuid
+  operatorId  String?            @map("operator_id") @db.Uuid
+  operator    User?              @relation("OperationLogOperator", fields: [operatorId], references: [id])
+  action      OperationLogAction
+  targetType  String             @map("target_type") @db.VarChar(80)
+  targetId    String?            @map("target_id") @db.VarChar(80)
+  summary     String             @db.VarChar(500)
+  ipAddress   String?            @map("ip_address") @db.VarChar(80)
+  userAgent   String?            @map("user_agent") @db.VarChar(500)
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  @@index([operatorId, createdAt])
+  @@index([targetType, targetId])
+  @@map("operation_logs")
+}
