@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ButtonRow } from '../components/Button';
 import { SectionHeader, StatCards } from '../components/Cards';
@@ -7,7 +7,7 @@ import { FilterBar } from '../components/FilterBar';
 import { AdminLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
 import { navigateTo } from '../navigation';
-import { api, type BlacklistMutationPayload, type ContentMutationPayload, type LotMutationPayload } from '../services/api';
+import { api, type BlacklistMutationPayload, type ContentMutationPayload, type LotMutationPayload, type UploadCategory } from '../services/api';
 import type { Action, TableColumn } from '../types';
 
 type AdminListConfig = {
@@ -25,6 +25,13 @@ type AdminListConfig = {
 
 type RowActionHandler = (label: string, row: Record<string, unknown>) => Promise<void>;
 type RowNavigationHandler = (label: string, row: Record<string, unknown>) => string | undefined;
+type LotUploadTarget = {
+  label: string;
+  fieldName: keyof Pick<LotMutationPayload, 'imageOneUrl' | 'imageTwoUrl' | 'inspectionReportUrl'>;
+  category: UploadCategory;
+  accept: string;
+  helper: string;
+};
 
 const REVIEW_REJECT_REASON = '后台页面快速驳回，请补充或修正资料。';
 const BLACKLIST_RELEASE_REASON = '后台页面手动解除黑名单。';
@@ -229,6 +236,7 @@ export function LotManagementPage() {
 
 export function LotEditPage() {
   const [notice, setNotice] = useState('请保存草稿或填写 URL 参数 id 后编辑拍品。');
+  const [uploadingField, setUploadingField] = useState<string>();
   const formGroups: Array<[string, Array<[keyof LotMutationPayload, string, string]>]> = [
     ['基础信息', LOT_FORM_FIELDS.slice(0, 11)],
     ['商品与附件', LOT_FORM_FIELDS.slice(11, 13)],
@@ -237,6 +245,38 @@ export function LotEditPage() {
     ['客户须知与延时竞价', LOT_FORM_FIELDS.slice(21)],
   ];
   const lotId = new URLSearchParams(window.location.search).get('id') ?? undefined;
+  const uploadTargets: LotUploadTarget[] = [
+    { label: '拍品图一', fieldName: 'imageOneUrl', category: 'LOT_IMAGE', accept: 'image/jpeg,image/png', helper: '支持 JPG/PNG，成功后回填图一 URL' },
+    { label: '拍品图二', fieldName: 'imageTwoUrl', category: 'LOT_IMAGE', accept: 'image/jpeg,image/png', helper: '支持 JPG/PNG，成功后回填图二 URL' },
+    { label: '检测报告', fieldName: 'inspectionReportUrl', category: 'INSPECTION_REPORT', accept: 'application/pdf', helper: '支持 PDF，成功后回填检测报告 URL' },
+  ];
+
+  const handleUpload = async (event: ChangeEvent<HTMLInputElement>, target: LotUploadTarget) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadingField(target.fieldName);
+      setNotice(`正在上传${target.label}：${file.name}`);
+      const result = await api.uploadFile(file, target.category);
+      const input = document.querySelector<HTMLInputElement>(`#admin-lot-form input[name="${target.fieldName}"]`);
+
+      if (input) {
+        input.value = result.fileUrl;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      setNotice(`${target.label}上传成功，已回填真实文件 URL：${result.fileUrl}`);
+    } catch (error) {
+      setNotice(`${target.label}上传失败：${getErrorMessage(error)}。请重新选择文件，页面不会伪造成功 URL。`);
+    } finally {
+      setUploadingField(undefined);
+    }
+  };
 
   const submitLot = async (submitReview: boolean) => {
     const form = document.querySelector<HTMLFormElement>('#admin-lot-form');
@@ -270,17 +310,19 @@ export function LotEditPage() {
           <fieldset key={title}>
             <legend>{title}</legend>
             {title === '商品与附件' ? (
-              <div className="admin-upload-grid" aria-label="附件上传视觉占位">
-                {[
-                  ['拍品图一', '当前保留 URL 填写，T32 再接入本地上传'],
-                  ['拍品图二', '支持拍品多角度图片 URL'],
-                  ['检测报告', '支持 PDF 或检测报告 URL'],
-                ].map(([name, helper]) => (
-                  <div className="admin-upload-card" key={name}>
-                    <span aria-hidden="true">{name === '检测报告' ? '文' : '+'}</span>
-                    <strong>{name}</strong>
-                    <small>{helper}</small>
-                  </div>
+              <div className="admin-upload-grid" aria-label="拍品附件上传">
+                {uploadTargets.map((target) => (
+                  <label className="admin-upload-card admin-upload-action" key={target.fieldName}>
+                    <input
+                      accept={target.accept}
+                      data-upload-field={target.fieldName}
+                      onChange={(event) => void handleUpload(event, target)}
+                      type="file"
+                    />
+                    <span aria-hidden="true">{target.category === 'INSPECTION_REPORT' ? '文' : '+'}</span>
+                    <strong>{target.label}</strong>
+                    <small>{uploadingField === target.fieldName ? '上传中...' : target.helper}</small>
+                  </label>
                 ))}
               </div>
             ) : null}

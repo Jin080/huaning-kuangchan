@@ -3302,3 +3302,219 @@
 - 需要总控确认：
   - 是否提交并推送 T38A 与本次总控复核记录。
   - T32 是否拆为 `T32A 后端真实上传接口` 与 `T32B 前端拍品表单上传接入` 顺序执行。
+
+## 2026-05-18 17:12 - T32B 前端拍品表单真实上传接入
+
+- 任务名称：T32B 前端拍品表单真实上传接入
+- 负责模块：前端拍品表单 / 文件上传接入
+- 修改文件：
+  - `docs/agent-handoff.md`（仅追加本阻塞记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无；未接入前端上传，避免在 T32A 未确认时猜测接口路径或伪造成功 URL。
+- 接入的上传接口：未接入。阻塞原因为前置依赖 T32A 未完成/未由总控确认；当前 `docs/api-contract.md` 未记录上传 `POST` 接口路径与响应格式，`backend/src/files/files.controller.ts` 仅提供 `GET /api/admin/files` 与 `GET /api/files/:id`。
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; rg -n "T32A|T32B|上传接口|真实上传|upload|attachments|附件上传|文件上传" docs frontend/src/services/api.ts frontend/src/pages/AdminPages.tsx backend/src/files backend/src/modules -g "!stitch_document_to_webpage_generator/**"`
+  - `Set-Location E:/kuangchan; rg -n "Controller\\(|Post\\(|UseInterceptors|FileInterceptor|Multer|files|upload|Attachment|附件" backend/src backend/test backend/prisma/schema.prisma`
+  - `Set-Location E:/kuangchan; Get-Content -Raw backend/src/files/files.controller.ts`
+- 验证结果：
+  - `git status --short --branch` 通过，显示 `## main...origin/main`，另有既有未跟踪 `stitch_document_to_webpage_generator/`。
+  - 搜索结果未发现 T32A 完成交付记录，也未发现已确认的真实上传 `POST` 接口契约。
+  - `docs/task-board.md` 当前仍显示 T32 为 `TODO`，未拆出已完成的 T32A。
+  - `backend/src/files/files.controller.ts` 当前只有管理员文件列表与附件权限读取接口，没有 Multer/FileInterceptor 或上传写接口。
+- 截图产物：无；未进入页面改造与上传交互验证。
+- 未完成事项：
+  - `/admin/lots/edit` 的图一、图二、检测报告真实上传接入未实施。
+  - `frontend/src/services/api.ts`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/index.css` 未修改。
+  - 未执行前端 lint/build、Playwright 上传交互或真实 2xx 上传验证，因为缺少可确认的上传接口。
+- 阻塞问题：
+  - T32B 明确要求“必须等待 T32A 后端真实上传接口完成并由总控确认接口路径与响应格式”，当前前置依赖未满足。
+  - 若在此前端先行实现，只能猜测上传接口和响应字段，存在伪造成功 URL 或破坏保存 payload 的风险。
+- 需要总控确认：
+  - 请先完成并登记 T32A 后端真实上传接口。
+  - 请在 `docs/api-contract.md` 或总控交接中确认上传接口路径、请求字段、文件字段名、允许类型/大小、认证头、返回 URL 字段与错误响应格式。
+
+## 2026-05-18 17:20 - T32A 后端真实文件上传接口
+
+- 任务名称：T32A 后端真实文件上传接口
+- 负责模块：后端 files 模块 / Attachment 本地上传
+- 修改文件：
+  - `backend/src/files/files.controller.ts`
+  - `backend/src/files/files.service.ts`
+  - `backend/src/files/files.types.ts`
+  - `backend/test/files/files.service.spec.ts`
+  - `docs/api-contract.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/files/dto/file-upload.dto.ts`
+  - `backend/test/e2e/upload-http-db.spec.ts`
+- 删除文件：无
+- 接口变更：
+  - 新增 `POST /api/files/upload`，管理员开发认证头上传本机文件。
+  - 新增 `GET /api/files/content/{id}`，复用既有附件权限校验后返回本地上传文件内容。
+  - 既有 `GET /api/files/{id}` 附件权限元数据接口和 `GET /api/admin/files` 管理员列表保持原语义。
+- 上传接口路径与响应格式：
+  - 路径：`POST /api/files/upload`
+  - 请求：`multipart/form-data`，文件字段名 `file`，字段 `category` 当前支持 `LOT_IMAGE`、`INSPECTION_REPORT`，可选 `lotId`、`enterpriseId`。
+  - 文件限制：`image/jpeg`、`image/png`、`application/pdf`，单文件上限 10MB。
+  - 响应字段：`id`、`fileName`、`fileUrl`、`mimeType`、`fileSize`、`category`、`isSensitive`；`fileUrl` 形如 `/api/files/content/{id}`，可回填拍品图片或检测报告 URL 字段。
+  - 本地目录：`backend/tmp/uploads/`，命中既有 `tmp/` Git 忽略规则。
+- 状态枚举变更：无
+- 数据模型变更：无；复用现有 `Attachment` 模型，未修改 `backend/prisma/schema.prisma`。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- files`
+  - `Set-Location E:/kuangchan/backend; npm test -- upload`
+  - `curl.exe -X POST http://127.0.0.1:3127/api/files/upload -H "x-user-id: 0d3ed994-8ebf-47ec-bf11-2eb86f008ae6" -H "x-user-role: ADMIN" -F "category=INSPECTION_REPORT" -F "file=@E:/kuangchan/backend/tmp/t32a-curl-report.pdf;type=application/pdf"`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run typecheck` 通过。
+  - `npm test -- files` 通过：3 个测试套件、7 个用例通过；既有敏感附件权限与管理员文件列表未破坏。
+  - `npm test -- upload` 通过：新增 1 个测试套件、2 个用例通过，覆盖拍品图和检测报告上传，检测报告可在 `GET /api/admin/files` 列表看到。
+  - curl PDF 上传返回 2xx，响应：`{"id":"17fa69cf-1e4e-4d81-a1c0-d4c0fa720555","fileName":"t32a-curl-report.pdf","fileUrl":"/api/files/content/17fa69cf-1e4e-4d81-a1c0-d4c0fa720555","mimeType":"application/pdf","fileSize":34,"category":"INSPECTION_REPORT","isSensitive":true}`；随后 GET 该 `fileUrl` 返回 HTTP 200。
+  - `backend/prisma/schema.prisma` 未修改。
+- 未完成事项：
+  - T32B 前端拍品表单点击上传和回填尚未实施。
+  - 当前上传类别按 T32A 范围仅开放拍品图片与检测报告；企业资质、营业执照、意向金凭证等类别未在本接口开放。
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否接受 `POST /api/files/upload` + `file` 字段 + `/api/files/content/{id}` 的路径和响应口径，并据此启动 T32B 前端接入。
+
+## 2026-05-18 17:45 - T32B 前端拍品表单真实上传接入
+
+- 任务名称：T32B 前端拍品表单真实上传接入
+- 负责模块：前端拍品表单 / 文件上传接入
+- 修改文件：
+  - `frontend/src/services/api.ts`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/t32b-upload-verification.md`
+  - `docs/qa/t32b-admin-lot-upload-mobile.png`
+- 删除文件：无
+- 接口变更：无后端接口变更；前端新增调用 T32A 既有 `POST /api/files/upload`。
+- 接入的上传接口：
+  - 路径：`POST /api/files/upload`
+  - 请求：`multipart/form-data`，文件字段名 `file`；图一/图二传 `category=LOT_IMAGE`，检测报告传 `category=INSPECTION_REPORT`。
+  - 响应：使用 `fileUrl` 回填拍品表单；前端将相对 `fileUrl` 解析为后端绝对 URL，以兼容现有拍品保存接口 URL 校验。
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/admin/lots/edit`
+  - `curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:3100/api/health`
+  - Playwright 打开 `/admin/lots/edit`，通过三个 `input[data-upload-field]` 分别选择本机 PNG/PDF 文件，监听 `POST /api/files/upload` 响应并读取回填字段。
+  - Playwright 点击 `保存草稿`，验证 `POST /api/admin/lots` 返回 201。
+  - Playwright 点击 `提交复核`，验证 `POST /api/admin/lots` 与 `POST /api/admin/lots/{id}/submit-review` 均返回 201。
+  - Playwright `console error`
+  - Playwright 390px 宽度检查。
+- 验证结果：
+  - `git status --short --branch` 通过，显示当前分支 `main...origin/main`；T32A 后端文件与本轮 T32B 前端/文档文件均为未提交改动，另有既有未跟踪 `stitch_document_to_webpage_generator/`。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 284ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/admin/lots/edit` 返回 HTTP 200。
+  - 后端 `http://127.0.0.1:3100/api/health` 返回 200；当前源码后端映射了 `POST /api/files/upload`。
+  - 三个上传入口均存在真实 `input[type=file]`；三次 `POST http://127.0.0.1:3100/api/files/upload` 均返回 201。
+  - 上传后 `imageOneUrl`、`imageTwoUrl`、`inspectionReportUrl` 均回填为真实上传文件 URL。
+  - 保存草稿返回 201；保存并提交复核链路返回 201 + 201，页面提示 `拍品已保存并提交发布复核。`
+  - Playwright `console error` 为 0。
+  - 390px 检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+- 截图产物：
+  - `docs/qa/t32b-admin-lot-upload-mobile.png`
+- 未完成事项：
+  - 未提交/推送本轮改动。
+  - T33 登录/JWT 与角色权限生产化仍待排期。
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否接受 T32B 将上传返回的相对 `fileUrl` 解析为后端绝对 URL 后再回填拍品表单字段的前端兼容处理。
+
+## 2026-05-18 17:54 - 总控复核 T32 后台拍品录入真实上传链路
+
+- 任务名称：总控复核 T32A/T32B 后台拍品录入真实上传链路，并更新任务板
+- 负责模块：总控调度
+- 读取文件与记录：
+  - `docs/agent-handoff.md`
+  - `docs/task-board.md`
+  - `docs/api-contract.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/t32b-upload-verification.md`
+  - `backend/src/files/files.controller.ts`
+  - `backend/src/files/files.service.ts`
+  - `backend/src/files/files.types.ts`
+  - `backend/src/files/dto/file-upload.dto.ts`
+  - `backend/test/files/files.service.spec.ts`
+  - `backend/test/e2e/upload-http-db.spec.ts`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/qa/t32b-admin-lot-upload-mobile.png`
+- 总控确认的实际改动：
+  - T32A：新增 `POST /api/files/upload`，使用 `multipart/form-data`、文件字段名 `file`；当前支持 `LOT_IMAGE`、`INSPECTION_REPORT`；新增 `GET /api/files/content/{id}` 返回文件内容；复用现有 `Attachment` 模型，未改 Prisma schema。
+  - T32A：上传文件保存到 `backend/tmp/uploads/`，命中既有 `tmp/` Git 忽略规则；`GET /api/files/{id}` 与 `GET /api/admin/files` 保持原语义。
+  - T32B：`frontend/src/services/api.ts` 新增 `uploadFile()`，调用 T32A 上传接口，并将相对 `fileUrl` 解析为后端绝对 URL 以兼容拍品保存 URL 校验。
+  - T32B：`/admin/lots/edit` 的图一、图二、检测报告上传卡均改为真实 `input[type=file]`，选择文件后调用真实上传接口，成功后回填 `imageOneUrl`、`imageTwoUrl`、`inspectionReportUrl`。
+  - T32B：上传失败通过页面 notice 显性提示，不伪造成功 URL；保存草稿、保存并提交复核沿用既有真实接口。
+  - `docs/api-contract.md`、`docs/frontend-backend-integration-checklist.md`、`docs/qa/t32b-upload-verification.md` 已记录接口与联调结果。
+  - `docs/task-board.md`：T32、T32A、T32B 标记 DONE。
+- 排除确认：
+  - `backend/prisma/schema.prisma` 无 diff。
+  - 未修改登录/JWT、T34 出价口径、T38B/T38C 视觉复刻。
+  - 未提交 `stitch_document_to_webpage_generator/`，该目录继续作为本地参考目录。
+  - `.playwright-cli/` 与 `frontend/.playwright-cli/` 未纳入提交。
+- 总控复跑验证命令：
+  - `git status --short --branch`
+  - `git diff --stat`
+  - `git diff --name-only`
+  - `git diff -- backend/prisma/schema.prisma`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- files`
+  - `Set-Location E:/kuangchan/backend; npm test -- upload`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/admin/lots/edit`
+  - `curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:3100/api/health`
+  - `curl.exe -X POST http://127.0.0.1:3100/api/files/upload ... -F "category=INSPECTION_REPORT" -F "file=@E:/kuangchan/backend/tmp/t32-control-upload.pdf;type=application/pdf"`
+  - `curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:3100/api/files/content/{id} ...`
+  - Playwright 打开 `/admin/lots/edit`，检查 `console error`、3 个 `input[type=file][data-upload-field]`、390px 宽度。
+- 总控复跑验证结果：
+  - `git status --short --branch` 显示当前 `main...origin/main`，T32A/T32B 与总控文档文件未提交；未跟踪项含 T32A/T32B 新文件和既有 `stitch_document_to_webpage_generator/`。
+  - `git diff --stat` 显示后端 files 模块、后端测试、接口契约、前端 api/页面/样式和 QA 文档存在 T32 相关改动。
+  - `backend/prisma/schema.prisma` 无 diff。
+  - 后端 `npm run lint` 通过。
+  - 后端 `npm run typecheck` 通过。
+  - 后端 `npm test -- files` 通过：3 个测试套件、7 个用例通过。
+  - 后端 `npm test -- upload` 通过：1 个测试套件、2 个用例通过。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 281ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/admin/lots/edit` 返回 HTTP 200。
+  - `curl.exe` 后端健康检查返回 200。
+  - 总控 curl 上传 PDF 到 `POST /api/files/upload` 返回 HTTP 201，响应包含 `fileUrl="/api/files/content/36ddf646-983d-4f4f-8fbe-89f92eb99e35"`、`category="INSPECTION_REPORT"`、`isSensitive=true`。
+  - 总控 curl 读取上述 `GET /api/files/content/36ddf646-983d-4f4f-8fbe-89f92eb99e35` 返回 HTTP 200。
+  - T32B QA 记录显示三次 `POST http://127.0.0.1:3100/api/files/upload` 均返回 201，三个字段均回填真实上传文件 URL，保存草稿返回 201，保存并提交复核返回 201 + 201。
+  - Playwright `/admin/lots/edit`：`console error` 为 0；页面存在 3 个真实文件上传输入，字段为 `imageOneUrl`、`imageTwoUrl`、`inspectionReportUrl`；390px 检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - 截图 `docs/qa/t32b-admin-lot-upload-mobile.png` 存在且非空，大小 127696 bytes。
+- 结论：
+  - T32A/T32B 总控复核通过。
+  - T32 后台拍品录入本地图片/附件真实上传体验按当前范围收口。
+- 未完成事项：
+  - T33 登录/JWT 与角色权限生产化待排期。
+  - T38B/T38C 后台其余管理页面与企业中心视觉复刻待排期。
+  - 当前上传接口只开放拍品图片与检测报告；企业资质、营业执照、意向金凭证等类别如需本地真实上传，应后续单独排期。
+- 需要总控确认：
+  - 是否提交并推送 T32A/T32B 与本次总控复核记录。
+  - 下一批优先启动 T33，还是继续 T38B/T38C。

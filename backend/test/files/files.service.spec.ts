@@ -32,6 +32,18 @@ function createPrismaMock() {
         Promise.resolve(attachments.slice(skip, skip + take)),
       ),
       count: jest.fn(() => Promise.resolve(attachments.length)),
+      create: jest.fn((args) =>
+        Promise.resolve({
+          id: args.data.id,
+          category: args.data.category,
+          fileName: args.data.fileName,
+          fileUrl: args.data.fileUrl,
+          mimeType: args.data.mimeType,
+          fileSize: args.data.fileSize,
+          isSensitive: args.data.isSensitive,
+        }),
+      ),
+      findUnique: jest.fn(),
     },
   };
 }
@@ -68,6 +80,68 @@ describe('FilesService', () => {
       orderBy: [{ createdAt: 'desc' }],
       skip: 0,
       take: 1,
+    });
+  });
+
+  it('stores uploaded lot image metadata for form refill', async () => {
+    const prisma = createPrismaMock();
+    const service = new FilesService(prisma as never);
+
+    const result = await service.upload(
+      { category: AttachmentCategory.LOT_IMAGE },
+      {
+        originalname: 'lot-image.png',
+        mimetype: 'image/png',
+        size: 8,
+        buffer: Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]),
+      },
+      'admin-1',
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        fileName: 'lot-image.png',
+        mimeType: 'image/png',
+        fileSize: 8,
+        category: AttachmentCategory.LOT_IMAGE,
+        isSensitive: false,
+      }),
+    );
+    expect(result.fileUrl).toBe(`/api/files/content/${result.id}`);
+    expect(prisma.attachment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: result.id,
+        category: AttachmentCategory.LOT_IMAGE,
+        fileName: 'lot-image.png',
+        fileUrl: result.fileUrl,
+        uploadedById: 'admin-1',
+      }),
+    });
+  });
+
+  it('marks uploaded inspection reports as sensitive', async () => {
+    const prisma = createPrismaMock();
+    const service = new FilesService(prisma as never);
+
+    const result = await service.upload(
+      { category: AttachmentCategory.INSPECTION_REPORT },
+      {
+        originalname: 'inspection.pdf',
+        mimetype: 'application/pdf',
+        size: 9,
+        buffer: Buffer.from('%PDF-1.4\n'),
+      },
+      'admin-1',
+    );
+
+    expect(result.isSensitive).toBe(true);
+    expect(prisma.attachment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        category: AttachmentCategory.INSPECTION_REPORT,
+        isSensitive: true,
+      }),
     });
   });
 });

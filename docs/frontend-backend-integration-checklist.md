@@ -11,6 +11,8 @@
 - [x] 前端已补轻量导航方法，门户顶栏、后台侧栏、企业中心菜单和关键按钮可通过页面点击切换到已有路由。
 - [x] 后台新建/编辑拍品已接入 `POST /api/admin/lots` 与 `PUT /api/admin/lots/{id}`，可保存草稿或保存后提交复核。
 - [x] 后台新建/编辑内容已接入 `POST /api/admin/contents` 与 `PUT /api/admin/contents/{id}`，保存失败时显性提示。
+- [x] 后端已提供 `POST /api/files/upload`，管理员可上传拍品图片与检测报告并获得可回填 `fileUrl`。
+- [x] 后台新建/编辑拍品页已接入真实上传：图一、图二、检测报告均可选择本机文件，上传成功后回填对应 URL 字段。
 - [x] 企业入驻提交已接入 `POST /api/enterprises/register`。
 - [x] 意向金上传已接入 `POST /api/lots/{id}/deposit-vouchers`。
 - [x] 竞价报价提交已接入 `POST /api/lots/{id}/bids`。
@@ -155,6 +157,8 @@
 - `GET /api/account/messages`：已接入，我的通知真实优先，仅显示当前企业接口返回数据。
 - `POST /api/account/messages/{id}/read`：已接入，标记已读失败时回退本地 mock 状态。
 - `GET /api/admin/files`：已接入，文件管理页真实优先。
+- `POST /api/files/upload`：已接入后台拍品表单；请求为 `multipart/form-data`，文件字段 `file`，`category` 支持 `LOT_IMAGE`、`INSPECTION_REPORT`，返回 `id/fileName/fileUrl/mimeType/fileSize/category/isSensitive`。前端会将返回 `fileUrl` 解析为后端绝对 URL 后回填 `imageOneUrl`、`imageTwoUrl`、`inspectionReportUrl`，以兼容拍品保存接口的 URL 校验。
+- `GET /api/files/content/{id}`：后端已提供；通过附件权限校验后返回上传文件内容，可作为上传响应中的 `fileUrl` 访问。
 - `GET /api/files/{id}`：已接入后端权限控制；敏感附件仅允许管理员、上传用户或附件所属企业用户访问。
 - `GET /api/admin/logs`：已接入，操作日志页真实优先；后台首页最近操作日志暂保留 mock。
 
@@ -274,3 +278,20 @@
 - 本轮未修改后端、Prisma schema、登录/JWT、T34 出价口径，也未引入本地上传业务能力；新建/编辑拍品页的上传卡仅为视觉占位，真实本地上传仍留给 T32。
 - Playwright 覆盖 `/admin/dashboard`、`/admin/lots`、`/admin/lots/edit`、`/admin/reviews/lots`、`/admin/reviews/enterprises`、`/admin/reviews/deposits`：逐页 `console error` 为 0；390px 检查均为 `scrollWidth=390`、`innerWidth=390`、`overflow=false`。
 - Playwright 截图保存到 `docs/qa/t38-artifacts/`，文件名前缀为 `t38a-`。
+
+## 22. T32A 后端真实文件上传接口
+
+- 后端新增 `POST /api/files/upload`，管理员使用开发认证头上传本机文件，当前覆盖拍品图片 `LOT_IMAGE` 与检测报告 `INSPECTION_REPORT`。
+- 上传响应返回 `id`、`fileName`、`fileUrl`、`mimeType`、`fileSize`、`category`、`isSensitive`；`fileUrl` 形如 `/api/files/content/{id}`，可回填后台拍品表单。
+- 新增 `GET /api/files/content/{id}` 返回本地上传文件内容，并复用既有附件权限校验；既有 `GET /api/files/{id}` 元数据权限接口不变。
+- `GET /api/admin/files` 继续聚合 `Attachment`，本次新上传的文件会出现在后台文件管理列表。
+- 上传文件保存到 `backend/tmp/uploads/`，命中既有 `tmp/` 忽略规则；本轮未修改 Prisma schema。
+
+## 23. T32B 前端拍品表单真实上传接入
+
+- `/admin/lots/edit` 的拍品图一、拍品图二、检测报告上传卡已从 T38A 视觉占位改为真实文件选择控件。
+- 三个入口分别调用 `POST /api/files/upload`：图一/图二使用 `category=LOT_IMAGE` 且限制 JPG/PNG；检测报告使用 `category=INSPECTION_REPORT` 且限制 PDF。
+- 上传失败会在页面 notice 中显性提示，并保留原 URL 字段值，不生成伪成功 URL。
+- 上传成功后将后端响应 `fileUrl` 解析为后端绝对 URL，回填 `imageOneUrl`、`imageTwoUrl`、`inspectionReportUrl`，现有 `createLot`/`updateLot` payload 和保存/提交复核流程保持不变。
+- Playwright 验证中三次上传请求均返回 201；保存草稿 `POST /api/admin/lots` 返回 201，保存并提交复核链路 `POST /api/admin/lots` 与 `POST /api/admin/lots/{id}/submit-review` 均返回 201。
+- Playwright 390px 宽度检查 `/admin/lots/edit` 返回 `scrollWidth=390`、`innerWidth=390`、`overflow=false`；`console error` 为 0。

@@ -2529,6 +2529,26 @@ legend {
   text-align: center;
 }
 
+.admin-upload-action {
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.admin-upload-action:hover,
+.admin-upload-action:focus-within {
+  border-color: var(--primary);
+  background: #eef4ff;
+  box-shadow: 0 8px 22px rgba(26, 79, 149, 0.08);
+}
+
+.admin-upload-action input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .admin-upload-card span {
   width: 34px;
   height: 34px;

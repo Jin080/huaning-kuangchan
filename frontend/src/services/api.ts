@@ -262,6 +262,18 @@ type ApiAdminLog = {
   createdAt: string;
 };
 
+export type UploadCategory = 'LOT_IMAGE' | 'INSPECTION_REPORT';
+
+export type FileUploadResponse = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  fileSize: number;
+  category: UploadCategory;
+  isSensitive: boolean;
+};
+
 export type LotMutationPayload = {
   title: string;
   imageOneUrl: string;
@@ -486,6 +498,33 @@ function enterprisePost<T>(path: string, body: Record<string, unknown>) {
     },
     body: JSON.stringify(body),
   });
+}
+
+async function adminUploadFile(file: File, category: UploadCategory) {
+  const formData = new FormData();
+  formData.append('category', category);
+  formData.append('file', file);
+
+  const uploaded = await request<FileUploadResponse>('/files/upload', {
+    method: 'POST',
+    headers: getAdminHeaders(),
+    body: formData,
+  });
+
+  return {
+    ...uploaded,
+    fileUrl: resolveApiFileUrl(uploaded.fileUrl),
+  };
+}
+
+function resolveApiFileUrl(fileUrl: string): string {
+  if (/^https?:\/\//.test(fileUrl)) {
+    return fileUrl;
+  }
+
+  const base = /^https?:\/\//.test(API_BASE) ? API_BASE : window.location.origin;
+
+  return new URL(fileUrl, base).toString();
 }
 
 function mapDashboard(data: ApiPortalDashboard): Stat[] {
@@ -957,6 +996,7 @@ export const api = {
   closeLot: (id: string) => adminPost<ApiLot>(`/admin/lots/${id}/close`),
   createLot: (payload: LotMutationPayload) => adminPost<ApiLot>('/admin/lots', payload),
   updateLot: (id: string, payload: LotMutationPayload) => adminPut<ApiLot>(`/admin/lots/${id}`, payload),
+  uploadFile: (file: File, category: UploadCategory) => adminUploadFile(file, category),
   advanceLotToBidding: (id: string) => adminPost<ApiLot>(`/admin/lots/${id}/advance-to-bidding`),
   approveLotReview: (id: string) => adminPost<ApiLot>(`/admin/reviews/lots/${id}/approve`),
   rejectLotReview: (id: string, rejectReason: string) => adminPost<ApiLot>(`/admin/reviews/lots/${id}/reject`, { rejectReason }),
