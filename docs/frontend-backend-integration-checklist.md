@@ -247,3 +247,12 @@
 - 门户导航行为保持不变；本轮未新增 `/resources` 路由，顶部“矿产资源”和首页资源区“查看全部”仍按 T29/T36 口径跳转到 `/announcements/upcoming`。
 - Playwright 截图：`docs/qa/t37-artifacts/t37a-portal-home-desktop.png`、`docs/qa/t37-artifacts/t37a-portal-home-mobile.png`。
 - Playwright 390px 宽度检查：`documentElement.scrollWidth=390`、`innerWidth=390`，未出现页面级横向溢出；`console error` 为 0。
+
+## 19. T37B 门户列表与普通详情页 Stitch 复刻
+
+- 已基于 `stitch_document_to_webpage_generator/_18/code.html`、`_27/code.html`、`_34/code.html`、`_26/code.html`、`_31/code.html`，并参考 T36 中 `_21/_20/_7` 映射，复刻门户普通列表与详情页面。
+- 复刻范围：即将拍卖列表/详情、正在竞价列表、成交公示列表/详情、信息资讯列表/详情、公开说明页。
+- 本轮仅改 `frontend/src/pages/PortalPages.tsx` 与 `frontend/src/index.css` 的门户普通页结构和样式；未改后端、Prisma schema、登录/JWT、T34 出价口径，也未重复重写 T37A 门户头部、首页、页脚。
+- 真实 API 与 fallback 策略保持不变：列表页继续使用 `fetchLots()`、`fetchResults()`、`fetchContents()`；公告详情无 `?id=` 时先取真实列表中可用公示拍品，避免 mock id 请求真实详情接口产生 console error。
+- Playwright 390px 宽度检查覆盖 `/announcements/upcoming`、`/announcements/upcoming/detail`、`/auctions/live`、`/results`、`/results/detail`、`/news`、`/news/detail`、`/disclosures`，结果均为 `scrollWidth=390`、`innerWidth=390`、`overflow=false`；逐页 `console error` 为 0。
+- Playwright 截图保存到 `docs/qa/t37-artifacts/`，文件名前缀为 `t37b-`。

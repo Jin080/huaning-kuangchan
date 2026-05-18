@@ -2938,3 +2938,123 @@
 - 需要总控确认：
   - 是否提交并推送 T37A 与本次总控复核记录。
   - 是否继续启动 T37B 门户列表与普通详情复刻。
+
+## 2026-05-18 16:04 - T37B 门户列表与普通详情页 Stitch 复刻
+
+- 任务名称：T37B 门户列表与普通详情页 Stitch 复刻
+- Stitch 来源：
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_18/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_27/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_34/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_26/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_31/code.html`
+  - 参考 `docs/qa/stitch-full-replication-plan.md` 中 `_21/_20/_7` 对信息资讯与公开说明的映射
+- 修改文件：
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t37-artifacts/t37b-upcoming-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-upcoming-detail-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-upcoming-detail-mobile.png`
+  - `docs/qa/t37-artifacts/t37b-live-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-results-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-results-detail-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-news-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-news-list-mobile.png`
+  - `docs/qa/t37-artifacts/t37b-news-detail-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-disclosures-desktop.png`
+- 复刻范围：
+  - 即将拍卖公告列表页 `/announcements/upcoming`
+  - 即将拍卖公告详情页 `/announcements/upcoming/detail`
+  - 正在竞价标的列表页 `/auctions/live`
+  - 成交公示列表页 `/results`
+  - 成交公示详情页 `/results/detail`
+  - 信息资讯列表页 `/news`
+  - 信息资讯详情页 `/news/detail`
+  - 公开说明页 `/disclosures`
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37b open http://127.0.0.1:5173/announcements/upcoming`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37b console error`
+  - Playwright 打开并截图 `/announcements/upcoming`、`/announcements/upcoming/detail`、`/auctions/live`、`/results`、`/results/detail`、`/news`、`/news/detail`、`/disclosures`
+  - Playwright 390px 宽度检查上述 8 条路径的 `scrollWidth <= innerWidth`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 229ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+  - Playwright 核心门户列表与详情路径逐页 `console error` 为 0。
+  - 390px 移动端宽度检查覆盖 8 条 T37B 路径，均返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - 初次打开无 `?id=` 的公告详情时，mock id 请求真实详情接口产生 500 console error；已改为无 `?id=` 时先从真实列表选择可用公示拍品，复验 console error 为 0。
+- 截图产物：
+  - `docs/qa/t37-artifacts/t37b-upcoming-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-upcoming-detail-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-upcoming-detail-mobile.png`
+  - `docs/qa/t37-artifacts/t37b-live-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-results-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-results-detail-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-news-list-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-news-list-mobile.png`
+  - `docs/qa/t37-artifacts/t37b-news-detail-desktop.png`
+  - `docs/qa/t37-artifacts/t37b-disclosures-desktop.png`
+- 未完成事项：
+  - 未提交/推送本轮改动。
+  - 未实施 T37C，不复刻登录、企业入驻或新增资源页。
+  - 未修改后端、Prisma schema、登录/JWT、T34 出价口径或 `stitch_document_to_webpage_generator/` 本地参考目录。
+  - 未纳入 `.playwright-cli/` 或 `frontend/.playwright-cli/`。
+- 需要总控确认：
+  - 是否将 T37B 标记为 DONE。
+  - 是否继续启动 T37C 门户登录、企业入驻、资源页决策。
+
+## 2026-05-18 16:14 - T37B 总控复核与任务板同步
+
+- 任务名称：T37B 总控复核与任务板同步
+- 复核文件：
+  - `docs/agent-handoff.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/stitch-full-replication-plan.md`
+  - `docs/task-board.md`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+- 修改文件：
+  - `.gitignore`
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 用户确认：
+  - `.playwright-cli/` 与 `frontend/.playwright-cli/` 写入 `.gitignore`，作为本地临时目录继续排除提交。
+  - `stitch_document_to_webpage_generator/` 继续只作为本地参考目录，不纳入提交。
+- 复核结果：
+  - T37B 改动集中在 `frontend/src/pages/PortalPages.tsx` 与 `frontend/src/index.css` 的门户列表/详情页面结构和样式；未发现后端、Prisma schema、登录/JWT、T34 出价口径改动。
+  - `docs/frontend-backend-integration-checklist.md` 已追加 T37B 记录。
+  - `docs/qa/t37-artifacts/` 中存在 10 张 `t37b-*.png` 截图产物。
+  - `.gitignore` 已新增 `.playwright-cli/` 与 `frontend/.playwright-cli/`，复查 `git status --short --branch` 后两个目录不再出现在未跟踪列表。
+- 总控复跑验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Get-ChildItem -LiteralPath E:/kuangchan/docs/qa/t37-artifacts -Filter 't37b-*.png' | Select-Object Name,Length | Sort-Object Name`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37b-check open http://127.0.0.1:5173/announcements/upcoming`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37b-check console error`
+  - 逐页打开 `/announcements/upcoming`、`/announcements/upcoming/detail`、`/auctions/live`、`/results`、`/results/detail`、`/news`、`/news/detail`、`/disclosures`，并执行 390px 宽度检查。
+- 总控复跑验证结果：
+  - `git status --short --branch` 可用；当前 main 与 origin/main 同步到 `f76bb44`，并有 T37B 与 `.gitignore` 相关未提交改动；未跟踪项仅剩 `stitch_document_to_webpage_generator/` 与 T37B 截图产物。
+  - 10 张 `t37b-*.png` 截图存在：`t37b-disclosures-desktop.png` 100182 bytes、`t37b-live-list-desktop.png` 48353 bytes、`t37b-news-detail-desktop.png` 78139 bytes、`t37b-news-list-desktop.png` 86486 bytes、`t37b-news-list-mobile.png` 79938 bytes、`t37b-results-detail-desktop.png` 70986 bytes、`t37b-results-list-desktop.png` 55918 bytes、`t37b-upcoming-detail-desktop.png` 125903 bytes、`t37b-upcoming-detail-mobile.png` 115693 bytes、`t37b-upcoming-list-desktop.png` 69994 bytes。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 176ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+  - Playwright `/announcements/upcoming` 指定命令复核：`console error` 为 0。
+  - 8 条 T37B 路径逐页复核：每页 `console error` 为 0；390px 宽度检查均返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+- 任务板更新：
+  - 新增 T37B 并标记 DONE。
+  - T37 父任务保持 IN_PROGRESS，备注更新为 T37A/T37B 已完成、T37C 待后续分批。
+- 未完成事项：
+  - T37C 尚未实施。
+  - T38 尚未实施。
+  - T32/T33 仍待排期。
+  - `stitch_document_to_webpage_generator/` 继续作为本地参考目录排除提交。
+- 需要总控确认：
+  - 是否提交并推送 T37B、`.gitignore` 与本次总控复核记录。
+  - 是否继续启动 T37C 门户登录、企业入驻、资源页决策。

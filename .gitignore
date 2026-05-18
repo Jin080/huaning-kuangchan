@@ -30,6 +30,8 @@ pnpm-debug.log*
 tmp/
 temp/
 .tmp-stitch-sample/
+.playwright-cli/
+frontend/.playwright-cli/
 
 # OS and editor files
 .DS_Store

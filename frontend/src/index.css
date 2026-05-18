@@ -401,6 +401,53 @@ td {
   margin-top: 0;
 }
 
+.portal-breadcrumb {
+  margin: 0 0 18px;
+}
+
+.portal-breadcrumb span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.portal-breadcrumb em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.portal-page-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-end;
+  padding: 24px 0 10px;
+  margin: 0 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.portal-page-title h1 {
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+
+.portal-page-title p {
+  max-width: 760px;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.portal-page-title > span {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: var(--primary);
+  background: #eef4ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .text-link,
 .link-btn,
 .danger-link {
@@ -1324,6 +1371,384 @@ dd {
   margin-top: 20px;
 }
 
+.notice-detail-page,
+.live-list-stack {
+  min-width: 0;
+}
+
+.notice-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+.notice-detail-main,
+.qualification-card,
+.result-detail-card,
+.live-auction-item,
+.news-list-item {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.notice-detail-main {
+  overflow: hidden;
+}
+
+.notice-detail-head {
+  position: relative;
+  padding: 26px 28px 22px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #fff, #f6f9fd);
+}
+
+.notice-detail-head h1,
+.result-detail-head h1 {
+  margin: 14px 0 8px;
+  color: var(--navy);
+  font-size: 28px;
+  line-height: 1.35;
+}
+
+.notice-detail-head p,
+.result-detail-head p {
+  margin: 0;
+}
+
+.portal-key-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.portal-key-grid > div {
+  min-width: 0;
+  padding: 16px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.portal-key-grid dd {
+  overflow-wrap: anywhere;
+}
+
+.portal-key-grid.compact {
+  margin-top: 18px;
+  border-color: #edf1f6;
+}
+
+.portal-key-grid.compact > div {
+  padding: 12px 14px;
+  background: #fafcff;
+}
+
+.portal-tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.portal-tabs button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  padding: 16px 22px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.portal-tabs button.active {
+  color: var(--primary);
+  border-bottom: 2px solid var(--primary);
+}
+
+.sticky-tabs {
+  position: sticky;
+  top: 64px;
+  z-index: 2;
+}
+
+.portal-article-block {
+  padding: 28px;
+  line-height: 1.8;
+}
+
+.portal-article-block h2,
+.disclosure-article h2,
+.portal-article-page h2 {
+  margin: 28px 0 12px;
+  padding-left: 12px;
+  border-left: 4px solid var(--primary);
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.portal-article-block h2:first-child,
+.disclosure-article h2:first-child,
+.portal-article-page h2:first-child {
+  margin-top: 0;
+}
+
+.notice-attachments {
+  padding: 0 28px 28px;
+}
+
+.qualification-card {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.qualification-card h2 {
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--navy);
+}
+
+.qualification-card p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.qualification-card dl {
+  display: grid;
+  gap: 12px;
+}
+
+.qualification-alert {
+  padding: 12px;
+  border: 1px solid #dce8f7;
+  border-radius: 6px;
+  color: var(--primary-deep);
+  background: #f2f6fb;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.live-list-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.live-auction-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 22px;
+  padding: 24px;
+}
+
+.live-auction-main h2 {
+  margin: 12px 0 10px;
+  color: var(--navy);
+  font-size: 20px;
+}
+
+.live-auction-main p {
+  margin-bottom: 0;
+  line-height: 1.7;
+}
+
+.live-auction-side {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding-left: 22px;
+  border-left: 1px solid var(--line);
+}
+
+.live-auction-side span,
+.live-auction-side small {
+  color: var(--muted);
+}
+
+.live-auction-side strong {
+  color: var(--orange);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 28px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.result-detail-card {
+  padding: 28px;
+}
+
+.result-detail-head {
+  position: relative;
+  padding-right: 120px;
+}
+
+.result-detail-head .status-tag {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.result-price-panel {
+  margin: 8px 0 24px;
+  padding: 22px;
+  border-radius: 8px;
+  background: #fff7ed;
+}
+
+.result-price-panel span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.result-price-panel strong {
+  color: var(--orange);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 34px;
+  overflow-wrap: anywhere;
+}
+
+.portal-news-layout {
+  align-items: start;
+}
+
+.news-category-list h2,
+.disclosure-directory h2 {
+  margin: 0 0 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.news-category-list button,
+.disclosure-directory button {
+  text-align: left;
+}
+
+.news-category-list button.active,
+.disclosure-directory button.active {
+  color: var(--primary);
+  background: #eef4ff;
+  font-weight: 800;
+}
+
+.news-list-panel {
+  min-width: 0;
+}
+
+.news-card-list {
+  display: grid;
+  gap: 14px;
+}
+
+.news-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding: 20px;
+}
+
+.news-list-item > div {
+  min-width: 0;
+}
+
+.news-list-item h2 {
+  margin: 10px 0 8px;
+  color: var(--navy);
+  font-size: 19px;
+  line-height: 1.45;
+}
+
+.news-list-item p {
+  margin-bottom: 8px;
+  line-height: 1.65;
+}
+
+.news-list-item small {
+  color: var(--muted);
+}
+
+.category-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--primary);
+  background: #eef4ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.portal-article-page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.portal-article-page header {
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.portal-article-page header h1 {
+  margin: 16px 0 12px;
+  color: var(--navy);
+  font-size: 30px;
+}
+
+.portal-article-page header p,
+.portal-article-page p {
+  line-height: 1.85;
+}
+
+.article-body {
+  padding: 24px 0;
+}
+
+.article-tip {
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #f2f6fb;
+}
+
+.article-tip h3 {
+  margin-bottom: 8px;
+  color: var(--navy);
+}
+
+.disclosure-layout {
+  align-items: start;
+}
+
+.disclosure-article header {
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.disclosure-article h1 {
+  margin: 10px 0 12px;
+  color: var(--navy);
+}
+
+.disclosure-article section + section {
+  margin-top: 22px;
+}
+
+.disclosure-article p {
+  line-height: 1.85;
+}
+
 .tabs {
   display: flex;
   border-bottom: 1px solid var(--line);
@@ -1661,7 +2086,9 @@ legend {
   .account-shell,
   .auction-detail-layout,
   .portal-home-grid,
-  .live-card-grid {
+  .live-card-grid,
+  .notice-detail-layout,
+  .live-auction-item {
     grid-template-columns: 1fr;
   }
 
@@ -1669,8 +2096,64 @@ legend {
   .stat-grid,
   .auction-key-grid,
   .meta-grid,
-  .summary-list {
+  .summary-list,
+  .portal-key-grid {
     grid-template-columns: 1fr;
+  }
+
+  .portal-page-title {
+    display: grid;
+    gap: 12px;
+    align-items: start;
+    padding-top: 16px;
+  }
+
+  .portal-page-title h1 {
+    font-size: 28px;
+  }
+
+  .portal-page-title > span {
+    width: fit-content;
+  }
+
+  .notice-detail-head,
+  .portal-article-block,
+  .notice-attachments,
+  .result-detail-card,
+  .news-list-item {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .qualification-card {
+    position: static;
+  }
+
+  .sticky-tabs {
+    top: 0;
+  }
+
+  .portal-tabs button {
+    padding: 14px 16px;
+  }
+
+  .live-auction-side {
+    padding: 18px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .news-list-item {
+    display: grid;
+    align-items: start;
+  }
+
+  .result-detail-head {
+    padding-right: 0;
+  }
+
+  .result-detail-head .status-tag {
+    position: static;
   }
 
   .stat-card {

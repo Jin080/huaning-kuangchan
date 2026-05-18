@@ -139,7 +139,12 @@ export function UpcomingList() {
 
   return (
     <PortalLayout active="即将拍卖">
-      <PageTitle title="即将拍卖公告" subtitle="展示处于公示期的矿产拍品公告，企业可查看规则并提交意向金凭证。" />
+      <PortalPageTitle
+        breadcrumb={['首页', '即将拍卖']}
+        meta={`${lots.filter((lot) => lot.status === '公示中').length} 条公示中公告`}
+        subtitle="平台发布的矿产标的公示信息，公示期内可查看标的详情并提交意向金凭证。"
+        title="即将拍卖公告"
+      />
       <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '公示状态']} />
       <DataTable columns={lotColumns} rows={lots.filter((lot) => lot.status === '公示中')} />
     </PortalLayout>
@@ -151,7 +156,12 @@ export function UpcomingDetail() {
   const [notice, setNotice] = useState('企业认证通过后，可上传意向金付款凭证。');
 
   useEffect(() => {
-    void api.fetchLot(getQueryId()).then(setLot);
+    const queryId = getQueryId();
+    const loadLot = queryId
+      ? api.fetchLot(queryId)
+      : api.fetchLots().then((items) => items.find((item) => item.status === '公示中') ?? items[0] ?? api.getLot());
+
+    void loadLot.then(setLot);
   }, []);
 
   const submitDeposit = async () => {
@@ -171,9 +181,7 @@ export function UpcomingDetail() {
 
   return (
     <PortalLayout active="即将拍卖">
-      <PageTitle title="即将拍卖公告详情" subtitle="首页 / 即将拍卖 / 公告详情" />
-      <DetailHero lot={lot} mode="公告" notice={notice} onDepositSubmit={submitDeposit} />
-      <InfoTabs sections={['商品信息', '客户须知', '竞拍规则', '保证金缴纳说明', '相关附件', '检测报告']} />
+      <NoticeDetailPage lot={lot} notice={notice} onDepositSubmit={submitDeposit} />
     </PortalLayout>
   );
 }
@@ -187,11 +195,14 @@ export function LiveAuctionList() {
 
   return (
     <PortalLayout active="正在竞价">
-      <PageTitle title="正在竞价标的" subtitle="查看竞拍期标的、当前最高价与倒计时。" />
+      <PortalPageTitle
+        breadcrumb={['首页', '正在竞价']}
+        meta={`${lots.filter((lot) => lot.status === '竞拍中').length} 个标的竞价中`}
+        subtitle="查看竞拍期标的、当前最高价、竞价时间区间与倒计时。"
+        title="正在竞价标的"
+      />
       <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '状态']} />
-      <div className="card-grid">
-        {lots.filter((lot) => lot.status === '竞拍中').map((lot) => <LotCard action="进入竞价" key={lot.id} lot={lot} />)}
-      </div>
+      <LiveAuctionCards lots={lots.filter((lot) => lot.status === '竞拍中')} />
     </PortalLayout>
   );
 }
@@ -254,7 +265,12 @@ export function ResultList() {
 
   return (
     <PortalLayout active="成交公示">
-      <PageTitle title="成交公示" subtitle="公开展示成交拍品、中标企业名称和最终成交价。" />
+      <PortalPageTitle
+        breadcrumb={['首页', '成交公示']}
+        meta={`${results.length} 条成交结果`}
+        subtitle="公开展示平台已结束竞价并确认成交的标的结果，接受社会各界监督。"
+        title="成交公示"
+      />
       <FilterBar fields={['关键词', '成交时间', '品种/品位']} />
       <DataTable columns={resultColumns} rows={results} />
     </PortalLayout>
@@ -272,16 +288,27 @@ export function ResultDetail() {
 
   return (
     <PortalLayout active="成交公示">
-      <PageTitle title="成交公示详情" subtitle="首页 / 成交公示 / 公示详情" />
-      <section className="result-panel">
-        <span className="eyebrow">成交结果</span>
-        <h2>{result.lotTitle}</h2>
-        <dl className="summary-list">
-          <div><dt>中标企业名称</dt><dd>{result.winner}</dd></div>
-          <div><dt>最终成交价</dt><dd className="price">{result.finalPrice}</dd></div>
+      <PortalBreadcrumb items={['首页', '成交公示', '公示详情']} />
+      <section className="result-detail-card">
+        <div className="result-detail-head">
+          <span className="status-tag green">已成交</span>
+          <h1>{result.lotTitle}</h1>
+        </div>
+        <div className="result-price-panel">
+          <span>最终成交价</span>
+          <strong>{result.finalPrice}</strong>
+        </div>
+        <dl className="portal-key-grid">
+          <div><dt>中标企业</dt><dd>{result.winner}</dd></div>
           <div><dt>公示时间</dt><dd>{result.publicTime}</dd></div>
+          <div><dt>成交状态</dt><dd>{result.status}</dd></div>
+          <div><dt>项目编号</dt><dd>{result.lotId}</dd></div>
         </dl>
-        <ButtonRow actions={[{ label: '返回列表', to: '/results' }, { label: '查看拍品信息', tone: 'primary', to: '/announcements/upcoming/detail' }]} />
+        <section className="portal-article-block">
+          <h2>拍品摘要信息</h2>
+          <p>本成交结果由平台根据竞价结束后的最高有效报价生成，成交企业应按平台通知完成线下签约、尾款支付和后续履约手续。</p>
+        </section>
+        <ButtonRow actions={[{ label: '返回列表', to: '/results' }, { label: '查看拍品信息', tone: 'primary', to: `/announcements/upcoming/detail?id=${result.lotId}` }]} />
       </section>
     </PortalLayout>
   );
@@ -296,21 +323,32 @@ export function NewsList() {
 
   return (
     <PortalLayout active="信息资讯">
-      <PageTitle title="信息资讯" subtitle="政策法规、交易公告、矿能动态集中公开。" />
-      <div className="content-layout">
-        <aside className="category-list">{['政策法规', '交易公告', '矿能动态'].map((x) => <button key={x} type="button">{x}</button>)}</aside>
-        <div>
+      <PortalPageTitle
+        breadcrumb={['首页', '信息资讯']}
+        meta={`${contents.length} 条已发布资讯`}
+        subtitle="政策法规、交易公告、矿能动态集中公开，便于企业及时了解平台规则和行业动态。"
+        title="信息资讯"
+      />
+      <div className="content-layout portal-news-layout">
+        <aside className="category-list news-category-list">
+          <h2>分类导航</h2>
+          {['政策法规', '交易公告', '矿能动态'].map((x, index) => <button className={index === 0 ? 'active' : ''} key={x} type="button">{x}</button>)}
+        </aside>
+        <div className="news-list-panel">
           <FilterBar fields={['关键词']} />
-          <DataTable
-            columns={[
-              { key: 'title', label: '标题', width: '42%' },
-              { key: 'category', label: '分类' },
-              { key: 'summary', label: '摘要' },
-              { key: 'publishedAt', label: '发布时间' },
-              { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(`/news/detail?id=${String(row.id)}`)} type="button">查看详情</button> },
-            ]}
-            rows={contents as unknown as Record<string, unknown>[]}
-          />
+          <div className="news-card-list">
+            {contents.map((content) => (
+              <article className="news-list-item" key={content.id}>
+                <div>
+                  <span className="category-pill">{content.category}</span>
+                  <h2>{content.title}</h2>
+                  <p>{content.summary}</p>
+                  <small>发布时间：{content.publishedAt}</small>
+                </div>
+                <button className="link-btn" onClick={() => navigateTo(`/news/detail?id=${content.id}`)} type="button">查看详情</button>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </PortalLayout>
@@ -328,12 +366,24 @@ export function NewsDetail() {
 
   return (
     <PortalLayout active="信息资讯">
-      <article className="article-page">
-        <span className="eyebrow">{article.category}</span>
-        <h1>{article.title}</h1>
-        <p className="muted">发布时间：{article.publishedAt}</p>
-        <p>为进一步规范矿产资源交易信息公开，平台对拍品公告、公示、竞价、成交结果等关键环节进行统一展示和状态留痕。</p>
-        <p>企业用户应根据公告要求完成认证、意向金缴纳和凭证上传，平台审核通过后方可参与对应拍品竞价。</p>
+      <PortalBreadcrumb items={['首页', '信息资讯', '资讯详情']} />
+      <article className="article-page portal-article-page">
+        <header>
+          <span className="category-pill">{article.category}</span>
+          <h1>{article.title}</h1>
+          <p>发布时间：{article.publishedAt} 发布单位：华宁矿产资源交易中心</p>
+        </header>
+        <div className="article-body">
+          <p>{article.summary}</p>
+          <h2>一、 严格矿产资源交易信息公开</h2>
+          <p>{article.body || '平台对拍品公告、公示、竞价、成交结果等关键环节进行统一展示和状态留痕，保证交易过程公开、公平、公正。'}</p>
+          <h2>二、 强化竞买企业资格管理</h2>
+          <p>企业用户应根据公告要求完成认证、意向金缴纳和凭证上传，平台审核通过后方可参与对应拍品竞价。</p>
+          <aside className="article-tip">
+            <h3>重要提示</h3>
+            <p>请以具体拍品公告和平台通知为准，按时完成资格办理、报价和线下签约流程。</p>
+          </aside>
+        </div>
         <ButtonRow actions={[{ label: '返回列表', to: '/news' }]} />
       </article>
     </PortalLayout>
@@ -350,15 +400,35 @@ export function DisclosurePage() {
 
   return (
     <PortalLayout active="公开说明">
-      <PageTitle title="公开说明" subtitle="平台规则、保证金、黑名单和信息发布机制说明。" />
-      <div className="content-layout">
-        <aside className="category-list">
-          {['用户黑名单管理说明', '信息发布审核机制', '竞拍规则说明', '保证金缴纳与退还说明'].map((x) => <button key={x} type="button">{x}</button>)}
+      <PortalBreadcrumb items={['首页', '公开说明']} />
+      <div className="content-layout disclosure-layout">
+        <aside className="category-list disclosure-directory">
+          <h2>说明目录</h2>
+          {['用户黑名单管理说明', '信息发布审核机制', '竞拍规则说明', '保证金缴纳与退还说明'].map((x, index) => <button className={index === 2 ? 'active' : ''} key={x} type="button">{x}</button>)}
         </aside>
-        <article className="article-card">
-          <h2>{disclosure?.title ?? '竞拍规则说明'}</h2>
-          <p>{disclosure?.summary ?? '竞拍期内，仅企业认证通过且对应拍品意向金审核通过的企业可报价。用户只能看到当前最高价，不显示最高价企业名称。'}</p>
-          <p>报价需符合后台配置的加价幅度和加价次数规则，系统以服务器收到报价的时间作为报价顺序。</p>
+        <article className="article-card disclosure-article">
+          <header>
+            <span className="eyebrow">公开说明</span>
+            <h1>{disclosure?.title ?? '竞拍规则说明'}</h1>
+            <p>{disclosure?.summary ?? '竞拍期内，仅企业认证通过且对应拍品意向金审核通过的企业可报价。用户只能看到当前最高价，不显示最高价企业名称。'}</p>
+          </header>
+          <section>
+            <h2>第一章 总则</h2>
+            <p>为规范华宁矿产资源交易平台网络竞价行为，维护交易秩序，保障交易各方合法权益，制定本规则。</p>
+            <p>凡在平台参与竞价的意向竞买人，均视同已仔细阅读并完全接受本规则及相关项目公告条款。</p>
+          </section>
+          <section>
+            <h2>第二章 竞价原则</h2>
+            <p>平台竞价活动遵循公开、公平、公正和诚实信用原则。竞买人应按平台要求完成企业认证、意向金缴纳和资格审核。</p>
+          </section>
+          <section>
+            <h2>第三章 加价规则</h2>
+            <p>报价需符合后台配置的加价幅度和加价次数规则，系统以服务器收到报价的时间作为报价顺序。</p>
+          </section>
+          <section>
+            <h2>第四章 保证金缴纳与退还</h2>
+            <p>未成交企业的保证金按平台公示流程退还；违约、失信或被列入黑名单的企业按相关规则处理。</p>
+          </section>
         </article>
       </div>
     </PortalLayout>
@@ -430,6 +500,133 @@ function PageTitle({ title, subtitle }: { title: string; subtitle?: string }) {
       <h1>{title}</h1>
       {subtitle ? <p>{subtitle}</p> : null}
     </section>
+  );
+}
+
+function PortalBreadcrumb({ items }: { items: string[] }) {
+  return (
+    <nav className="breadcrumb-line portal-breadcrumb" aria-label="当前位置">
+      {items.map((item, index) => (
+        <span key={item}>
+          {index > 0 ? <em>›</em> : null}
+          {index === items.length - 1 ? <strong>{item}</strong> : item}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function PortalPageTitle({
+  breadcrumb,
+  meta,
+  subtitle,
+  title,
+}: {
+  breadcrumb: string[];
+  meta: string;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <>
+      <PortalBreadcrumb items={breadcrumb} />
+      <section className="page-title portal-page-title">
+        <div>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+        <span>{meta}</span>
+      </section>
+    </>
+  );
+}
+
+function LiveAuctionCards({ lots }: { lots: Lot[] }) {
+  return (
+    <div className="live-list-stack">
+      {lots.map((lot) => (
+        <article className="live-auction-item" key={lot.id}>
+          <div className="live-auction-main">
+            <StatusTag value={lot.status} />
+            <h2>{lot.title}</h2>
+            <p>{lot.productInfo || lot.productDetail || '竞价标的正在公开报价，企业可进入详情页查看当前最高价和竞价规则。'}</p>
+            <dl className="portal-key-grid compact">
+              <div><dt>品种/品位</dt><dd>{lot.category}</dd></div>
+              <div><dt>资源数量</dt><dd>{lot.quantity}</dd></div>
+              <div><dt>竞价时间区间</dt><dd>{lot.auctionTime}</dd></div>
+              <div><dt>保证金</dt><dd>{lot.deposit}</dd></div>
+            </dl>
+          </div>
+          <aside className="live-auction-side">
+            <span>当前最高价</span>
+            <strong>{lot.currentPrice}</strong>
+            <small>距结束：{lot.countdown}</small>
+            <button className="btn primary" onClick={() => navigateTo(`/auctions/live/detail?id=${lot.id}`)} type="button">进入竞价</button>
+          </aside>
+        </article>
+      ))}
+      {lots.length === 0 ? <div className="empty-state">暂无正在竞价标的</div> : null}
+    </div>
+  );
+}
+
+function NoticeDetailPage({ lot, notice, onDepositSubmit }: { lot: Lot; notice: string; onDepositSubmit: () => void }) {
+  return (
+    <div className="notice-detail-page">
+      <PortalBreadcrumb items={['首页', '即将拍卖', '公告详情']} />
+      <div className="notice-detail-layout">
+        <article className="notice-detail-main">
+          <header className="notice-detail-head">
+            <StatusTag value={lot.status} />
+            <h1>{lot.title}</h1>
+            <p>项目编号：{lot.id}</p>
+          </header>
+          <dl className="portal-key-grid">
+            <div><dt>起拍价</dt><dd className="price">{lot.startPrice}</dd></div>
+            <div><dt>保证金金额</dt><dd>{lot.deposit}</dd></div>
+            <div><dt>公示期</dt><dd>{lot.publicityPeriod}</dd></div>
+            <div><dt>竞拍时间</dt><dd>{lot.auctionTime}</dd></div>
+            <div><dt>资源数量</dt><dd>{lot.quantity}</dd></div>
+            <div><dt>产地</dt><dd>{lot.origin}</dd></div>
+          </dl>
+          <div className="portal-tabs sticky-tabs">
+            {['商品信息', '客户须知', '竞拍规则', '保证金缴纳说明', '检测报告与附件'].map((section, index) => (
+              <button className={index === 0 ? 'active' : ''} key={section} type="button">{section}</button>
+            ))}
+          </div>
+          <section className="portal-article-block">
+            <h2>一、 矿区基本情况</h2>
+            <p>{lot.productDetail || lot.productInfo || '该拍品由平台公开发布，竞买人需按公告、竞拍规则和保证金缴纳说明完成资格手续后参与报价。'}</p>
+            <h2>二、 客户须知</h2>
+            <p>{lot.customerNotice || '竞买企业需完成企业认证，并在公示期结束前提交意向金付款凭证。平台审核通过后，方可参与对应标的竞价。'}</p>
+            <h2>三、 竞拍规则</h2>
+            <p>{lot.auctionRule || '竞价期内按后台配置的加价幅度和加价次数进行报价，系统以服务器收到报价的时间作为报价顺序。'}</p>
+            <h2>四、 保证金缴纳说明</h2>
+            <p>{lot.depositInstruction || '保证金需汇入平台指定账户，上传付款凭证后等待平台审核。未成交企业按平台退款流程办理。'}</p>
+          </section>
+          <section className="attachment-list notice-attachments">
+            {['矿产资源勘查报告.pdf', '竞买申请书模板.docx', '保证金缴纳账户说明.pdf'].map((item) => (
+              <button className="attachment-row" key={item} type="button">
+                <span>{item}</span>
+                <strong>下载</strong>
+              </button>
+            ))}
+          </section>
+        </article>
+        <aside className="qualification-card">
+          <h2>意向金资格</h2>
+          <span className="status-tag blue">待上传意向金凭证</span>
+          <p>{notice}</p>
+          <div className="qualification-alert">请在公示期结束前完成保证金缴纳并上传付款凭证，逾期将无法参与竞价。</div>
+          <dl>
+            <div><dt>保证金金额</dt><dd>{lot.deposit}</dd></div>
+            <div><dt>缴纳账户</dt><dd>华宁矿产资源交易中心保证金专户</dd></div>
+          </dl>
+          <button className="btn primary" onClick={onDepositSubmit} type="button">上传意向金付款凭证</button>
+          <button className="btn secondary" onClick={() => navigateTo('/announcements/upcoming')} type="button">返回列表</button>
+        </aside>
+      </div>
+    </div>
   );
 }
 
@@ -659,94 +856,6 @@ function AuctionBidHistory({ bidRecords }: { bidRecords: BidRecord[] }) {
         ]}
         rows={bidRecords as unknown as Record<string, unknown>[]}
       />
-    </section>
-  );
-}
-
-function DetailHero({
-  estimatedAmount,
-  incrementTimes,
-  lot,
-  mode,
-  notice,
-  onBidSubmit,
-  onDepositSubmit,
-  onIncrementTimesChange,
-  onRefresh,
-}: {
-  estimatedAmount?: string;
-  incrementTimes?: number;
-  lot: Lot;
-  mode: '公告' | '竞价';
-  notice?: string;
-  onBidSubmit?: () => void;
-  onDepositSubmit?: () => void;
-  onIncrementTimesChange?: (value: number) => void;
-  onRefresh?: () => void;
-}) {
-  const bidIncrement = getBidIncrement(lot);
-  const selectedIncrementTimes = incrementTimes ?? 1;
-  const changeIncrementTimes = (nextValue: number) => {
-    onIncrementTimesChange?.(Math.max(1, nextValue));
-  };
-
-  return (
-    <section className="detail-hero">
-      <div className="detail-image"><span>{lot.category}</span></div>
-      <div className="detail-info">
-        <div className="lot-title-row">
-          <h1>{lot.title}</h1>
-          <StatusTag value={lot.status} />
-        </div>
-        <dl className="summary-list">
-          <div><dt>起拍价</dt><dd>{lot.startPrice}</dd></div>
-          <div><dt>当前最高价</dt><dd className="price">{lot.currentPrice}</dd></div>
-          <div><dt>数量</dt><dd>{lot.quantity}</dd></div>
-          <div><dt>保证金</dt><dd>{lot.deposit}</dd></div>
-          <div><dt>竞拍时间</dt><dd>{lot.auctionTime}</dd></div>
-          <div><dt>倒计时</dt><dd className="price">{lot.countdown}</dd></div>
-        </dl>
-      </div>
-      <aside className="action-card">
-        <strong>{mode === '竞价' ? '出价操作区' : '意向金资格'}</strong>
-        <p>{notice ?? (mode === '竞价' ? '当前企业已通过认证和意向金审核，可按加价幅度报价。' : '企业认证通过后，可上传意向金付款凭证。')}</p>
-        {mode === '竞价' ? (
-          <>
-            <dl className="summary-list">
-              <div><dt>加价幅度</dt><dd>{formatMoney(bidIncrement)}</dd></div>
-              <div><dt>预计报价</dt><dd className="price">{formatMoney(estimatedAmount ?? '0')}</dd></div>
-            </dl>
-            <div className="button-row" aria-label="出价加价次数">
-              <button className="btn secondary" disabled={selectedIncrementTimes <= 1} onClick={() => changeIncrementTimes(selectedIncrementTimes - 1)} type="button">-</button>
-              <input aria-label="出价加价次数" readOnly style={{ textAlign: 'center', width: 96 }} value={`${selectedIncrementTimes} 次`} />
-              <button className="btn secondary" onClick={() => changeIncrementTimes(selectedIncrementTimes + 1)} type="button">+</button>
-            </div>
-          </>
-        ) : null}
-        {mode === '竞价' ? (
-          <div className="button-row">
-            <button className="btn secondary" onClick={onRefresh} type="button">刷新当前价</button>
-            <button className="btn primary" onClick={onBidSubmit} type="button">确认出价</button>
-          </div>
-        ) : (
-          <div className="button-row">
-            <button className="btn primary" onClick={onDepositSubmit} type="button">上传意向金付款凭证</button>
-            <button className="btn secondary" onClick={() => navigateTo('/announcements/upcoming')} type="button">返回列表</button>
-          </div>
-        )}
-      </aside>
-    </section>
-  );
-}
-
-function InfoTabs({ sections }: { sections: string[] }) {
-  return (
-    <section className="tabs-card">
-      <div className="tabs">{sections.map((section, index) => <button className={index === 0 ? 'active' : ''} key={section} type="button">{section}</button>)}</div>
-      <div className="tab-content">
-        <h3>{sections[0]}</h3>
-        <p>展示平台发布的拍品说明、客户须知、规则条款、附件和检测报告。页面仅展示前端结构，具体内容由后端接口返回。</p>
-      </div>
     </section>
   );
 }
