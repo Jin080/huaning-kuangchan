@@ -1,0 +1,35 @@
+export interface EnterpriseCertificationResponse {
+  id: string;
+  name: string;
+  contactPerson: string;
+  contactPhone: string;
+  mainCategory: string;
+  legalRepresentative: string;
+  legalRepresentativeIdNo: string;
+  email: string;
+  userCategory: string;
+  userType: string;
+  registeredCapital: string | null;
+  region: string;
+  address: string;
+  unifiedSocialCreditCode: string;
+  companyProfile: string;
+  businessScope: string;
+  paymentBankAccount: string;
+  paymentAccountName: string;
+  paymentBankName: string;
+  paymentBankLineNo: string;
+  paymentIsBankOfChina: boolean;
+  receivingBankAccount: string;
+  receivingAccountName: string;
+  receivingBankName: string;
+  receivingBankLineNo: string;
+  receivingIsBankOfChina: boolean;
+  agreementAccepted: boolean;
+  status: string;
+  statusCode: string;
+  submittedAt: Date | null;
+  reviewedAt: Date | null;
+  reviewerId: string | null;
+  rejectReason: string | null;
+}

@@ -22,27 +22,34 @@
 
 ### Phase 2: 基础业务
 
-- [ ] 拍品创建、编辑、提交复核、审核通过、驳回。
-- [ ] 企业入驻、认证审核、驳回重提。
-- [ ] 意向金凭证上传、审核通过、审核驳回。
-- [ ] 内容资讯和公开说明页。
+- [x] 拍品创建、编辑、提交复核、审核通过、驳回。
+- [x] 企业入驻、认证审核、驳回重提。
+- [x] 意向金凭证上传、审核通过、审核驳回。
+- [x] 内容资讯和公开说明页。
 
 ### Phase 3: 交易闭环
 
-- [ ] 竞价资格校验。
-- [ ] 报价规则校验。
-- [ ] 当前最高价刷新。
-- [ ] 竞拍结束自动确认中标。
-- [ ] 成交通知和失败通知。
-- [ ] 成交公示、合同状态、退款状态、黑名单。
+- [x] 竞价资格校验。
+- [x] 报价规则校验。
+- [x] 当前最高价刷新。
+- [x] 竞拍结束自动确认中标。
+- [x] 成交通知和失败通知。
+- [x] 成交公示、合同状态、退款状态、黑名单。
 
 ### Phase 4: 前端接入与验收
 
-- [ ] `frontend/src/services/api.ts` 接入真实 API 或适配层。
-- [ ] 首页、公告、竞价、成交、资讯可访问。
-- [ ] 后台管理核心页面可调用真实 API。
-- [ ] 个人中心只显示本企业数据。
-- [ ] 数据看板只统计合同 `已完成` 拍品。
+- [x] `frontend/src/services/api.ts` 接入真实 API 或适配层。
+- [x] 首页、公告、竞价、成交、资讯可访问。
+- [x] 后台管理核心页面可调用真实 API。
+- [x] 个人中心只显示本企业数据。
+- [x] 数据看板只统计合同 `已完成` 拍品。
+- [x] 后台意向金审核列表展示企业名和拍品名，缺失时保留 ID 兜底。
+- [x] 前端关键写链路接入真实 API：后台新建/编辑拍品、企业入驻提交、意向金上传、竞价报价提交。
+- [x] 验收模式下真实 API 失败显性暴露，不使用 mock fallback 判定通过。
+- [x] `公示中` 到 `竞拍中` 通过管理员显式接口推进。
+- [x] 主流程 HTTP/DB 验收脚本可重复执行。
+- [x] 敏感附件权限 HTTP/DB 验证覆盖企业资质、营业执照、意向金凭证未授权访问拒绝。
+- [x] 竞拍结束处理可由管理员轻量 HTTP 入口触发。
 
 ## 端到端主流程
 
@@ -61,11 +68,11 @@
 7. 管理员审核意向金通过。
    - 验收：状态 `审核通过`，企业获得该拍品竞价资格。
 8. 拍品进入竞拍期。
-   - 验收：状态 `竞拍中`，正在竞价标的可见。
+   - 验收：管理员调用 `POST /api/admin/lots/{id}/advance-to-bidding`，状态 `竞拍中`，正在竞价标的可见。
 9. 有资格企业报价。
    - 验收：符合加价幅度才成功；无资格、低价、过期报价被拒绝。
 10. 竞拍结束。
-    - 验收：最高价企业中标，生成成交结果。
+    - 验收：管理员调用 `POST /api/admin/auction-closing/run` 触发 `AuctionClosingService.closeEndedAuctions()`，最高价企业中标，生成成交结果。
 11. 通知生成。
     - 验收：中标企业收到成交通知，未中标企业收到失败通知。
 12. 成交公示发布。
@@ -73,7 +80,7 @@
 13. 合同状态完成。
     - 验收：合同 `已完成` 后成交额计入数据看板。
 14. 退款状态登记。
-    - 验收：未中标企业可登记 `未退款`、`审核中`、`已退款`，不要求退款凭证。
+    - 验收：发布成交公示时自动为未中标且意向金审核通过的企业生成 `未退款` 初始记录；后台可登记 `未退款`、`审核中`、`已退款`，不要求退款凭证。
 
 ## 当前验证记录
 
@@ -85,3 +92,23 @@
 - `Set-Location E:/kuangchan/backend; npm run typecheck`：通过。
 - `Set-Location E:/kuangchan/backend; npm test`：通过。
 - `Set-Location E:/kuangchan/backend; npx prisma migrate dev --name init`：通过，数据库为 `127.0.0.1:55432/huaning_mineral_auction`。
+- 企业认证与意向金 API 交付后，后端全量 `npm run lint`、`npm run typecheck`、`npm test` 通过。
+- 内容管理与公开说明 API 交付后，后端全量 `npm run lint`、`npm run typecheck`、`npm test` 通过。
+- 意向金审核展示字段小修交付后，`backend npm test -- deposits`、`backend npm run lint`、`backend npm run typecheck`、`frontend npm run lint`、`frontend npm run build` 通过。
+- T13 主流程联调验收复测（2026-05-17 20:20）：
+  - `Set-Location E:/kuangchan; git status --short`：通过但工作区为脏状态，包含前序会话未提交/未跟踪文件与既有 `renzheng/*.png` 删除项。
+  - `Set-Location E:/kuangchan/backend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`：通过。
+  - `Set-Location E:/kuangchan/backend; npm test`：通过，16 个测试套件、62 个用例。
+  - `Set-Location E:/kuangchan/frontend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build`：通过。
+  - 主流程结论：后端服务级规则覆盖较完整，但完整前后端主流程联调未通过；阻塞项为前端关键写链路未接真实 API、缺少 `公示中` 到 `竞拍中` 的明确状态流转/数据准备口径、以及前端 fallback 可能掩盖真实 API 失败。
+  - T14 建议：可以启动，但应作为集成发布收口与阻塞缺陷处理会话，不应直接进入发布通过判定。
+- T14 集成发布收口复测（2026-05-17）：
+  - `Set-Location E:/kuangchan/backend; npm test -- lots`：通过，覆盖 `ANNOUNCING` 在竞拍窗口内推进为 `BIDDING`。
+  - `Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`：通过，1 个 HTTP/DB 主流程用例。
+  - 前端关键写链路已接入真实 API，失败会显示真实错误。
+  - `VITE_ACCEPTANCE_MODE=true` 下 `withFallback` 不回退 mock。
+- T18 发布前补强复测（2026-05-17）：
+  - `Set-Location E:/kuangchan/backend; npm test -- sensitive-files-http-db`：通过，覆盖企业资质、营业执照、意向金凭证敏感附件未授权企业访问返回 `FILE_FORBIDDEN`，所属企业和管理员可访问。
+  - `Set-Location E:/kuangchan/backend; npm test -- auction-closing-http-db`：通过，覆盖管理员调用 `POST /api/admin/auction-closing/run` 触发竞拍结束处理，企业角色访问被拒绝。

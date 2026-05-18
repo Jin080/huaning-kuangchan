@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { ButtonRow } from '../components/Button';
 import { SectionHeader, StatCards } from '../components/Cards';
 import { DataTable } from '../components/DataTable';
@@ -5,23 +7,45 @@ import { FilterBar } from '../components/FilterBar';
 import { AccountLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
 import { api } from '../services/api';
+import type { AccountProfile, BidRecord, DepositRecord, NotificationRecord } from '../types';
 
 export function AccountHome() {
+  const [profile, setProfile] = useState<AccountProfile>({
+    id: 'mock-account',
+    username: 'mock',
+    enterpriseName: '中核华原钛白股份有限公司',
+    certificationStatus: '待审核',
+    isBlacklisted: false,
+  });
+  const [deposits, setDeposits] = useState<DepositRecord[]>(api.getDeposits());
+  const [bids, setBids] = useState<BidRecord[]>(api.getBids());
+  const [messages, setMessages] = useState<NotificationRecord[]>(api.getNotifications());
+  const pendingDeposits = deposits.filter((item) => item.status === '待审核').length;
+  const highestBids = bids.filter((item) => item.isHighest).length;
+  const unreadMessages = messages.filter((item) => !item.read).length;
+
+  useEffect(() => {
+    void api.fetchAccountProfile().then(setProfile);
+    void api.fetchAccountDeposits().then(setDeposits);
+    void api.fetchAccountBids().then(setBids);
+    void api.fetchAccountMessages().then(setMessages);
+  }, []);
+
   return (
     <AccountLayout active="中心首页">
       <section className="account-banner">
         <div>
           <span className="eyebrow">企业状态</span>
-          <h1>中核华原钛白股份有限公司</h1>
-          <p>当前认证状态：待审核。企业通过认证后，可提交意向金付款凭证并参与对应拍品竞价。</p>
+          <h1>{profile.enterpriseName}</h1>
+          <p>当前认证状态：{profile.certificationStatus}。企业通过认证后，可提交意向金付款凭证并参与对应拍品竞价。</p>
         </div>
-        <StatusTag value="待审核" />
+        <StatusTag value={profile.isBlacklisted ? '已拉黑' : profile.certificationStatus} />
       </section>
       <StatCards stats={[
-        { label: '认证状态', value: '待审核', helper: '等待平台复核', tone: 'orange' },
-        { label: '意向金记录', value: '3 条', helper: '1 条待审核', tone: 'blue' },
-        { label: '出价记录', value: '8 条', helper: '当前最高价 1 条', tone: 'green' },
-        { label: '未读通知', value: '2 条', helper: '成交通知/失败通知', tone: 'orange' },
+        { label: '认证状态', value: profile.certificationStatus, helper: profile.isBlacklisted ? '账号已被限制' : '当前企业认证', tone: profile.certificationStatus === '审核通过' ? 'green' : 'orange' },
+        { label: '意向金记录', value: `${deposits.length} 条`, helper: `${pendingDeposits} 条待审核`, tone: 'blue' },
+        { label: '出价记录', value: `${bids.length} 条`, helper: `当前最高价 ${highestBids} 条`, tone: 'green' },
+        { label: '未读通知', value: `${unreadMessages} 条`, helper: '成交通知/失败通知', tone: 'orange' },
       ]} />
       <section className="two-column">
         <div>
@@ -30,7 +54,7 @@ export function AccountHome() {
             { key: 'lotTitle', label: '拍品名称' },
             { key: 'amount', label: '保证金金额' },
             { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
-          ]} rows={api.getDeposits() as unknown as Record<string, unknown>[]} />
+          ]} rows={deposits as unknown as Record<string, unknown>[]} />
         </div>
         <div>
           <SectionHeader title="最新通知" />
@@ -38,7 +62,7 @@ export function AccountHome() {
             { key: 'type', label: '类型' },
             { key: 'lotTitle', label: '拍品名称' },
             { key: 'sentAt', label: '发送时间' },
-          ]} rows={api.getNotifications() as unknown as Record<string, unknown>[]} />
+          ]} rows={messages as unknown as Record<string, unknown>[]} />
         </div>
       </section>
     </AccountLayout>
@@ -46,12 +70,24 @@ export function AccountHome() {
 }
 
 export function MyCertificationPage() {
+  const [profile, setProfile] = useState<AccountProfile>({
+    id: 'mock-account',
+    username: 'mock',
+    enterpriseName: '中核华原钛白股份有限公司',
+    certificationStatus: '审核驳回',
+    isBlacklisted: false,
+  });
+
+  useEffect(() => {
+    void api.fetchAccountProfile().then(setProfile);
+  }, []);
+
   return (
     <AccountLayout active="我的企业认证">
       <PageHead title="我的企业认证页" subtitle="查看本企业认证资料、认证状态、驳回原因，并在驳回后重新提交。" />
       <section className="status-panel">
-        <StatusTag value="审核驳回" />
-        <p>驳回原因：营业执照附件不清晰，请重新上传。</p>
+        <StatusTag value={profile.certificationStatus} />
+        <p>企业名称：{profile.enterpriseName}。认证资料详情接口暂未纳入本阶段，当前先展示账号绑定企业状态。</p>
         <ButtonRow actions={[{ label: '编辑资料' }, { label: '重新提交', tone: 'primary' }, { label: '返回中心' }]} />
       </section>
       <ReadOnlyGroups groups={[
@@ -66,6 +102,12 @@ export function MyCertificationPage() {
 }
 
 export function MyDepositsPage() {
+  const [deposits, setDeposits] = useState<DepositRecord[]>(api.getDeposits());
+
+  useEffect(() => {
+    void api.fetchAccountDeposits().then(setDeposits);
+  }, []);
+
   return (
     <AccountLayout active="我的意向金">
       <PageHead title="我的意向金页" subtitle="查看本企业针对各拍品提交的意向金付款凭证审核状态。" />
@@ -78,12 +120,18 @@ export function MyDepositsPage() {
         { key: 'reviewedAt', label: '审核时间' },
         { key: 'rejectReason', label: '驳回原因' },
         { key: 'actions', label: '操作', render: () => <div className="inline-actions"><button className="link-btn" type="button">查看凭证</button><button className="link-btn" type="button">重新上传</button><button className="link-btn" type="button">查看公告</button></div> },
-      ]} rows={api.getDeposits() as unknown as Record<string, unknown>[]} />
+      ]} rows={deposits as unknown as Record<string, unknown>[]} />
     </AccountLayout>
   );
 }
 
 export function MyBidsPage() {
+  const [bids, setBids] = useState<BidRecord[]>(api.getBids());
+
+  useEffect(() => {
+    void api.fetchAccountBids().then(setBids);
+  }, []);
+
   return (
     <AccountLayout active="我的出价记录">
       <PageHead title="我的出价记录页" subtitle="查看本企业在竞价中的出价记录。" />
@@ -96,12 +144,24 @@ export function MyBidsPage() {
         { key: 'isHighest', label: '是否当前最高价', render: (row) => <StatusTag value={row.isHighest ? '是' : '否'} tone={row.isHighest ? 'green' : 'gray'} /> },
         { key: 'auctionStatus', label: '竞价状态' },
         { key: 'actions', label: '操作', render: () => <button className="link-btn" type="button">查看竞价详情</button> },
-      ]} rows={api.getBids() as unknown as Record<string, unknown>[]} />
+      ]} rows={bids as unknown as Record<string, unknown>[]} />
     </AccountLayout>
   );
 }
 
 export function MyMessagesPage() {
+  const [messages, setMessages] = useState<NotificationRecord[]>(api.getNotifications());
+
+  useEffect(() => {
+    void api.fetchAccountMessages().then(setMessages);
+  }, []);
+
+  const markRead = (id: string) => {
+    void api.markMessageRead(id).then((message) => {
+      setMessages((items) => items.map((item) => (item.id === id ? { ...item, read: message.read } : item)));
+    });
+  };
+
   return (
     <AccountLayout active="我的通知">
       <PageHead title="我的通知页" subtitle="查看站内消息，包括成交通知和失败通知。" />
@@ -112,8 +172,17 @@ export function MyMessagesPage() {
         { key: 'content', label: '通知内容摘要', width: '34%' },
         { key: 'sentAt', label: '发送时间' },
         { key: 'read', label: '已读状态', render: (row) => <StatusTag value={row.read ? '已读' : '未读'} tone={row.read ? 'gray' : 'orange'} /> },
-        { key: 'actions', label: '操作', render: () => <div className="inline-actions"><button className="link-btn" type="button">查看详情</button><button className="link-btn" type="button">标记已读</button></div> },
-      ]} rows={api.getNotifications() as unknown as Record<string, unknown>[]} />
+        {
+          key: 'actions',
+          label: '操作',
+          render: (row) => (
+            <div className="inline-actions">
+              <button className="link-btn" type="button">查看详情</button>
+              <button className="link-btn" onClick={() => markRead(String(row.id))} type="button">标记已读</button>
+            </div>
+          ),
+        },
+      ]} rows={messages as unknown as Record<string, unknown>[]} />
     </AccountLayout>
   );
 }

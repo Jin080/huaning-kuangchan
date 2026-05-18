@@ -653,6 +653,8 @@ legend {
   display: grid;
   gap: 6px;
   flex: 1;
+  align-content: start;
+  grid-auto-rows: min-content;
 }
 
 .sidebar nav button {

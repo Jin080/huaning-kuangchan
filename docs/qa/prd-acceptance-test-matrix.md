@@ -90,3 +90,79 @@ npm run test:e2e
 13. 管理员将合同从 `待签约` 标记到 `已签约`，再标记 `已完成`。
 14. 验证合同完成前数据看板不计入，合同完成后成交量和成交额计入。
 15. 管理员登记未中标企业退款状态 `未退款` -> `审核中` -> `已退款`，确认无需退款凭证。
+
+## T13 Matrix Update - 2026-05-17 20:20
+
+| Case ID | Updated Status | Evidence | Remaining Gap |
+|---|---|---|---|
+| ROLE-001 | PASS_PARTIAL | Portal read pages call real APIs first and frontend lint/build pass | `withFallback` means visual UI success is not enough for验收 |
+| ROLE-002 | PASS_PARTIAL | Backend bid service returns `UNAUTHORIZED` when user is missing | Frontend bid submit is not wired |
+| ROLE-003 | BACKEND_PASS / FRONTEND_BLOCKED | Enterprise service tests cover submit and account isolation | Enterprise register page does not submit real API |
+| ROLE-004 | BACKEND_PASS / FRONTEND_BLOCKED | Deposit service tests cover certification gate and voucher submit | Frontend voucher upload is not wired |
+| ROLE-005 | BACKEND_PASS / FRONTEND_BLOCKED | Bid service tests cover qualified bid success | Frontend bid submit is not wired |
+| ROLE-006 | PASS_PARTIAL | Admin read lists and low-risk state actions are real API first; backend services pass tests | Admin create/edit lot/content, blacklist write, files/logs remain incomplete |
+| ROLE-007 | BACKEND_PASS | Blacklist and bidding tests cover blacklisted enterprise rejection | Login/JWT is not implemented; frontend blacklisted login behavior not verified |
+| FLOW-001 | BACKEND_PASS / FRONTEND_BLOCKED | `LotsService` tests draft creation | Admin create form is not wired to `POST /api/admin/lots` |
+| FLOW-002 | PASS_PARTIAL | `LotsService` tests submit review; admin action wired | No full HTTP/DB E2E |
+| FLOW-003 | PASS_PARTIAL | `LotReviewsService` tests approve into `ANNOUNCING` | No full HTTP/DB E2E |
+| FLOW-004 | BACKEND_PASS / FRONTEND_BLOCKED | `EnterprisesService` tests submit certification | Frontend register submit not wired |
+| FLOW-005 | BACKEND_PASS | Enterprise approve service tests exist | No full HTTP/DB E2E |
+| FLOW-006 | BACKEND_PASS / FRONTEND_BLOCKED | `DepositsService` tests voucher submit | Frontend voucher upload not wired |
+| FLOW-007 | BACKEND_PASS | `DepositsService` tests approve and qualification | No full HTTP/DB E2E |
+| FLOW-008 | BLOCKED | `BidsService` requires `LotStatus.BIDDING` | No reviewed transition from `ANNOUNCING` to `BIDDING` found |
+| FLOW-009 | BACKEND_PASS / FRONTEND_BLOCKED | `BidsService` tests valid bid and highest price update | Frontend bid submit not wired |
+| FLOW-010 | BACKEND_PASS | `AuctionClosingService` tests result and notifications | No scheduler/HTTP E2E evidence |
+| FLOW-011 | PASS_PARTIAL | `ResultsService` tests publish and public result filtering; admin action wired | No full HTTP/DB E2E |
+| FLOW-012 | PASS_PARTIAL | `ContractsService` tests signed/completed/defaulted state changes | No full HTTP/DB E2E |
+| FLOW-013 | BACKEND_PASS / FRONTEND_RISK | `PortalService` tests completed-contract statistics; frontend dashboard fetches real API | Fallback can mask API failure |
+| FLOW-014 | BACKEND_PASS | `ResultsService` tests initial refunds; `RefundsService` tests status changes | No full HTTP/DB E2E |
+| EX-001 | BACKEND_PASS / FRONTEND_BLOCKED | Bid service unauthorized path exists | Frontend bid submit not wired |
+| EX-002 | BACKEND_PASS | Deposit and bid services reject non-approved certification | Frontend forms not wired |
+| EX-003 | BACKEND_PASS | Bid service rejects pending certification | No full HTTP/DB E2E |
+| EX-004 | BACKEND_PASS | Bid service rejects missing deposit qualification | No full HTTP/DB E2E |
+| EX-005 | BACKEND_PASS | Bidding and blacklist service tests cover blacklisted enterprise | No login/JWT frontend verification |
+| EX-006 | BACKEND_PASS | Bid service rejects ended/out-of-window lots | No full HTTP/DB E2E |
+| EX-007 | BACKEND_PASS | Bid service rejects invalid increment | No full HTTP/DB E2E |
+| EX-008 | NOT_VERIFIED | File policy exists, but no current E2E/HTTP evidence | Needs dedicated permission test |
+| EX-009 | BACKEND_PASS / FRONTEND_RISK | Public lot service filters `DEFAULTED` and `CANCELED` | Fallback can show mock rows when real API fails |
+
+## T14 Matrix Update - 2026-05-17
+
+| Case ID | Updated Status | Evidence | Remaining Gap |
+|---|---|---|---|
+| ROLE-003 | PASS | 企业入驻页接入真实 `POST /api/enterprises/register`；HTTP/DB E2E 覆盖企业提交和审核 | 真实登录/JWT 未实现 |
+| ROLE-004 | PASS | 公告详情页接入真实 `POST /api/lots/{id}/deposit-vouchers`；HTTP/DB E2E 覆盖凭证提交和审核 | 敏感附件权限 HTTP 验证仍待补 |
+| ROLE-005 | PASS | 竞价详情页接入真实 `POST /api/lots/{id}/bids`；HTTP/DB E2E 覆盖合法报价 | 无 |
+| FLOW-001 | PASS | 后台新建/编辑拍品页接入 `POST /api/admin/lots` / `PUT /api/admin/lots/{id}`；HTTP/DB E2E 创建拍品 | 无 |
+| FLOW-008 | PASS | 新增 `POST /api/admin/lots/{id}/advance-to-bidding`，HTTP/DB E2E 断言状态进入 `BIDDING` | 自动调度不在本轮范围 |
+| FLOW-009 | PASS | HTTP/DB E2E 覆盖非法报价拒绝和有效报价 | 无 |
+| FLOW-010 | PASS_PARTIAL | HTTP/DB E2E 调用既有 `AuctionClosingService.closeEndedAuctions()` 验证成交生成链路 | 无 HTTP 触发接口或调度器 |
+| FLOW-013 | PASS | HTTP/DB E2E 在合同完成后验证 `GET /api/portal/dashboard` 计入成交量/成交额 | 无 |
+| EX-007 | PASS | HTTP/DB E2E 覆盖无效加价返回失败且流程继续 | 无 |
+| EX-008 | NOT_VERIFIED | 文件权限仍未纳入 T14 主流程 E2E | 需专门补附件权限用例 |
+
+## T18 Matrix Update - 2026-05-17
+
+| Case ID | Updated Status | Evidence | Remaining Gap |
+|---|---|---|---|
+| FLOW-010 | PASS | `npm test -- auction-closing-http-db` 覆盖管理员调用 `POST /api/admin/auction-closing/run` 触发竞拍结束处理并生成成交结果 | 内置定时框架未引入，发布建议使用管理员手动触发或外部运维定时调用 |
+| EX-008 | PASS | `npm test -- sensitive-files-http-db` 覆盖企业资质、营业执照、意向金凭证敏感附件；未授权企业访问 `GET /api/files/{id}` 返回 `FILE_FORBIDDEN` | 登录/JWT 未实现，当前仍依赖开发请求头模拟登录态 |
+
+## T19 Matrix Review - 2026-05-17 22:22
+
+| Case ID | Reviewed Status | Evidence | Remaining Gap |
+|---|---|---|---|
+| FLOW-001 to FLOW-013 | PASS_FOR_T14_SCOPE | 本轮 `npm test -- main-flow-http-db` 通过，复核 T14 主流程 HTTP/DB 脚本仍可执行。 | 登录/JWT 未实现；结构化延时竞价未实现。 |
+| FLOW-010 | PASS_FOR_T18_SCOPE | 本轮 `npm test -- auction-closing-http-db` 通过，复核管理员 HTTP 入口可触发竞拍结束。 | 内置定时框架未实现，仍需管理员或外部运维定时调用。 |
+| EX-008 | PASS_FOR_T18_SCOPE | 本轮 `npm test -- sensitive-files-http-db` 通过，复核敏感附件未授权访问拒绝。 | 生产化登录/JWT 后需重测权限。 |
+| ROLE-006 | PASS_PARTIAL | 后台主链路和低风险状态流转已有真实接口证据；本轮后端全量测试和前端 lint/build 通过。 | 后台新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志仍未完成真实接入。 |
+
+## T26 Matrix Review - 2026-05-18 08:36
+
+| Case ID | Reviewed Status | Evidence | Remaining Gap |
+|---|---|---|---|
+| FLOW-001 to FLOW-013 | PASS_FOR_CURRENT_SCOPE | 本轮 `npm test -- main-flow-http-db` 顺序复跑通过；后端全量测试 22 suites / 77 tests passed。 | 登录/JWT 未实现；结构化延时竞价未实现。 |
+| FLOW-010 | PASS_FOR_CURRENT_SCOPE | 本轮 `npm test -- auction-closing-http-db` 顺序复跑通过，管理员 HTTP 入口可触发竞拍结束。 | 内置定时框架未实现，仍建议管理员手动触发或外部运维定时调用。 |
+| EX-008 | PASS_FOR_CURRENT_SCOPE | 本轮 `npm test -- sensitive-files-http-db` 顺序复跑通过，敏感附件未授权访问返回 `FILE_FORBIDDEN`。 | 生产化登录/JWT 后需重测权限。 |
+| ROLE-006 | PASS_PARTIAL | 后台内容、黑名单、文件管理、操作日志页面真实接口接入已完成；前端 lint/build 通过。 | 后台首页最近操作日志仍保留 mock；更细审计报表和复杂筛选未实现。 |
+| SUBMISSION-GATE | READY_NEEDS_CONFIRMATION | 后端 lint/typecheck/test、关键 E2E、前端 lint/build、`git diff --check` 均通过。 | 需总控确认提交范围、`renzheng/*.png` 删除状态和 LF/CRLF warning 处理口径。 |

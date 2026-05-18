@@ -49,6 +49,11 @@ export type Lot = {
   countdown: string;
   status: LotStatus;
   updatedAt: string;
+  productInfo?: string;
+  productDetail?: string;
+  customerNotice?: string;
+  auctionRule?: string;
+  depositInstruction?: string;
 };
 
 export type Enterprise = {
@@ -121,7 +126,9 @@ export type ContentRecord = {
   id: string;
   title: string;
   category: string;
+  categoryCode?: string;
   summary: string;
+  body?: string;
   status: '草稿' | '已发布' | '已下架';
   publishedAt: string;
   updatedBy: string;
@@ -134,7 +141,15 @@ export type NotificationRecord = {
   enterprise: string;
   lotTitle: string;
   content: string;
-  status: '发送成功' | '发送失败';
+  status: '待发送' | '发送成功' | '发送失败';
   sentAt: string;
   read?: boolean;
+};
+
+export type AccountProfile = {
+  id: string;
+  username: string;
+  enterpriseName: string;
+  certificationStatus: Enterprise['status'];
+  isBlacklisted: boolean;
 };

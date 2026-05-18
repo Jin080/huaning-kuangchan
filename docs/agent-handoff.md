@@ -148,6 +148,37 @@
   - 是否初始化/恢复 `E:/kuangchan` Git 仓库
   - 是否提供真实 PostgreSQL 连接后执行 `npx prisma migrate dev --name init`
 
+## 2026-05-17 16:58 - 数据模型与 Prisma 会话
+
+- 任务名称：补执行 PostgreSQL 初始迁移验证
+- 负责模块：数据模型与 Prisma
+- 修改文件：
+  - `backend/prisma/migrations/20260517084856_init/migration.sql`
+  - `backend/prisma/migrations/migration_lock.toml`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/prisma/migrations/20260517084856_init/migration.sql`
+  - `backend/prisma/migrations/migration_lock.toml`
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无，沿用上一条记录中的 Prisma 枚举
+- 数据模型变更：生成并应用初始 PostgreSQL 迁移，数据库 `huaning_mineral_auction` schema 已与 Prisma schema 同步
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; $env:DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55432/huaning_mineral_auction?schema=public'; npx prisma validate`
+  - `Set-Location E:/kuangchan/backend; $env:DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55432/huaning_mineral_auction?schema=public'; npx prisma migrate dev --name init`
+  - `Set-Location E:/kuangchan/backend; $env:DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55432/huaning_mineral_auction?schema=public'; npx prisma generate`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+- 验证结果：
+  - `git status --short` 通过，无输出
+  - `npx prisma validate` 通过
+  - `npx prisma migrate dev --name init` 通过，Prisma 返回数据库已同步并生成 Client
+  - `npx prisma generate` 通过
+  - `npm run typecheck` 通过
+- 未完成事项：未执行 seed 入库
+- 阻塞问题：无
+- 需要总控确认：是否需要在当前 PostgreSQL 实例执行 `npx prisma db seed` 或等业务会话接入后再种子入库
+
 ## 2026-05-17 15:52 - 测试验收与联调会话
 
 - 任务名称：建立 PRD 验收矩阵、联调验证记录与缺陷归因
@@ -341,3 +372,1624 @@
 - 未完成事项：未提交、未推送；远程分支历史未与本地内容合并
 - 阻塞问题：无
 - 需要总控确认：是否执行首次提交；如远程已有提交，是否允许后续合并远程历史
+
+## 2026-05-17 17:14 - 企业认证与意向金会话
+
+- 任务名称：企业认证与意向金 API
+- 负责模块：企业认证、账号认证查看、意向金凭证与资格服务
+- 修改文件：
+  - `backend/src/app.module.ts`
+- 新增文件：
+  - `backend/src/modules/account/account.controller.ts`
+  - `backend/src/modules/account/account.module.ts`
+  - `backend/src/modules/enterprises/dto/enterprise-certification.dto.ts`
+  - `backend/src/modules/enterprises/enterprise-certification.types.ts`
+  - `backend/src/modules/enterprises/enterprises.controller.ts`
+  - `backend/src/modules/enterprises/enterprises.module.ts`
+  - `backend/src/modules/enterprises/enterprises.service.ts`
+  - `backend/src/modules/deposits/dto/deposit-voucher.dto.ts`
+  - `backend/src/modules/deposits/deposit-voucher.types.ts`
+  - `backend/src/modules/deposits/deposits.controller.ts`
+  - `backend/src/modules/deposits/deposits.module.ts`
+  - `backend/src/modules/deposits/deposits.service.ts`
+  - `backend/test/enterprises/enterprises.service.spec.ts`
+  - `backend/test/deposits/deposits.service.spec.ts`
+  - `docs/enterprise-deposit-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增 `POST /api/enterprises/register`
+  - 新增 `GET /api/account/certification`
+  - 新增 `PUT /api/account/certification`
+  - 新增 `GET /api/admin/reviews/enterprises`
+  - 新增 `POST /api/admin/reviews/enterprises/{id}/approve`
+  - 新增 `POST /api/admin/reviews/enterprises/{id}/reject`
+  - 新增 `POST /api/lots/{id}/deposit-vouchers`
+  - 新增 `GET /api/admin/reviews/deposits`
+  - 新增 `POST /api/admin/reviews/deposits/{id}/approve`
+  - 新增 `POST /api/admin/reviews/deposits/{id}/reject`
+  - 新增服务边界 `DepositsService.hasBiddingQualification(enterpriseId, lotId)`
+- 状态枚举变更：无，沿用 Prisma 既有 `EnterpriseCertificationStatus` 与 `DepositVoucherStatus`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- enterprises deposits`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过；显示本会话改动，同时存在其他会话未跟踪项 `backend/src/modules/contents/**`、`backend/test/contents/**`、`docs/content-api.md`
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- enterprises deposits` 通过：2 个测试套件、6 个用例通过
+  - `npm test` 通过：5 个测试套件、15 个用例通过
+- 未完成事项：
+  - 未实现真实文件上传存储，仅按既有 schema 记录附件 URL
+  - 未实现拍品发布/状态流转；意向金提交仅校验 `Lot` 存在并读取 `depositAmount`
+  - 未实现线上支付
+  - 未实现退款凭证
+- 阻塞问题：
+  - 竞价模块尚未接入 `DepositsService.hasBiddingQualification`
+  - 拍品后台 API 如并行未完成，前台上传意向金入口需等待拍品详情/公示流程接入
+- 需要总控确认：
+  - 是否由集成会话将企业/意向金 API 接入前端与竞价模块
+  - 是否统一角色请求头取值为 `ADMIN`、`ENTERPRISE`
+
+## 2026-05-17 17:12 - 内容管理与公开说明会话
+
+- 任务名称：内容管理与公开说明 API
+- 负责模块：内容管理公开说明
+- 修改文件：
+  - `backend/src/app.module.ts`（注册 `ContentsModule`；当前文件同时存在其他会话的 account/enterprises/deposits 注册）
+- 新增文件：
+  - `backend/src/modules/contents/admin-contents.controller.ts`
+  - `backend/src/modules/contents/contents.controller.ts`
+  - `backend/src/modules/contents/contents.module.ts`
+  - `backend/src/modules/contents/contents.service.ts`
+  - `backend/src/modules/contents/dto/content-mutation.dto.ts`
+  - `backend/src/modules/contents/dto/content-query.dto.ts`
+  - `backend/test/contents/contents.service.spec.ts`
+  - `docs/content-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增公开接口 `GET /api/contents`，支持 `category`、`keyword`、`page`、`pageSize`，仅返回已发布内容
+  - 新增公开接口 `GET /api/contents/{id}`，仅允许查看已发布内容
+  - 新增后台接口 `GET /api/admin/contents`
+  - 新增后台接口 `POST /api/admin/contents`
+  - 新增后台接口 `PUT /api/admin/contents/{id}`
+  - 新增后台接口 `POST /api/admin/contents/{id}/publish`
+  - 新增后台接口 `POST /api/admin/contents/{id}/unpublish`
+- 状态枚举变更：无，沿用 Prisma 既有 `ContentStatus`：`DRAFT`、`PUBLISHED`、`UNPUBLISHED`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- contents`
+- 验证结果：
+  - `git status --short` 通过，可正常输出；当前工作树仍有未提交变更，且存在非本会话范围的 `backend/src/modules/account/**`、`backend/src/modules/enterprises/**`、`backend/src/modules/deposits/**`、`backend/test/enterprises/**`、`backend/test/deposits/**`
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- contents` 通过，1 个测试套件、5 个用例通过
+- 未完成事项：未接入前端；未执行全量后端测试；未新增复杂 CMS 能力
+- 阻塞问题：无
+- 需要总控确认：`backend/src/app.module.ts` 当前混有其他会话模块注册，提交前需由总控确认 account/enterprises/deposits 归属与合并顺序
+
+## 2026-05-17 17:25 - 总控调度会话
+
+- 任务名称：检查企业/意向金、内容交付并修正拍品会话阻塞
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/api-contract.md`
+  - `docs/task-board.md`
+  - `docs/integration-checklist.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - 明确开发阶段认证请求头：`x-user-id`、`x-user-role`
+  - 明确 `x-user-role` 固定取值：`ADMIN`、`ENTERPRISE`
+  - 明确竞价模块需复用 `DepositsService.hasBiddingQualification(enterpriseId, lotId)`
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - 读取 `backend/src/app.module.ts`
+  - 读取 `backend/src/modules/deposits/deposits.service.ts`
+- 验证结果：
+  - `git status --short` 通过，显示企业/意向金、内容模块与总控文档未提交变更
+  - 后端 `npm run lint` 通过
+  - 后端 `npm run typecheck` 通过
+  - 后端 `npm test` 通过：5 个测试套件、15 个用例通过
+  - `backend/src/app.module.ts` 已同时注册 `ContentsModule`、`EnterprisesModule`、`AccountModule`、`DepositsModule`，当前全量验证通过，可视为合并无冲突
+  - 拍品会话阻塞根因是 Prompt 将不存在的 `backend/src/domain/**` 写为必读；当前目录缺失不是业务硬阻塞
+- 未完成事项：
+  - 拍品发布与审核后台 API 仍未实现
+  - 竞价核心仍等待拍品模块完成后启动
+- 阻塞问题：
+  - 无新增阻塞
+- 需要总控确认：
+  - 拍品会话使用修正版 Prompt 重启
+
+## 2026-05-17 17:32 - 拍品发布与审核后台会话
+
+- 任务名称：拍品发布与审核后台 API 修正版
+- 负责模块：拍品后台、标的发布复核、公开拍品查询
+- 修改文件：
+  - `backend/src/app.module.ts`（仅追加注册 `LotsModule`、`LotReviewsModule`）
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/modules/lots/dto/lot-mutation.dto.ts`
+  - `backend/src/modules/lots/dto/lot-query.dto.ts`
+  - `backend/src/modules/lots/lot.types.ts`
+  - `backend/src/modules/lots/lots.service.ts`
+  - `backend/src/modules/lots/admin-lots.controller.ts`
+  - `backend/src/modules/lots/lots.controller.ts`
+  - `backend/src/modules/lots/lots.module.ts`
+  - `backend/src/modules/lot-reviews/dto/reject-lot-review.dto.ts`
+  - `backend/src/modules/lot-reviews/lot-reviews.service.ts`
+  - `backend/src/modules/lot-reviews/lot-reviews.controller.ts`
+  - `backend/src/modules/lot-reviews/lot-reviews.module.ts`
+  - `backend/test/lots/lots.service.spec.ts`
+  - `backend/test/lot-reviews/lot-reviews.service.spec.ts`
+  - `docs/lots-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增公开接口 `GET /api/lots`
+  - 新增公开接口 `GET /api/lots/{id}`
+  - 新增后台接口 `GET /api/admin/lots`
+  - 新增后台接口 `POST /api/admin/lots`
+  - 新增后台接口 `PUT /api/admin/lots/{id}`
+  - 新增后台接口 `POST /api/admin/lots/{id}/submit-review`
+  - 新增后台接口 `POST /api/admin/lots/{id}/close`
+  - 新增后台接口 `GET /api/admin/reviews/lots`
+  - 新增后台接口 `POST /api/admin/reviews/lots/{id}/approve`
+  - 新增后台接口 `POST /api/admin/reviews/lots/{id}/reject`
+- 状态枚举变更：无，沿用 Prisma 既有 `LotStatus`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- lots lot-reviews`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过，可正常输出；当前工作树仍包含其他会话未提交改动，包括总控文档、企业/意向金、内容模块相关文件
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- lots lot-reviews` 通过：2 个测试套件、7 个用例通过
+  - `npm test` 通过：7 个测试套件、22 个用例通过
+- 未完成事项：
+  - 未接入前端
+  - 未实现竞价报价逻辑
+  - 未实现合同、退款、黑名单状态流转
+  - 操作日志沿用现有 `OperationLogService` logger 记录，未扩展为数据库持久化
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否由集成会话接入 `docs/lots-api.md` 中的拍品 API
+  - 是否允许后续竞价模块基于 `ANNOUNCING`/`BIDDING` 状态继续实现竞价流转
+
+## 2026-05-17 17:40 - 总控调度会话
+
+- 任务名称：检查拍品发布与审核后台交付并放行竞价核心
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/integration-checklist.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/lots-api.md`
+  - 读取 `backend/src/app.module.ts`
+- 验证结果：
+  - 拍品会话交付记录完整，后端全量 `npm test` 通过：7 个测试套件、22 个用例
+  - `backend/src/app.module.ts` 仅追加注册 `LotsModule`、`LotReviewsModule`，未移除既有模块
+  - 拍品、企业认证、意向金资格三项竞价前置条件已满足
+- 未完成事项：
+  - 竞价核心未实现
+  - 成交合同退款黑名单仍等待竞价结果
+  - 前端接入仍等待交易链路继续完成
+- 阻塞问题：无新增阻塞
+- 需要总控确认：竞价核心会话可启动
+
+## 2026-05-17 17:51 - 竞价核心会话
+
+- 任务名称：竞价核心 API
+- 负责模块：报价接口、公开/后台出价记录、竞拍截止成交确认
+- 修改文件：
+  - `backend/src/app.module.ts`（仅追加注册 `BidsModule`、`AuctionClosingModule`）
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/modules/bids/dto/place-bid.dto.ts`
+  - `backend/src/modules/bids/dto/bid-record-query.dto.ts`
+  - `backend/src/modules/bids/bid.types.ts`
+  - `backend/src/modules/bids/bids.service.ts`
+  - `backend/src/modules/bids/bids.controller.ts`
+  - `backend/src/modules/bids/admin-bids.controller.ts`
+  - `backend/src/modules/bids/bids.module.ts`
+  - `backend/src/modules/auction-closing/auction-closing.types.ts`
+  - `backend/src/modules/auction-closing/auction-closing.service.ts`
+  - `backend/src/modules/auction-closing/auction-closing.module.ts`
+  - `backend/test/bids/bids.service.spec.ts`
+  - `backend/test/auction-closing/auction-closing.service.spec.ts`
+  - `docs/bidding-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增 `POST /api/lots/{id}/bids`
+  - 新增 `GET /api/lots/{id}/bid-records`
+  - 新增 `GET /api/admin/bids`
+  - 新增服务能力 `AuctionClosingService.closeEndedAuctions()`，用于竞拍截止后生成成交结果基础记录和待发送通知记录
+- 状态枚举变更：无，沿用 Prisma 既有 `LotStatus`、`AuctionResultStatus`、`NotificationType`、`NotificationChannel`、`NotificationSendStatus`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- bids auction-closing`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过；当前工作树仍包含其他会话既有未提交改动与 `renzheng/*.png` 删除项，本会话未触碰
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- bids auction-closing` 通过：2 个测试套件、13 个用例通过
+  - `npm test` 通过：9 个测试套件、35 个用例通过
+- 未完成事项：
+  - 延时竞价未实现机器执行规则；当前 schema 仅有 `extensionEnabled` 与文本 `extensionRule`，缺少延时窗口/延时时长/最大延时次数等结构化字段，已在 `docs/bidding-api.md` 登记缺口
+  - 通知仅生成 `Notification` 待发送站内消息记录，未实现短信发送器和实际发送任务
+  - 未提供定时任务调度入口调用 `AuctionClosingService.closeEndedAuctions()`，后续可由调度/集成会话接入
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否补充结构化延时竞价数据模型
+  - 是否由调度会话接入竞拍截止扫描任务
+  - 是否由通知/个人中心会话消费 `Notification` 待发送记录
+
+## 2026-05-17 18:02 - 总控调度会话
+
+- 任务名称：检查竞价核心交付并放行成交合同退款黑名单
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/integration-checklist.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/bidding-api.md`
+  - 读取 `backend/src/app.module.ts`
+- 验证结果：
+  - 竞价会话交付记录完整，后端全量 `npm test` 通过：9 个测试套件、35 个用例
+  - `backend/src/app.module.ts` 已追加注册 `BidsModule`、`AuctionClosingModule`
+  - 竞价核心已生成 `AuctionResult` 基础记录和 `Notification` 待发送记录，可支撑成交合同退款黑名单会话启动
+- 未完成事项：
+  - 成交合同退款黑名单未实现
+  - 个人中心消息仍建议等待成交模块完成后启动
+  - 延时竞价结构化规则仍未确认
+- 阻塞问题：无新增阻塞
+- 需要总控确认：成交合同退款黑名单会话可启动
+
+## 2026-05-17 18:17 - 成交合同退款黑名单会话
+
+- 任务名称：成交合同退款黑名单 API
+- 负责模块：成交结果、合同状态、退款状态、黑名单、通知记录
+- 修改文件：
+  - `backend/src/app.module.ts`
+  - `docs/agent-handoff.md`
+- 新增文件：
+  - `backend/src/modules/results/dto/result-query.dto.ts`
+  - `backend/src/modules/results/result.types.ts`
+  - `backend/src/modules/results/results.service.ts`
+  - `backend/src/modules/results/results.controller.ts`
+  - `backend/src/modules/results/admin-results.controller.ts`
+  - `backend/src/modules/results/results.module.ts`
+  - `backend/src/modules/contracts/dto/contract-query.dto.ts`
+  - `backend/src/modules/contracts/contract.types.ts`
+  - `backend/src/modules/contracts/contracts.service.ts`
+  - `backend/src/modules/contracts/contracts.controller.ts`
+  - `backend/src/modules/contracts/contracts.module.ts`
+  - `backend/src/modules/refunds/dto/refund-query.dto.ts`
+  - `backend/src/modules/refunds/refund.types.ts`
+  - `backend/src/modules/refunds/refunds.service.ts`
+  - `backend/src/modules/refunds/refunds.controller.ts`
+  - `backend/src/modules/refunds/refunds.module.ts`
+  - `backend/src/modules/blacklist/dto/blacklist.dto.ts`
+  - `backend/src/modules/blacklist/blacklist.types.ts`
+  - `backend/src/modules/blacklist/blacklist.service.ts`
+  - `backend/src/modules/blacklist/blacklist.controller.ts`
+  - `backend/src/modules/blacklist/blacklist.module.ts`
+  - `backend/src/modules/notifications/dto/notification-query.dto.ts`
+  - `backend/src/modules/notifications/notification.types.ts`
+  - `backend/src/modules/notifications/notifications.service.ts`
+  - `backend/src/modules/notifications/notifications.controller.ts`
+  - `backend/src/modules/notifications/notifications.module.ts`
+  - `backend/test/results/results.service.spec.ts`
+  - `backend/test/contracts/contracts.service.spec.ts`
+  - `backend/test/refunds/refunds.service.spec.ts`
+  - `backend/test/blacklist/blacklist.service.spec.ts`
+  - `backend/test/notifications/notifications.service.spec.ts`
+  - `docs/transaction-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增 `GET /api/results`
+  - 新增 `GET /api/results/{id}`
+  - 新增 `GET /api/admin/results`
+  - 新增 `POST /api/admin/results/{id}/publish`
+  - 新增 `GET /api/admin/contracts`
+  - 新增 `POST /api/admin/contracts/{id}/mark-signed`
+  - 新增 `POST /api/admin/contracts/{id}/mark-completed`
+  - 新增 `POST /api/admin/contracts/{id}/mark-defaulted`
+  - 新增 `GET /api/admin/refunds`
+  - 新增 `POST /api/admin/refunds/{id}/mark-reviewing`
+  - 新增 `POST /api/admin/refunds/{id}/mark-refunded`
+  - 新增 `GET /api/admin/blacklist`
+  - 新增 `POST /api/admin/blacklist`
+  - 新增 `POST /api/admin/blacklist/{id}/release`
+  - 新增 `GET /api/admin/notifications`
+- 状态枚举变更：无，沿用 Prisma 既有 `AuctionResultStatus`、`ContractStatus`、`RefundStatus`、`LotStatus`、`UserStatus`、`NotificationType`、`NotificationChannel`、`NotificationSendStatus`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- results contracts refunds blacklist notifications`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过；当前工作树仍包含前序会话未提交/未跟踪文件与 `renzheng/*.png` 删除项，本会话未回滚
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- results contracts refunds blacklist notifications` 通过：5 个测试套件、16 个用例通过
+  - `npm test` 通过：14 个测试套件、51 个用例通过
+- 未完成事项：
+  - 未实现短信供应商发送器，仅保留通知记录查询和短信渠道枚举
+  - 未实现数据看板接口本身；本会话通过合同 `COMPLETED` 与 `completedAt` 支撑后续看板统计
+  - 退款记录生成策略当前依赖已有 `Refund` 数据；如需在成交发布时自动为未中标企业补齐退款记录，可由总控确认后扩展
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否要求发布成交公示时自动按未中标企业生成 `Refund` 初始记录
+  - 是否由个人中心消息会话继续实现企业端通知读取与已读接口
+
+## 2026-05-17 18:22 - 总控调度会话
+
+- 任务名称：检查成交合同退款黑名单交付并放行个人中心消息
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/integration-checklist.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/transaction-api.md`
+  - 读取 `backend/src/app.module.ts`
+  - 读取 `backend/prisma/schema.prisma`
+- 验证结果：
+  - 成交合同退款黑名单会话交付记录完整，后端全量 `npm test` 通过：14 个测试套件、51 个用例
+  - `backend/src/app.module.ts` 已追加注册 `ResultsModule`、`ContractsModule`、`RefundsModule`、`BlacklistModule`、`NotificationsModule`
+  - `backend/prisma/schema.prisma` 未被成交合同退款黑名单会话修改
+  - T09 已同步为 DONE，T10 个人中心消息解除阻塞，可启动
+- 未完成事项：
+  - 个人中心消息接口未实现
+  - 数据看板接口本身未实现
+  - 前端真实 API 接入仍暂缓
+- 阻塞问题：无新增阻塞
+- 需要总控确认：
+  - 是否要求发布成交公示时自动按未中标企业生成 `Refund` 初始记录
+  - 是否确认个人中心消息会话现在启动
+
+## 2026-05-17 18:38 - 个人中心消息会话
+
+- 任务名称：个人中心消息 API
+- 负责模块：个人中心、我的意向金、我的出价、我的通知
+- 修改文件：
+  - `backend/src/modules/account/account.controller.ts`
+  - `backend/src/modules/account/account.module.ts`
+- 新增文件：
+  - `backend/src/modules/account/account.service.ts`
+  - `backend/src/modules/account/account.types.ts`
+  - `backend/src/modules/account/dto/account-query.dto.ts`
+  - `backend/test/account/account.service.spec.ts`
+  - `docs/account-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增 `GET /api/account/profile`
+  - 新增 `GET /api/account/deposit-vouchers`
+  - 新增 `GET /api/account/bids`
+  - 新增 `GET /api/account/messages`
+  - 新增 `POST /api/account/messages/{id}/read`
+  - 企业端个人中心接口均只按当前账号绑定企业查询；我的出价展示本企业真实名称；未修改公开 `GET /api/lots/{id}/bid-records` 脱敏规则
+- 状态枚举变更：无，沿用 Prisma 既有企业认证、意向金、通知状态枚举
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- account`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过；当前仍显示前序会话未提交/未跟踪文件，以及既有 `renzheng/*.png` 删除项，本会话未回滚
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- account` 通过：1 个测试套件、6 个用例通过
+  - `npm test` 通过：15 个测试套件、57 个用例通过
+- 未完成事项：未接入前端；未实现真实登录/JWT，继续沿用开发阶段请求头认证
+- 阻塞问题：无
+- 需要总控确认：是否由前端/集成会话接入 `docs/account-api.md` 中的个人中心接口
+
+## 2026-05-17 18:42 - 总控调度会话
+
+- 任务名称：检查个人中心消息交付并确认退款自动生成补充任务
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/integration-checklist.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；用户已确认保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/account-api.md`
+  - 读取 `backend/prisma/schema.prisma`
+- 验证结果：
+  - 个人中心消息会话交付记录完整，后端全量 `npm test` 通过：15 个测试套件、57 个用例
+  - T10 已同步为 DONE
+  - 用户确认需要发布成交公示时自动为未中标企业生成退款初始记录
+  - 当前 `Notification` 模型面向企业收件人 `receiverEnterpriseId`，不适合作为后台管理员提醒；后台退款提醒建议先用自动生成的 `Refund.status = NOT_REFUNDED` 作为后台待办数据源
+- 未完成事项：
+  - 发布成交公示时自动生成未中标退款初始记录未实现
+  - 如需管理员通知铃铛/已读消息，需另行确认是否新增后台通知数据模型
+  - 数据看板接口本身未实现
+- 阻塞问题：无新增阻塞
+- 需要总控确认：
+  - 是否接受“后台退款提醒 = 自动生成的未退款记录出现在后台退款列表/待办筛选中”，暂不新增管理员通知模型
+
+## 2026-05-17 18:51 - 退款自动生成补充会话
+
+- 任务名称：成交公示发布自动生成退款初始记录
+- 负责模块：成交结果发布、退款初始记录生成
+- 修改文件：
+  - `backend/src/modules/results/results.service.ts`
+  - `backend/test/results/results.service.spec.ts`
+  - `docs/transaction-api.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - `POST /api/admin/results/{id}/publish` 发布成交公示时，自动为同拍品未中标且意向金凭证审核通过的企业生成 `NOT_REFUNDED` 退款初始记录
+  - 后台退款待办口径为 `GET /api/admin/refunds?status=NOT_REFUNDED`
+- 状态枚举变更：无，沿用 `DepositVoucherStatus.APPROVED` 与 `RefundStatus.NOT_REFUNDED`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm test -- results`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- results refunds`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过；当前仍显示前序会话未提交/未跟踪文件，以及既有 `renzheng/*.png` 删除项，本会话未回滚
+  - 新增 results 测试先红灯：缺少凭证查询和退款创建调用
+  - `npm test -- results` 通过：1 个测试套件、5 个用例通过
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- results refunds` 通过：2 个测试套件、9 个用例通过
+  - `npm test` 通过：15 个测试套件、59 个用例通过
+- 未完成事项：未接入前端；未新增管理员通知 schema，后台提醒暂以未退款列表作为待办
+- 阻塞问题：无
+- 需要总控确认：是否接受当前后台退款待办口径并由前端/集成会话接入筛选入口
+
+## 2026-05-17 18:54 - 总控调度会话
+
+- 任务名称：检查退款自动生成补充交付并放行门户数据看板
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/transaction-api.md`
+  - 读取 `docs/api-contract.md`
+  - 读取 `backend/prisma/schema.prisma`
+- 验证结果：
+  - 退款自动生成补充会话交付记录完整，后端全量 `npm test` 通过：15 个测试套件、59 个用例
+  - 用户已接受后台退款待办口径：以自动生成的 `Refund.status = NOT_REFUNDED` 记录供后台筛选处理，暂不新增管理员通知模型
+  - T09 备注已同步为包含退款自动生成补充
+  - 当前缺口集中在 `GET /api/portal/dashboard` 数据看板接口
+- 未完成事项：
+  - 门户数据看板 API 未实现
+  - 前端真实 API 接入仍暂缓
+- 阻塞问题：无新增阻塞
+- 需要总控确认：门户数据看板 API 会话可启动
+
+## 2026-05-17 19:06 - 门户数据看板会话
+
+- 任务名称：门户数据看板 API
+- 负责模块：门户数据看板
+- 修改文件：
+  - `backend/src/app.module.ts`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/modules/portal/portal.types.ts`
+  - `backend/src/modules/portal/portal.service.ts`
+  - `backend/src/modules/portal/portal.controller.ts`
+  - `backend/src/modules/portal/portal.module.ts`
+  - `backend/test/portal/portal.service.spec.ts`
+  - `docs/portal-api.md`
+- 删除文件：无
+- 接口变更：
+  - 新增公开接口 `GET /api/portal/dashboard`
+  - 返回 `currentYearCompletedCount`、`currentYearCompletedAmount`、`totalCompletedCount`、`totalCompletedAmount`
+- 状态枚举变更：无，沿用 Prisma 既有 `ContractStatus.COMPLETED`
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- portal`
+  - `Set-Location E:/kuangchan/backend; npm test`
+- 验证结果：
+  - `git status --short` 通过；当前仍显示前序会话未提交/未跟踪文件，以及既有 `renzheng/*.png` 删除项，本会话未回滚
+  - 新增 portal 测试先红灯：缺少 `backend/src/modules/portal/**`
+  - `npm run lint` 通过
+  - `npm run typecheck` 通过
+  - `npm test -- portal` 通过：1 个测试套件、2 个用例通过
+  - `npm test` 通过：16 个测试套件、61 个用例通过
+- 未完成事项：未接入前端
+- 阻塞问题：无
+- 需要总控确认：是否放行前台门户接入会话使用 `docs/portal-api.md` 中的数据看板接口
+
+## 2026-05-17 19:08 - 总控调度会话
+
+- 任务名称：检查门户数据看板交付并放行前台门户接入
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/portal-api.md`
+  - 读取 `backend/src/app.module.ts`
+  - 读取 `frontend/src/services/api.ts`
+- 验证结果：
+  - 门户数据看板会话交付记录完整，后端全量 `npm test` 通过：16 个测试套件、61 个用例
+  - `backend/src/app.module.ts` 已追加注册 `PortalModule`
+  - `GET /api/portal/dashboard` 已补齐，前台门户接入阻塞解除
+  - 前端当前仍由 `frontend/src/services/api.ts` 读取 mock 数据，适合作为下一步集中适配点
+- 未完成事项：
+  - 前台门户和个人中心尚未接入真实 API
+  - 后台管理真实 API 接入仍建议后置
+- 阻塞问题：无新增阻塞
+- 需要总控确认：前台门户接入会话可启动
+
+## 2026-05-17 19:18 - 前台门户接入会话
+
+- 任务名称：前台门户与个人中心真实 API 接入第一阶段
+- 负责模块：前台门户接入、个人中心只读/已读接口、前端 API 适配层
+- 修改文件：
+  - `frontend/src/services/api.ts`
+  - `frontend/src/types.ts`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - 前端新增真实接口适配，默认请求 `/api`，可通过 `VITE_API_BASE_URL` 覆盖
+  - 门户首页接入 `GET /api/portal/dashboard`
+  - 门户拍品列表/详情接入 `GET /api/lots`、`GET /api/lots/{id}`
+  - 竞价详情出价记录接入 `GET /api/lots/{id}/bid-records`，继续显示脱敏企业名称
+  - 成交公示接入 `GET /api/results`
+  - 资讯/公开说明接入 `GET /api/contents`
+  - 个人中心接入 `GET /api/account/profile`、`GET /api/account/deposit-vouchers`、`GET /api/account/bids`、`GET /api/account/messages`
+  - 我的通知接入 `POST /api/account/messages/{id}/read`
+- 状态枚举变更：无；仅在前端适配层映射既有中文展示状态和内容分类
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `frontend npm run lint` 通过
+  - `frontend npm run build` 通过
+  - `git status --short` 可执行；当前工作树仍包含前序后端/文档未提交改动与既有 `renzheng/*.png` 删除项，本会话未回滚
+- 未完成事项：
+  - 后台管理页面仍使用 mock 数据，后台真实 API 接入留到后续阶段
+  - 登录/JWT、企业入驻提交、意向金上传、出价提交等写接口未纳入本阶段
+  - 前端详情页仍沿用现有固定路由结构，支持通过 `?id=` 指定记录，未重写路由
+- 阻塞问题：无
+- 需要总控确认：
+  - 后续联调时是否提供真实企业用户 ID，并通过 `localStorage.devEnterpriseUserId` 或 `VITE_DEV_ENTERPRISE_USER_ID` 覆盖开发请求头
+  - 是否启动后台管理页面真实 API 接入阶段
+
+## 2026-05-17 19:24 - 总控调度会话
+
+- 任务名称：检查前台门户接入第一阶段交付并放行后台管理接入
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/integration-checklist.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/frontend-backend-integration-checklist.md`
+  - 读取 `frontend/src/services/api.ts`
+- 验证结果：
+  - 前台门户接入会话交付记录完整，`frontend npm run lint` 与 `frontend npm run build` 均通过
+  - 门户首页、拍品、成交公示、资讯、公开出价记录和个人中心接口已真实 API 优先并保留 mock fallback
+  - 后台管理页面仍使用 mock 数据，适合作为下一阶段独立接入任务
+  - T12 已同步为 DONE，T16 后台管理接入已新增为 TODO
+- 未完成事项：
+  - 后台拍品、审核、交易、内容、通知等管理页面尚未接入真实 API
+  - 登录/JWT、企业入驻提交、意向金上传、出价提交等写接口仍未做前端接入
+- 阻塞问题：无新增阻塞
+- 需要总控确认：后台管理真实 API 接入第一阶段可启动
+
+## 2026-05-17 19:51 - 后台管理接入会话
+
+- 任务名称：后台管理真实 API 接入第一阶段
+- 负责模块：后台管理页面、前端 API 适配层、前后端接入清单
+- 修改文件：
+  - `frontend/src/services/api.ts`
+  - `frontend/src/types.ts`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - 后台列表真实 API 优先接入：`GET /api/admin/lots`、`GET /api/admin/reviews/lots`、`GET /api/admin/reviews/enterprises`、`GET /api/admin/reviews/deposits`、`GET /api/admin/bids`、`GET /api/admin/results`、`GET /api/admin/contracts`、`GET /api/admin/refunds`、`GET /api/admin/blacklist`、`GET /api/admin/contents`、`GET /api/admin/notifications`
+  - 后台低风险状态流转按钮接入：拍品提交复核/关闭、标的复核通过/驳回、企业认证通过/驳回、意向金通过/驳回、发布成交公示、合同标记已签约/已完成/违约、退款标记审核中/已退款、内容发布/下架
+  - 管理端开发请求头：`x-user-role: ADMIN`，`x-user-id` 读取 `localStorage.devAdminUserId`、`VITE_DEV_ADMIN_USER_ID` 或回退 `admin_demo`
+- 状态枚举变更：前端通知状态补充 `待发送`；其余沿用既有中文展示状态
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `git status --short` 通过；当前工作树仍包含前序会话未提交/未跟踪文件与既有 `renzheng/*.png` 删除项，本会话未回滚
+  - `frontend npm run lint` 通过
+  - `frontend npm run build` 通过
+- 未完成事项：
+  - 后台新建/编辑拍品、新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志真实接口未接入
+  - 意向金审核列表当前后端响应未返回企业名/拍品名，前端暂展示 `enterpriseId` 与 `lotId`
+  - 驳回按钮当前使用页面默认驳回原因，后续可接入弹窗输入
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否接受后台第一阶段使用默认驳回原因
+  - 是否需要后端补充意向金审核列表中的企业名和拍品名
+
+## 2026-05-17 19:54 - 总控调度会话
+
+- 任务名称：检查后台管理接入交付并放行意向金审核展示字段小修
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/integration-checklist.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/frontend-backend-integration-checklist.md`
+  - 读取 `backend/src/modules/deposits/deposits.service.ts`
+  - 读取 `backend/src/modules/deposits/deposit-voucher.types.ts`
+- 验证结果：
+  - 后台管理接入会话交付记录完整，`frontend npm run lint` 与 `frontend npm run build` 均通过
+  - 后台核心列表与低风险状态流转已真实 API 优先并保留 mock fallback
+  - T16 已同步为 DONE，Phase 4 后台管理核心页面已标记完成
+  - 默认驳回原因作为临时方案可接受，后续如需更好体验再接弹窗输入
+  - 意向金审核列表后端当前未返回企业名/拍品名，需开小修任务补字段
+- 未完成事项：
+  - 意向金审核列表展示企业名/拍品名待修
+  - 后台新建/编辑拍品、新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志真实接口仍未接入
+  - 登录/JWT、企业入驻提交、意向金上传、出价提交等企业端写接口仍未接入
+- 阻塞问题：无新增阻塞
+- 需要总控确认：意向金审核展示字段小修会话可启动
+
+## 2026-05-17 20:03 - 意向金审核展示字段小修会话
+
+- 任务名称：意向金审核列表展示字段小修
+- 负责模块：意向金凭证审核列表、前端后台意向金映射、接口文档
+- 修改文件：
+  - `backend/src/modules/deposits/deposits.service.ts`
+  - `backend/src/modules/deposits/deposit-voucher.types.ts`
+  - `backend/test/deposits/deposits.service.spec.ts`
+  - `frontend/src/services/api.ts`
+  - `docs/enterprise-deposit-api.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - `GET /api/admin/reviews/deposits` 响应项新增 `enterpriseName` 与 `lotTitle`
+  - 保留原有 `enterpriseId` 与 `lotId` 字段，前端展示名称缺失时回退 ID
+- 状态枚举变更：无
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm test -- deposits`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `git status --short` 通过；当前工作树仍包含前序会话未提交/未跟踪文件与既有 `renzheng/*.png` 删除项，本会话未回滚
+  - `npm test -- deposits` 通过：1 个测试套件、4 个用例通过
+  - `backend npm run lint` 通过
+  - `backend npm run typecheck` 通过
+  - `frontend npm run lint` 通过
+  - `frontend npm run build` 通过
+- 未完成事项：无
+- 阻塞问题：无
+- 需要总控确认：是否将 T17 标记为 DONE，并继续推进 T14 集成发布/联调验收
+
+## 2026-05-17 20:12 - 总控调度会话
+
+- 任务名称：检查意向金审核展示字段小修交付并放行主流程联调验收
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/integration-checklist.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/enterprise-deposit-api.md`
+  - 读取 `docs/frontend-backend-integration-checklist.md`
+  - 读取 `frontend/src/services/api.ts`
+  - 读取 `backend/src/app.module.ts`
+  - 读取 `backend/prisma/schema.prisma`
+- 验证结果：
+  - 意向金审核展示字段小修会话交付记录完整
+  - `GET /api/admin/reviews/deposits` 已记录返回 `enterpriseName`、`lotTitle`，并保留 `enterpriseId`、`lotId`
+  - 前端后台意向金映射已按名称优先、ID 兜底处理
+  - 未发现 Prisma schema 修改，未发现 app.module.ts 注册冲突
+  - T17 已同步为 DONE
+  - T13 已调整为可启动，聚焦主流程 E2E、权限异常和真实接口联通性；T14 继续等待 T13 验收完成后收口
+- 未完成事项：
+  - 主流程真实联调验收尚未执行
+  - 后台新建/编辑拍品、新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志真实接口仍未接入
+  - 企业端写接口前端接入仍未启动，包括企业入驻提交、意向金上传、出价提交
+- 阻塞问题：无新增阻塞
+- 需要总控确认：是否启动 T13 测试验收与联调会话
+
+## 2026-05-17 20:20 - 主流程联调验收会话
+
+- 任务名称：T13 主流程联调验收与权限用例复测
+- 负责模块：测试验收 / 主流程联调 / 权限异常复测
+- 修改文件：
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/prd-acceptance-test-matrix.md`
+  - `docs/integration-checklist.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `git status --short` 通过但工作区为脏状态；显示前序会话未提交/未跟踪文件、前端接入改动和既有 `renzheng/*.png` 删除项，本会话未回滚。
+  - `backend npm run lint` 通过。
+  - `backend npm run typecheck` 通过。
+  - `backend npm test` 通过：16 个测试套件、62 个用例通过。
+  - `frontend npm run lint` 通过。
+  - `frontend npm run build` 通过。
+- 主流程验收结论：后端服务级测试覆盖了拍品草稿、提交复核、复核通过、企业认证、意向金审核、有效报价、成交生成、通知、成交公示、退款初始记录、合同完成统计、合同违约隐藏等关键规则；但完整前后端主流程联调未通过，原因是前端关键写链路未接真实 API、`公示中` 到 `竞拍中` 的流转/数据准备口径未闭合、且缺少可重复执行的 HTTP/DB E2E 验收脚本。
+- 权限异常验收结论：后端服务级复测通过无资格、被拉黑、低价、过期、认证审核中、未认证、意向金未通过、企业数据隔离等异常；敏感附件权限未在本轮通过 HTTP/E2E 验证。
+- 缺陷清单：
+  - 阻塞级：缺少完整 HTTP/DB E2E 脚本或可执行数据包。
+  - 阻塞级：前端新建/编辑拍品、企业入驻提交、意向金上传、报价提交未接真实写接口。
+  - 阻塞级：未发现 `ANNOUNCING` / `公示中` 推进到 `BIDDING` / `竞拍中` 的明确接口、任务或验收数据准备口径。
+  - 阻塞级：前端 `withFallback` 会在真实 API 失败时展示 mock 数据，可能掩盖关键验收失败。
+  - 重要级：敏感附件权限缺少本轮 HTTP/E2E 验证证据。
+  - 重要级：后台部分写操作和文件/日志仍为 mock 或未接入。
+  - 后续优化级：驳回原因仍使用默认文案；结构化延时竞价按要求暂缓。
+- 是否建议启动 T14：建议启动，但 T14 应定位为集成发布收口与阻塞缺陷处理会话，不建议直接进入发布通过判定。
+- 未完成事项：
+  - 补真实写链路前端接入。
+  - 补主流程 HTTP/DB E2E 或可执行手工验收数据包。
+  - 明确并验证 `公示中` 到 `竞拍中` 的状态推进方式。
+  - 为前端 fallback 增加验收模式或显性失败策略。
+- 阻塞问题：
+  - 完整主流程无法仅凭当前前端页面完成真实 API 联调闭环。
+  - fallback 可能把真实 API 失败伪装成页面正常。
+- 需要总控确认：
+  - T14 是否优先处理真实写接口接入、fallback 验收开关、`ANNOUNCING` 到 `BIDDING` 口径和主流程 E2E。
+  - 是否接受 T13 当前结论为“工程验证通过、后端服务级通过、完整联调不通过但可启动 T14 收口”。
+
+## 2026-05-17 21:23 - 总控调度会话
+
+- 任务名称：检查 T13 主流程联调验收并放行 T14 集成收口
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/qa/main-flow-acceptance.md`
+  - 读取 `docs/qa/integration-verification-record.md`
+  - 读取 `docs/qa/prd-acceptance-test-matrix.md`
+  - 读取 `docs/frontend-backend-integration-checklist.md`
+  - 读取 `docs/api-contract.md`
+  - 读取 `backend/src/app.module.ts`
+  - 读取 `backend/prisma/schema.prisma`
+- 验证结果：
+  - T13 交付记录完整，工程验证通过：后端 lint/typecheck/test 通过，前端 lint/build 通过
+  - T13 明确结论为后端服务级通过，但完整前后端主流程联调未通过
+  - 阻塞项集中在前端关键写链路未接真实 API、`ANNOUNCING` 到 `BIDDING` 流转口径未闭合、fallback 掩盖真实 API 失败、缺少可重复 HTTP/DB E2E
+  - T13 已同步为 DONE
+  - T14 已解除 BLOCKED 并调整为 TODO，可作为集成发布收口与阻塞缺陷处理会话启动
+- 未完成事项：
+  - T14 尚未执行
+  - 发布通过判定仍需等 T14 收口后重新验收
+- 阻塞问题：无新增阻塞
+- 需要总控确认：是否按 T14 集成发布收口 Prompt 启动下一会话
+
+## 2026-05-17 21:43 - T14 集成发布收口会话
+
+- 任务名称：T14 集成发布收口与阻塞缺陷处理
+- 负责模块：集成发布收口、前端关键写链路、验收模式、主流程 HTTP/DB 验收
+- 修改文件：
+  - `frontend/src/services/api.ts`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `backend/src/modules/lots/lots.service.ts`
+  - `backend/src/modules/lots/admin-lots.controller.ts`
+  - `backend/test/lots/lots.service.spec.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/integration-checklist.md`
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/prd-acceptance-test-matrix.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/test/e2e/main-flow-http-db.spec.ts`
+- 删除文件：无；未恢复既有 `renzheng/*.png` 删除状态
+- 接口变更：
+  - 新增管理员接口 `POST /api/admin/lots/{id}/advance-to-bidding`，用于将满足竞拍窗口条件的 `ANNOUNCING` 拍品推进为 `BIDDING`
+  - 前端接入真实写接口：`POST /api/admin/lots`、`PUT /api/admin/lots/{id}`、`POST /api/enterprises/register`、`POST /api/lots/{id}/deposit-vouchers`、`POST /api/lots/{id}/bids`
+  - 前端 `VITE_ACCEPTANCE_MODE=true` 时禁用 `withFallback` mock 回退
+- 状态枚举变更：无新增枚举；明确 `ANNOUNCING` / 公示中 -> `BIDDING` / 竞拍中 由管理员显式接口推进
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 解决的 T13 阻塞项：
+  - `T13-BLOCK-001`：新增可重复执行 HTTP/DB 主流程验收脚本
+  - `T13-BLOCK-002`：前端关键写链路接入真实 API
+  - `T13-BLOCK-003`：补齐 `公示中` 到 `竞拍中` 显式推进口径
+  - `T13-BLOCK-004`：验收模式下真实 API 失败显性暴露，不回退 mock
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm test -- lots`
+  - `Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 验证结果：
+  - `git status --short` 通过但工作区为脏状态，包含前序会话未提交/未跟踪文件与既有 `renzheng/*.png` 删除项，本会话未回滚
+  - `npm test -- lots` 通过：1 个测试套件、5 个用例通过
+  - `npm test -- main-flow-http-db` 通过：1 个 HTTP/DB 主流程用例通过
+  - `backend npm run lint` 通过
+  - `backend npm run typecheck` 通过
+  - `backend npm test` 通过：17 个测试套件、64 个用例通过
+  - `frontend npm run lint` 通过
+  - `frontend npm run build` 通过
+  - `git diff --check` 无空白错误，仅提示既有/工作区文件 LF 将被 Git 转 CRLF
+- 主流程复测结论：通过。HTTP/DB E2E 覆盖创建拍品、提交复核、复核通过、企业入驻、企业审核、意向金上传、意向金审核、推进竞拍、非法报价拒绝、有效报价、竞拍结束成交、发布成交公示、合同签约/完成、门户看板统计。
+- 是否建议发布通过：建议发布通过 T14 主流程收口门槛，但保留非阻塞发布说明：附件权限 HTTP/E2E、竞拍结束调度入口、登录/JWT、内容新建/编辑、手动拉黑/解除拉黑、文件管理、操作日志仍是后续事项。
+- 未完成事项：
+  - 敏感附件权限未补 HTTP/E2E 验证
+  - 竞拍结束仍由既有 `AuctionClosingService.closeEndedAuctions()` 处理，本轮未新增 HTTP 管理入口或调度器
+  - 登录/JWT 未实现
+  - 内容新建/编辑、手动拉黑/解除拉黑、文件管理、操作日志前端真实接入未完成
+- 阻塞问题：无阻塞 T14 主流程收口的问题
+- 需要总控确认：
+  - 是否接受 `POST /api/admin/lots/{id}/advance-to-bidding` 作为本阶段 `公示中` 到 `竞拍中` 的正式口径
+  - 是否将附件权限 HTTP/E2E 与竞拍结束调度入口列为发布后/下一阶段任务
+
+## 2026-05-17 21:48 - 总控调度会话
+
+- 任务名称：检查 T14 集成发布收口交付并分发发布前补强
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/api-contract.md`
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：
+  - 总控契约补记 `POST /api/admin/lots/{id}/advance-to-bidding`
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/integration-checklist.md`
+  - 读取 `docs/frontend-backend-integration-checklist.md`
+  - 读取 `backend/src/modules/lots/admin-lots.controller.ts`
+  - 读取 `backend/src/modules/lots/lots.service.ts`
+  - 读取 `backend/test/e2e/main-flow-http-db.spec.ts`
+  - 抽查 `frontend/src/services/api.ts`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/pages/PortalPages.tsx`
+- 验证结果：
+  - T14 交付记录完整，T13 四个阻塞项均登记为已解决
+  - `POST /api/admin/lots/{id}/advance-to-bidding` 已实现并有 lots 单测与 HTTP/DB 主流程 E2E 覆盖
+  - 前端关键写链路和 `VITE_ACCEPTANCE_MODE=true` 验收模式已在文件和文档中登记
+  - T14 验证记录显示后端全量 lint/typecheck/test、前端 lint/build、主流程 HTTP/DB E2E 均通过
+  - `git diff --check` 无空白错误，仅提示 LF/CRLF 转换
+  - T14 已同步为 DONE
+  - T18 已新增为发布前补强任务
+- 未完成事项：
+  - 敏感附件权限 HTTP/E2E 未补齐
+  - 竞拍结束调度入口仍未形成 HTTP 管理入口或定时调度器
+  - 登录/JWT、内容新建/编辑、手动拉黑/解除拉黑、文件管理、操作日志前端真实接入仍是后续事项
+- 阻塞问题：无阻塞主流程收口的问题
+- 需要总控确认：
+  - 是否启动 T18 发布前补强会话
+  - 是否接受 `POST /api/admin/lots/{id}/advance-to-bidding` 为本阶段正式口径
+
+## 2026-05-17 22:04 - T18 发布前补强会话
+
+- 任务名称：T18 发布前补强
+- 负责模块：文件权限 HTTP/E2E、竞拍结束可触达入口、发布前说明与 QA 记录
+- 修改文件：
+  - `backend/src/files/file-policy.service.ts`
+  - `backend/src/files/files.module.ts`
+  - `backend/src/modules/auction-closing/auction-closing.module.ts`
+  - `docs/integration-checklist.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/prd-acceptance-test-matrix.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/files/files.controller.ts`
+  - `backend/src/modules/auction-closing/admin-auction-closing.controller.ts`
+  - `backend/test/e2e/sensitive-files-http-db.spec.ts`
+  - `backend/test/e2e/auction-closing-http-db.spec.ts`
+  - `docs/release-checklist.md`
+- 删除文件：无；未恢复或处理既有 `renzheng/*.png` 删除状态
+- 接口变更：
+  - 新增 `GET /api/files/{id}`，敏感附件仅允许管理员、上传用户或附件所属企业用户访问；未授权企业访问返回 `FILE_FORBIDDEN`
+  - 新增 `POST /api/admin/auction-closing/run`，管理员轻量触发 `AuctionClosingService.closeEndedAuctions()`，返回 `checkedLots`、`closedLots`、`endedWithoutBids`、`skippedLots`
+- 状态枚举变更：无
+- 数据模型变更：无，未修改 `backend/prisma/schema.prisma`
+- 发布前补强项：
+  - 补敏感附件权限 HTTP/DB E2E，覆盖企业资质、营业执照、意向金凭证未授权企业访问拒绝
+  - 补竞拍结束处理管理员 HTTP 触达入口，不引入复杂定时框架
+  - 发布说明明确 T14 主流程已通过范围、非阻塞剩余事项、`VITE_ACCEPTANCE_MODE=true`、`advance-to-bidding` 正式口径
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan/backend; npm test -- sensitive-files-http-db`
+  - `Set-Location E:/kuangchan/backend; npm test -- auction-closing-http-db`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 验证结果：
+  - `git status --short` 通过但工作区为脏状态，包含前序会话未提交/未跟踪文件与既有 `renzheng/*.png` 删除项，本会话未回滚
+  - `npm test -- sensitive-files-http-db` 先红灯：`GET /api/files/{id}` 缺失返回 404；补接口后通过，1 个用例通过
+  - `npm test -- auction-closing-http-db` 先红灯：`POST /api/admin/auction-closing/run` 缺失返回 404；补接口后通过，1 个用例通过
+  - `backend npm run lint` 通过
+  - `backend npm run typecheck` 通过
+  - `backend npm test` 通过：19 个测试套件、66 个用例通过
+  - `frontend npm run lint` 通过
+  - `frontend npm run build` 通过
+  - `git diff --check` 无空白错误，仅提示既有/工作区文件 LF 将被 Git 转 CRLF
+- 发布建议：
+  - 可按 T14 主流程收口 + T18 发布前补强范围进入发布前人工复核
+  - 发布验收需设置 `VITE_ACCEPTANCE_MODE=true`，不得用 mock fallback 作为真实 API 通过证据
+  - 本阶段 `公示中` 到 `竞拍中` 正式口径为 `POST /api/admin/lots/{id}/advance-to-bidding`
+  - 竞拍结束发布前可由管理员手动触发或外部运维定时调用 `POST /api/admin/auction-closing/run`
+- 未完成事项：
+  - 登录/JWT 未实现，当前仍使用开发请求头模拟登录态
+  - 结构化延时竞价未处理
+  - 后台新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志前端真实接入仍待后续阶段
+  - 未引入内置定时调度框架
+- 阻塞问题：无阻塞 T18 发布前补强验收的问题
+- 需要总控确认：
+  - 是否接受 `POST /api/admin/auction-closing/run` 作为本阶段竞拍结束处理的可运维触达方式
+  - 是否接受 `docs/release-checklist.md` 作为发布前剩余事项与发布建议记录
+
+## 2026-05-17 22:08 - 总控调度会话
+
+- 任务名称：检查 T18 发布前补强交付并分发发布归档
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/api-contract.md`
+  - `docs/task-board.md`
+  - `docs/module-ownership.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无；继续保留既有 `renzheng/*.png` 删除状态
+- 接口变更：
+  - 总控契约补记 `GET /api/files/{id}`
+  - 总控契约补记 `POST /api/admin/auction-closing/run`
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - 读取 `docs/agent-handoff.md`
+  - 读取 `docs/release-checklist.md`
+  - 读取 `docs/integration-checklist.md`
+  - 读取 `docs/frontend-backend-integration-checklist.md`
+  - 读取 `backend/src/files/files.controller.ts`
+  - 读取 `backend/src/files/file-policy.service.ts`
+  - 读取 `backend/src/modules/auction-closing/admin-auction-closing.controller.ts`
+  - 读取 `backend/src/modules/auction-closing/auction-closing.module.ts`
+- 验证结果：
+  - T18 交付记录完整，敏感附件权限 HTTP/DB E2E 与竞拍结束 HTTP 触达入口均有验证记录
+  - `GET /api/files/{id}` 已实现，敏感附件权限口径为管理员、上传者、附件所属企业可访问，其他企业返回 `FILE_FORBIDDEN`
+  - `POST /api/admin/auction-closing/run` 已实现为管理员轻量触发入口
+  - `docs/release-checklist.md` 已记录发布前范围、验收模式、正式口径和非阻塞剩余事项
+  - T18 已同步为 DONE
+  - T19 已新增为发布前人工复核与提交归档任务
+- 未完成事项：
+  - 登录/JWT 未实现，仍为开发请求头模拟
+  - 结构化延时竞价仍暂缓
+  - 后台新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志前端真实接入仍待后续阶段
+  - 未引入内置定时调度框架，竞拍结束入口当前建议由管理员或外部运维触发
+- 阻塞问题：无阻塞发布前人工复核的问题
+- 需要总控确认：是否启动 T19 发布前人工复核与提交归档
+
+## 2026-05-17 22:22 - T19 发布前人工复核与提交归档
+
+- 任务名称：T19 发布前人工复核与提交归档
+- 负责模块：发布归档 / 发布前人工复核 / 提交清单
+- 修改文件：
+  - `docs/release-checklist.md`
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/prd-acceptance-test-matrix.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/release-notes.md`
+- 删除文件：无；未恢复或处理既有 `renzheng/*.png` 删除状态
+- 接口变更：无；本轮仅复核既有契约，确认 `POST /api/admin/lots/{id}/advance-to-bidding`、`GET /api/files/{id}`、`POST /api/admin/auction-closing/run` 已在 `docs/api-contract.md` 登记
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`
+  - `Set-Location E:/kuangchan/backend; npm test -- sensitive-files-http-db`
+  - `Set-Location E:/kuangchan/backend; npm test -- auction-closing-http-db`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `git status --short` 通过但工作区为脏状态，包含前序业务代码/文档改动、未跟踪后端模块和测试、既有 `renzheng/*.png` 删除项；T19 未回滚。
+  - `git diff --check` 通过，无 whitespace error；仅提示多个工作区文件 LF 将被 Git 转 CRLF。
+  - `backend npm run lint` 通过：`eslint "{src,test}/**/*.ts"` exit 0。
+  - `backend npm run typecheck` 通过：`tsc --noEmit` exit 0。
+  - `backend npm test` 通过：19 个测试套件、66 个用例通过。
+  - `backend npm test -- main-flow-http-db` 通过：1 个 HTTP/DB 主流程用例通过。
+  - `backend npm test -- sensitive-files-http-db` 通过：1 个敏感附件权限 HTTP/DB 用例通过。
+  - `backend npm test -- auction-closing-http-db` 通过：1 个竞拍结束 HTTP 入口用例通过。
+  - `frontend npm run lint` 通过：`eslint .` exit 0。
+  - `frontend npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `✓ built in 200ms`。
+- 发布判断：
+  - 可以进入提交/发布准备：T14 主流程 HTTP/DB 验收、T18 敏感附件权限和竞拍结束 HTTP 入口均有本轮命令复核通过证据，前后端工程 gate 通过。
+  - 不建议直接声明生产可上线：登录/JWT、结构化延时竞价、后台非主链路真实接入、内置定时框架仍未实现。
+- 未完成事项：
+  - 登录/JWT 未实现，当前仍使用开发请求头 `x-user-id`、`x-user-role`。
+  - 结构化延时竞价未实现。
+  - 后台新建/编辑内容、手动拉黑/解除拉黑、文件管理、操作日志真实接入仍待后续阶段。
+  - 内置定时框架未实现；当前可由管理员手动触发或外部运维定时调用 `POST /api/admin/auction-closing/run`。
+- 阻塞问题：
+  - 无阻塞 T19 发布前人工复核的问题。
+  - 提交前风险：工作区仍有大量前序未提交/未跟踪文件和既有 `renzheng/*.png` 删除项，需总控确认提交范围。
+- 需要总控确认：
+  - 是否将当前工作区所有前序业务代码、测试、文档和 T19 发布归档一并提交。
+  - 是否保留 `renzheng/*.png` 删除状态。
+  - 是否接受 `docs/release-notes.md` 与 `docs/release-checklist.md` 作为本阶段发布说明和提交前风险清单。
+
+## 2026-05-17 22:34 - 总控状态同步会话
+
+- 任务名称：T19 总控状态同步与提交范围确认
+- 负责模块：总控调度 / 文档状态同步
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无；本次只同步文档状态
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git diff -- docs/task-board.md docs/agent-handoff.md`
+- 验证结果：
+  - `git status --short` 通过但工作区为脏状态，包含前序业务代码/文档改动、未跟踪后端模块和测试、既有 `renzheng/*.png` 删除项；本次未触碰禁止范围。
+  - `git diff -- docs/task-board.md docs/agent-handoff.md` 通过，diff 范围限定为允许修改的两个文档；因两文档存在前序未提交历史，输出同时包含历史追加记录。
+  - `docs/task-board.md` 中 T19 已同步为 `DONE`。
+- 未完成事项：提交范围仍需总控确认；本次不改业务代码、不恢复 `renzheng/*.png`
+- 需要总控确认：是否将当前工作区前序业务代码、测试、文档与 T19 归档整体纳入提交；是否保留既有 `renzheng/*.png` 删除状态
+
+## 2026-05-17 22:49 - T21A 后台内容新建/编辑真实接入
+
+- 任务名称：T21A 后台内容新建/编辑真实接入
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/types.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 接口变更：
+  - 前端新增调用 `POST /api/admin/contents`，用于新建内容草稿。
+  - 前端新增调用 `PUT /api/admin/contents/{id}`，用于编辑内容。
+  - `POST /api/admin/contents/{id}/publish` 与 `POST /api/admin/contents/{id}/unpublish` 保持既有逻辑。
+- 数据模型变更：无；仅前端 `ContentRecord` 补充可选展示字段 `categoryCode`、`body`，未修改后端数据模型或 Prisma schema。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `npm run lint` 通过：`eslint .` exit 0。
+  - `npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `✓ built in 208ms`。
+- 未完成事项：未接入文件管理、操作日志真实接口；未修改登录/JWT；未改黑名单、文件、日志页面逻辑。
+- 需要总控确认：内容页以页面内表单完成新建/编辑，不新增独立路由；验收时建议使用 `VITE_ACCEPTANCE_MODE=true` 并确认后端内容写接口可用。
+
+## 2026-05-17 22:42 - T20 提交范围确认与基线归档
+
+- 任务名称：T20 提交范围确认与基线归档
+- 修改文件：
+  - 本任务实际修改：`docs/agent-handoff.md`（仅追加本记录）
+  - 当前工作区已跟踪修改文件：
+    - 后端集成与文件权限：`backend/src/app.module.ts`、`backend/src/files/file-policy.service.ts`、`backend/src/files/files.module.ts`
+    - 前端真实 API 接入：`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/pages/PortalPages.tsx`、`frontend/src/services/api.ts`、`frontend/src/types.ts`
+    - 协作文档与发布验收：`docs/agent-handoff.md`、`docs/api-contract.md`、`docs/frontend-backend-integration-checklist.md`、`docs/integration-checklist.md`、`docs/module-ownership.md`、`docs/qa/integration-verification-record.md`、`docs/qa/main-flow-acceptance.md`、`docs/qa/prd-acceptance-test-matrix.md`、`docs/task-board.md`
+- 新增文件：
+  - 后端文件接口：`backend/src/files/files.controller.ts`
+  - 后端账号模块：`backend/src/modules/account/account.controller.ts`、`backend/src/modules/account/account.module.ts`、`backend/src/modules/account/account.service.ts`、`backend/src/modules/account/account.types.ts`、`backend/src/modules/account/dto/account-query.dto.ts`
+  - 后端竞拍结束模块：`backend/src/modules/auction-closing/admin-auction-closing.controller.ts`、`backend/src/modules/auction-closing/auction-closing.module.ts`、`backend/src/modules/auction-closing/auction-closing.service.ts`、`backend/src/modules/auction-closing/auction-closing.types.ts`
+  - 后端竞价模块：`backend/src/modules/bids/admin-bids.controller.ts`、`backend/src/modules/bids/bid.types.ts`、`backend/src/modules/bids/bids.controller.ts`、`backend/src/modules/bids/bids.module.ts`、`backend/src/modules/bids/bids.service.ts`、`backend/src/modules/bids/dto/bid-record-query.dto.ts`、`backend/src/modules/bids/dto/place-bid.dto.ts`
+  - 后端黑名单模块：`backend/src/modules/blacklist/blacklist.controller.ts`、`backend/src/modules/blacklist/blacklist.module.ts`、`backend/src/modules/blacklist/blacklist.service.ts`、`backend/src/modules/blacklist/blacklist.types.ts`、`backend/src/modules/blacklist/dto/blacklist.dto.ts`
+  - 后端内容模块：`backend/src/modules/contents/admin-contents.controller.ts`、`backend/src/modules/contents/contents.controller.ts`、`backend/src/modules/contents/contents.module.ts`、`backend/src/modules/contents/contents.service.ts`、`backend/src/modules/contents/dto/content-mutation.dto.ts`、`backend/src/modules/contents/dto/content-query.dto.ts`
+  - 后端合同模块：`backend/src/modules/contracts/contract.types.ts`、`backend/src/modules/contracts/contracts.controller.ts`、`backend/src/modules/contracts/contracts.module.ts`、`backend/src/modules/contracts/contracts.service.ts`、`backend/src/modules/contracts/dto/contract-query.dto.ts`
+  - 后端意向金模块：`backend/src/modules/deposits/deposit-voucher.types.ts`、`backend/src/modules/deposits/deposits.controller.ts`、`backend/src/modules/deposits/deposits.module.ts`、`backend/src/modules/deposits/deposits.service.ts`、`backend/src/modules/deposits/dto/deposit-voucher.dto.ts`
+  - 后端企业认证模块：`backend/src/modules/enterprises/dto/enterprise-certification.dto.ts`、`backend/src/modules/enterprises/enterprise-certification.types.ts`、`backend/src/modules/enterprises/enterprises.controller.ts`、`backend/src/modules/enterprises/enterprises.module.ts`、`backend/src/modules/enterprises/enterprises.service.ts`
+  - 后端拍品复核模块：`backend/src/modules/lot-reviews/dto/reject-lot-review.dto.ts`、`backend/src/modules/lot-reviews/lot-reviews.controller.ts`、`backend/src/modules/lot-reviews/lot-reviews.module.ts`、`backend/src/modules/lot-reviews/lot-reviews.service.ts`
+  - 后端拍品模块：`backend/src/modules/lots/admin-lots.controller.ts`、`backend/src/modules/lots/dto/lot-mutation.dto.ts`、`backend/src/modules/lots/dto/lot-query.dto.ts`、`backend/src/modules/lots/lot.types.ts`、`backend/src/modules/lots/lots.controller.ts`、`backend/src/modules/lots/lots.module.ts`、`backend/src/modules/lots/lots.service.ts`
+  - 后端通知模块：`backend/src/modules/notifications/dto/notification-query.dto.ts`、`backend/src/modules/notifications/notification.types.ts`、`backend/src/modules/notifications/notifications.controller.ts`、`backend/src/modules/notifications/notifications.module.ts`、`backend/src/modules/notifications/notifications.service.ts`
+  - 后端门户模块：`backend/src/modules/portal/portal.controller.ts`、`backend/src/modules/portal/portal.module.ts`、`backend/src/modules/portal/portal.service.ts`、`backend/src/modules/portal/portal.types.ts`
+  - 后端退款模块：`backend/src/modules/refunds/dto/refund-query.dto.ts`、`backend/src/modules/refunds/refund.types.ts`、`backend/src/modules/refunds/refunds.controller.ts`、`backend/src/modules/refunds/refunds.module.ts`、`backend/src/modules/refunds/refunds.service.ts`
+  - 后端成交结果模块：`backend/src/modules/results/admin-results.controller.ts`、`backend/src/modules/results/dto/result-query.dto.ts`、`backend/src/modules/results/result.types.ts`、`backend/src/modules/results/results.controller.ts`、`backend/src/modules/results/results.module.ts`、`backend/src/modules/results/results.service.ts`
+  - 后端测试：`backend/test/account/account.service.spec.ts`、`backend/test/auction-closing/auction-closing.service.spec.ts`、`backend/test/bids/bids.service.spec.ts`、`backend/test/blacklist/blacklist.service.spec.ts`、`backend/test/contents/contents.service.spec.ts`、`backend/test/contracts/contracts.service.spec.ts`、`backend/test/deposits/deposits.service.spec.ts`、`backend/test/e2e/auction-closing-http-db.spec.ts`、`backend/test/e2e/main-flow-http-db.spec.ts`、`backend/test/e2e/sensitive-files-http-db.spec.ts`、`backend/test/enterprises/enterprises.service.spec.ts`、`backend/test/lot-reviews/lot-reviews.service.spec.ts`、`backend/test/lots/lots.service.spec.ts`、`backend/test/notifications/notifications.service.spec.ts`、`backend/test/portal/portal.service.spec.ts`、`backend/test/refunds/refunds.service.spec.ts`、`backend/test/results/results.service.spec.ts`
+  - API 与发布文档：`docs/account-api.md`、`docs/bidding-api.md`、`docs/content-api.md`、`docs/enterprise-deposit-api.md`、`docs/lots-api.md`、`docs/portal-api.md`、`docs/release-checklist.md`、`docs/release-notes.md`、`docs/transaction-api.md`
+- 删除文件：
+  - `renzheng/PixPin_2026-05-17_11-22-22.png`
+  - `renzheng/PixPin_2026-05-17_11-22-43.png`
+  - `renzheng/PixPin_2026-05-17_11-22-56.png`
+  - `renzheng/PixPin_2026-05-17_11-23-03.png`
+  - `renzheng/PixPin_2026-05-17_11-23-15.png`
+- 建议提交范围：
+  - 建议本阶段基线提交纳入：后端业务模块、文件权限与竞拍结束入口、后端单测和 HTTP/DB E2E、前端真实 API 接入、API 契约文档、QA 验收文档、发布清单、发布说明、任务板与交接记录。
+  - 建议按模块归类提交范围：后端业务与接口实现、前端真实 API 接入、测试验收、API/QA/发布文档、总控协作文档。
+  - 不建议在未获人工授权前执行 `git commit`；本任务未执行提交。
+  - 本阶段未修改业务代码、未修改 Prisma schema、未恢复 `renzheng/*.png`；除追加本记录外未触碰允许范围外文件。
+- 暂缓/待确认文件：
+  - `renzheng/*.png` 删除状态保留为待人工确认；提交前需总控明确是否纳入删除或恢复。
+  - 如总控只希望提交发布文档而非完整基线，则所有业务代码、前端接入、后端测试与 API 文档需暂缓；但按 T19/T20 当前目标，更合理的基线提交是除 `renzheng/*.png` 外整体纳入。
+  - `git diff --check` 的 LF/CRLF warning 需总控决定是否接受现有换行策略；当前无 whitespace error。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git status --short --untracked-files=all`
+  - `Set-Location E:/kuangchan; git diff --stat`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 验证结果：
+  - `git status --short` 通过，工作区仍为脏状态，包含已跟踪修改、未跟踪后端模块/测试/文档，以及 5 个 `renzheng/*.png` 删除项。
+  - `git status --short --untracked-files=all` 通过，已展开记录所有未跟踪文件；未跟踪范围集中在后端业务模块、后端测试、API 文档、发布文档。
+  - `git diff --stat` 通过，最终已跟踪 diff 统计为 22 个文件、3510 行新增、186 行删除，并包含 5 个 PNG 删除；未跟踪文件不在该统计内。
+  - `git diff --check` 通过，无 whitespace error；仅提示多个工作区文件 LF 将被 Git 转 CRLF。
+- 需要总控确认：
+  - 是否按“除 `renzheng/*.png` 删除外，当前业务代码、前端接入、测试与文档整体纳入”作为本阶段基线提交范围。
+  - 是否保留并提交 `renzheng/*.png` 删除状态，或在提交前恢复这些图片。
+  - 是否接受当前 LF/CRLF warning，不在本阶段追加换行策略调整。
+
+## 2026-05-17 22:45 - T21C 文件管理与操作日志缺口盘点
+
+- 任务名称：T21C 文件管理与操作日志缺口盘点
+- 修改文件：
+  - `docs/qa/t21c-files-logs-gap-inventory.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/t21c-files-logs-gap-inventory.md`
+- 删除文件：无
+- 接口变更：无；本轮只盘点 `GET /api/admin/files`、`GET /api/admin/logs` 是否已有后端实现，未实现新接口
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 后端盘点结论：
+  - `GET /api/admin/files`：未实现。`backend/src/files/files.controller.ts` 只有 `@Controller('files')` + `@Get(':id')`，对应 `GET /api/files/{id}` 单附件权限访问；未发现 `admin/files` controller。
+  - `GET /api/admin/logs`：未实现。`backend/src/logging/**` 只有 `LoggingModule`、`OperationLogService`、`OperationLogEntry` 类型；未发现 logs controller 或 `admin/logs` 后端路由。
+  - 已实现部分：`OperationLogService.record()` 会写 Nest logger；`GET /api/files/{id}` 已有权限访问能力。以上不能等同于后台文件管理/操作日志列表接口已完成。
+- 前端 mock 盘点结论：
+  - 文件管理页 `/admin/files`：`FileManagementPage` 只配置 `fallbackRows: api.getFiles()`，没有 `loadRows`；`api.getFiles()` 返回 `frontend/src/data/mock.ts` 的 `files`。
+  - 操作日志页 `/admin/logs`：`OperationLogPage` 只配置 `fallbackRows: api.getLogs()`，没有 `loadRows`；`api.getLogs()` 返回 `frontend/src/data/mock.ts` 的 `logs`。
+  - 后台首页最近操作日志同样直接使用 `api.getLogs()` mock 数据。
+- 下一步最小实现建议：
+  - 先补 `GET /api/admin/files` 管理员只读列表，读取 `Attachment` 并返回前端现有列所需字段；不引入上传、删除等写能力。
+  - 先确认 `GET /api/admin/logs` 是否必须基于数据库持久化 `OperationLog`；确认后再补只读列表，不把 logger 记录误判为列表接口完成。
+  - 后端只读接口完成后，前端再为两个页面增加 `loadRows`，沿用现有 mock fallback 与 `VITE_ACCEPTANCE_MODE=true` 口径。
+- 验证命令：
+  - `Set-Location E:/kuangchan; rg -n "admin/files|admin/logs|OperationLog|Attachment" backend/src frontend/src docs`
+- 验证结果：
+  - `rg` 输出包含前端路由 `/admin/files`、`/admin/logs`，契约文档登记的 `GET /api/admin/files`、`GET /api/admin/logs`，以及 `backend/src/logging/OperationLogService` 和 `backend/src/files/FilePolicyService` 的 `Attachment` 使用。
+  - `rg` 未显示任何 `backend/src` 下的 `admin/files` 或 `admin/logs` controller 实现。
+- 未完成事项：本轮未实现后台文件管理列表接口、未实现操作日志列表接口、未改前端页面接入。
+- 阻塞问题：无阻塞盘点完成的问题。
+- 需要总控确认：
+  - `GET /api/admin/files` 字段口径是否以 `Attachment` 为基线并聚合来源业务名称。
+  - `GET /api/admin/logs` 是否要求数据库持久化日志后再开放列表查询。
+
+## 2026-05-17 22:49 - T21B 后台黑名单手动拉黑/解除拉黑真实接入
+
+- 任务名称：T21B 后台黑名单手动拉黑/解除拉黑真实接入
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/services/api.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - 前端新增调用 `POST /api/admin/blacklist`，黑名单页表单提交 `enterpriseId`、`lotId`、`reason`。
+  - 前端新增调用 `POST /api/admin/blacklist/{id}/release`，行操作提交默认 `releaseReason`。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 实现说明：
+  - 黑名单页新增手动拉黑表单；企业 ID、拍品 ID、拉黑原因缺失时不发起请求。
+  - 手动拉黑和解除拉黑成功后触发后台列表刷新。
+  - 写接口失败时仅显示错误提示，不修改本地列表状态。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `frontend npm run lint` 通过：`eslint .` exit 0。
+  - `frontend npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `✓ built in 202ms`。
+- 未完成事项：
+  - 后台文件管理、操作日志真实接口仍未接入；本任务未触碰。
+- 需要总控确认：
+  - 黑名单手动拉黑表单当前按接口契约要求使用 ID 输入；如需要按企业/拍品选择器体验优化，建议另起前端交互任务。
+
+## 2026-05-17 23:04 - T23A 后台文件管理只读接口
+
+- 任务名称：T23A 后台文件管理只读接口
+- 修改文件：
+  - `backend/src/files/files.controller.ts`
+  - `backend/src/files/files.module.ts`
+  - `backend/src/files/files.service.ts`
+  - `backend/src/files/files.types.ts`
+  - `backend/src/files/dto/file-query.dto.ts`
+  - `backend/test/files/files.controller.spec.ts`
+  - `backend/test/files/files.service.spec.ts`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 接口变更：
+  - 新增 `GET /api/admin/files` 管理员只读列表。
+  - 请求头沿用临时认证约定：`x-user-id`、`x-user-role=ADMIN`。
+  - 查询参数支持最小分页：`page`，`pageSize`，默认 `1/10`，`pageSize` 最大 `100`。
+  - 响应为统一列表结构：`{ items, total, page, pageSize }`。
+  - `items` 基于 `Attachment` 返回前端文件管理页最小字段：`id`、`name`、`type`、`source`、`uploader`、`uploadedAt`、`ref`。
+  - 非管理员通过现有 `RolesGuard` 拒绝访问；未新增上传、删除、下载等写能力。
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`。
+- 实现说明：
+  - `FilesService.listAdmin()` 读取 `Attachment`，关联 `lot`、`enterprise`、`uploadedBy` 生成列表展示字段。
+  - `source` 最小推断规则：意向金凭证为 `意向金审核`；有关联拍品为 `拍品管理`；有关联企业为 `企业认证`；否则为 `文件管理`。
+  - 保留原 `GET /api/files/{id}` 单附件权限访问能力。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- files`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npx eslint src/files test/files`
+- 验证结果：
+  - TDD 红灯：首次 `npm test -- files` 失败，原因是缺少 `../../src/files/files.service` 和 `FilesController.listAdmin`。
+  - `npm test -- files` 通过：3 个 test suites、5 个 tests 全部通过。
+  - `npx eslint src/files test/files` 通过。
+  - `npm run lint` 未通过：失败点在任务范围外的 `test/logging/admin-logs.spec.ts`，`INestApplication` 未使用。
+  - `npm run typecheck` 未通过：失败点在任务范围外的 `test/logging/admin-logs.spec.ts`，缺少 `supertest` 类型声明。
+- 未完成事项：
+  - 全量后端 lint/typecheck 仍需处理 `backend/test/logging/admin-logs.spec.ts` 的既有问题；本任务按允许修改范围未改操作日志测试或模块。
+
+## 2026-05-17 23:05 - T23A 验证结果更新
+
+- 任务名称：T23A 后台文件管理只读接口
+- 说明：按用户指定命令完成最终复跑；上一条 handoff 中关于全量 lint/typecheck 失败的记录为首次运行时结果，最终复跑已通过。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- files`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npx eslint src/files test/files`
+- 验证结果：
+  - `npm test -- files` 通过：3 个 test suites、5 个 tests 全部通过。
+  - `npm run lint` 通过：`eslint "{src,test}/**/*.ts"` exit 0。
+  - `npm run typecheck` 通过：`tsc --noEmit` exit 0。
+  - `npx eslint src/files test/files` 通过。
+- 未完成事项：无本任务范围内未完成项；未实现上传/删除等写能力，符合本任务禁止范围。
+
+## 2026-05-17 22:58 - T22 T21 联合验收与任务板同步
+
+- 任务名称：T22 T21 联合验收与任务板同步
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff -- docs/task-board.md docs/module-ownership.md docs/agent-handoff.md`
+- 验证结果：
+  - `frontend npm run lint` 通过：`eslint .` exit 0。
+  - `frontend npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `✓ built in 227ms`。
+  - 已核对 `docs/agent-handoff.md`：T20、T21A、T21B、T21C 均有交接记录。
+  - 已核对 `docs/frontend-backend-integration-checklist.md` 与 `docs/qa/t21c-files-logs-gap-inventory.md`：T21C 结论明确为 `GET /api/admin/files`、`GET /api/admin/logs` 后端未实现，前端文件管理和操作日志仍使用 mock。
+  - 已在 `docs/task-board.md` 补记 T20、T21A、T21B、T21C、T22 状态，并登记下一批 T23 后端 admin files/logs 只读接口任务。
+  - `git diff -- docs/task-board.md docs/module-ownership.md docs/agent-handoff.md` 已执行；输出包含 `docs/task-board.md`、`docs/agent-handoff.md` 本次文档更新，以及 `docs/module-ownership.md` 的既有未提交 diff。本任务未编辑 `docs/module-ownership.md`。
+- 冲突检查：
+  - 本任务未修改业务代码，未修改 `frontend/src/**`、`backend/src/**`、Prisma schema，未恢复或删除 `renzheng/*.png`。
+  - 当前工作区仍包含前序业务代码/文档改动与既有 `renzheng/*.png` 删除项；本任务只新增 `docs/task-board.md` 与 `docs/agent-handoff.md` 的文档 diff。
+- 下一步建议：
+  - 分配后端会话实现 `GET /api/admin/files` 管理员只读列表，字段先覆盖前端现有文件管理列。
+  - 确认操作日志持久化口径后，实现 `GET /api/admin/logs` 管理员只读列表；不要把 logger 输出误判为列表接口完成。
+- 需要总控确认：
+  - 是否按 T23 启动后端 admin files/logs 只读接口实现。
+  - 是否维持 T20 记录中的提交范围建议，并继续暂不处理 `renzheng/*.png` 删除状态。
+
+## 2026-05-17 23:04 - T23B 后台操作日志只读接口
+
+- 任务名称：T23B 后台操作日志只读接口口径确认与实现
+- 负责模块：后台操作日志只读查询
+- 修改文件：
+  - `backend/src/logging/logging.module.ts`
+  - `backend/src/logging/operation-log.service.ts`
+  - `backend/test/logging/admin-logs.spec.ts`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/logging/admin-logs.controller.ts`
+  - `backend/src/logging/dto/admin-log-query.dto.ts`
+  - `backend/src/logging/operation-log.response.ts`
+- 删除文件：无
+- 接口变更：
+  - 新增 `GET /api/admin/logs` 管理员只读列表接口。
+  - 请求鉴权沿用开发期请求头：`x-user-id`、`x-user-role`；仅 `x-user-role: ADMIN` 可访问，`ENTERPRISE` 会返回 `UNAUTHORIZED`。
+  - 支持分页查询参数 `page`、`pageSize`，返回统一列表结构 `{ items, total, page, pageSize }`。
+  - 列表项字段：`id`、`operatorId`、`operatorUsername`、`action`、`targetType`、`targetId`、`summary`、`ipAddress`、`userAgent`、`createdAt`。
+- 状态枚举变更：无，沿用 Prisma 既有 `OperationLogAction`。
+- 数据模型变更：
+  - 无；已确认 `backend/prisma/schema.prisma` 存在 `OperationLog` 表与 `OperationLogAction` 枚举，本任务未修改 Prisma schema。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- logging`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+- 验证结果：
+  - `npm test -- logging` 通过：1 个测试套件、4 个用例通过；覆盖模块 wiring、持久化日志分页读取、ADMIN 角色元数据、非管理员 HTTP 访问被拒绝。
+  - `npm run lint` 通过。
+  - `npm run typecheck` 通过。
+- 未完成事项：
+  - 未修改前端页面，操作日志前端真实接入仍待后续任务。
+  - 未实现登录/JWT，仍使用开发期请求头认证。
+- 阻塞问题：无；因 `OperationLog` 表已存在，本只读接口可实现且已实现。
+- 需要总控确认：
+  - 现有 `OperationLogService.record()` 仍只写 Nest logger 并返回内存对象，不写入 `operation_logs` 表；本任务按只读接口范围未扩展写入链路。若要求业务操作自动出现在 `GET /api/admin/logs`，需总控确认是否授权后续任务改造持久化写入口径。
+
+## 2026-05-17 23:19 - T24 文件管理与操作日志前端真实接入
+
+- 任务名称：T24 文件管理与操作日志前端真实接入
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/services/api.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：
+  - 前端新增 `fetchAdminFiles()` 调用 `GET /api/admin/files?pageSize=100`，携带开发期管理员请求头。
+  - 前端新增 `fetchAdminLogs()` 调用 `GET /api/admin/logs?pageSize=100`，携带开发期管理员请求头。
+  - 文件管理页 `/admin/files` 与操作日志页 `/admin/logs` 已增加 `loadRows`，优先读取真实 API。
+- 数据模型变更：无；未修改 Prisma schema。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff -- frontend/src/pages/AdminPages.tsx frontend/src/services/api.ts frontend/src/types.ts docs/frontend-backend-integration-checklist.md docs/task-board.md docs/agent-handoff.md`
+- 验证结果：
+  - `npm run lint` 通过：`eslint .` exit 0。
+  - `npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `built in 197ms`。
+  - 指定 `git diff -- ...` 已执行，输出仅涉及本轮允许范围内文件；`frontend/src/types.ts` 无本轮 diff。
+- 未完成事项：
+  - 后台首页最近操作日志暂保留 mock，避免扩大本轮改动范围。
+  - 未实现上传、删除、日志写入持久化。
+- 需要总控确认：
+  - 是否另起任务将后台首页最近操作日志也改为真实 API。
+  - 是否另起后端任务改造 `OperationLogService.record()` 持久化写入逻辑。
+
+## 2026-05-17 23:32 - T25 日志写入持久化最小改造
+
+- 任务名称：T25 日志写入持久化最小改造
+- 修改文件：
+  - `backend/src/logging/operation-log.service.ts`
+  - `backend/src/logging/operation-log.types.ts`
+  - `backend/src/modules/auction-closing/auction-closing.service.ts`
+  - `backend/src/modules/bids/bids.service.ts`
+  - `backend/src/modules/blacklist/blacklist.service.ts`
+  - `backend/src/modules/contracts/contracts.service.ts`
+  - `backend/src/modules/deposits/deposits.service.ts`
+  - `backend/src/modules/enterprises/enterprises.service.ts`
+  - `backend/src/modules/lot-reviews/lot-reviews.service.ts`
+  - `backend/src/modules/lots/lots.service.ts`
+  - `backend/src/modules/refunds/refunds.service.ts`
+  - `backend/src/modules/results/results.service.ts`
+  - `backend/test/logging/admin-logs.spec.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 接口变更：无新增接口；`GET /api/admin/logs` 现在可查到 `OperationLogService.record()` 写入的业务操作日志。
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`，复用现有 `operation_logs` 表。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- logging`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+- 验证结果：
+  - `npm test -- logging` 通过：1 个测试套件、7 个用例通过，覆盖 `record` 写库、`list` 查询、非 UUID 开发期用户 ID 兼容，以及黑名单业务路径写入 `operation_logs`。
+  - `npm run lint` 通过：`eslint "{src,test}/**/*.ts"` exit 0。
+  - `npm run typecheck` 通过：`tsc --noEmit` exit 0。
+- 未完成事项：未实现字段 diff、审计报表、复杂筛选；未接入登录/JWT；后台首页最近操作日志仍按 T24 记录暂保留 mock。
+- 需要总控确认：业务动作中文文案当前在 `OperationLogService` 内最小映射到既有 `OperationLogAction` 枚举；后续如需更细动作分类或目标类型规范，建议另起任务统一口径。
+
+## 2026-05-18 08:36 - T26 全量收口复核与提交前检查
+
+- 任务名称：T26 全量收口复核与提交前检查
+- 修改文件：
+  - `docs/release-checklist.md`
+  - `docs/release-notes.md`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/qa/prd-acceptance-test-matrix.md`
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git diff --stat`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`
+  - `Set-Location E:/kuangchan/backend; npm test -- sensitive-files-http-db`
+  - `Set-Location E:/kuangchan/backend; npm test -- auction-closing-http-db`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `git status --short` 通过，工作区仍为脏状态，包含前序业务代码/测试/文档改动、未跟踪文件，以及 5 个 `renzheng/*.png` 删除项。
+  - `git diff --stat` 通过，已跟踪 diff 为 25 个文件、4438 行新增、237 行删除；未跟踪文件不计入该统计。
+  - `git diff --check` 通过，无 whitespace error；仅有 LF 将被 Git 转 CRLF 的 warning。
+  - `backend npm run lint` 通过。
+  - `backend npm run typecheck` 通过。
+  - `backend npm test` 通过：22 个 test suites、77 个 tests passed。
+  - `backend npm test -- main-flow-http-db` 顺序复跑通过：1 个 HTTP/DB 主流程用例通过。
+  - `backend npm test -- sensitive-files-http-db` 顺序复跑通过：1 个敏感附件权限 HTTP/DB 用例通过。
+  - `backend npm test -- auction-closing-http-db` 顺序复跑通过：1 个竞拍结束 HTTP 入口用例通过。
+  - `frontend npm run lint` 通过。
+  - `frontend npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `built in 542ms`。
+  - 说明：三条关键 E2E 曾并行执行并触发同一测试数据库下的测试数据互相干扰；最终验收以清理后顺序复跑通过为准。
+- 提交范围建议：
+  - 建议纳入当前阶段后端业务模块、后台文件/日志只读接口、操作日志持久化、后端单测与 HTTP/DB E2E、前端真实 API 接入、API 文档、QA 文档、发布文档、任务板和交接记录。
+  - 建议提交前仍单独确认 `renzheng/*.png` 删除项是否纳入；本任务按限制未恢复、未处理。
+  - 如总控决定拆分提交，建议按“后端业务与测试、前端接入、文档归档”拆分；拆分前需人工确认当前大量未跟踪文件边界。
+- 剩余风险：
+  - 登录/JWT 未实现，生产化认证切换后需重跑主流程、敏感附件权限和企业数据隔离。
+  - 结构化延时竞价、内置定时框架、后台首页最近操作日志真实接入仍是后续事项。
+  - `git diff --check` 仍有 LF/CRLF warning，需确认是否接受当前换行策略。
+  - 三条关键 E2E 共享测试数据库，不宜并行执行。
+- 未完成事项：
+  - 未执行 git commit。
+  - 未处理 `renzheng/*.png` 删除状态。
+  - 未实现登录/JWT、结构化延时竞价、内置定时框架、后台首页最近操作日志真实接入。
+- 需要总控确认：
+  - 是否按建议范围进入提交准备。
+  - 是否保留并提交 5 个 `renzheng/*.png` 删除项，或在提交前恢复。
+  - 是否接受当前 LF/CRLF warning。
+  - 是否授权执行 git commit。
+
+## 2026-05-18 09:22 - T27 提交范围最终确认与提交准备
+
+- 任务名称：T27 提交范围最终确认与提交准备
+- 修改文件：
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git diff --stat`
+  - `Set-Location E:/kuangchan; git diff -- frontend/src/index.css`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 验证结果：
+  - `git status --short` 通过，工作区仍为脏状态；包含前序后端、前端、文档改动，大量未跟踪后端模块/测试/文档，以及 5 个 `renzheng/*.png` 删除项。
+  - `git diff --stat` 通过；追加本记录后的已跟踪 diff 为 26 个文件、4466 行新增、237 行删除，其中包含 5 个 `renzheng/*.png` 删除项；未跟踪文件不计入该统计。
+  - `git diff -- frontend/src/index.css` 通过；该文件仅在 `.sidebar nav` 增加 `align-content: start` 与 `grid-auto-rows: min-content` 两行，用于固定侧边栏导航网格行高/内容起始位置，属于本阶段前端接入与页面布局收尾范围，建议随前端真实 API 接入一起纳入提交，不建议单独剔除。
+  - `git diff --check` 通过，无 whitespace error；仍有 LF 将被 Git 转 CRLF 的 warning。
+  - 本任务未修改业务代码、未修改 Prisma schema、未恢复 `renzheng/*.png`、未执行 git commit。
+- 最终提交范围建议：
+  - 建议整体纳入 T20-T27 当前阶段业务代码、后端模块与测试、前端真实 API 接入、`frontend/src/index.css` 两行布局修正、API/QA/发布/协作文档。
+  - 建议保留并提交当前 5 个 `renzheng/*.png` 删除项；这些删除项已在 T20/T26 作为提交前待确认事项持续登记，本任务按限制不恢复图片。如人工决定不纳入删除项，应在提交前由人工明确授权恢复或另行处理。
+  - 在人工明确授权前，仅完成提交准备，不 stage、不 commit。
+- 待人工确认：
+  - 是否按上述最终提交范围执行 stage/commit。
+  - 是否确认保留并提交 5 个 `renzheng/*.png` 删除项。
+  - 是否接受当前 LF/CRLF warning。
+  - 是否授权执行 git commit 以及 commit message。
