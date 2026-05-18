@@ -1,0 +1,466 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>竞价详情页 - 华宁矿产竞拍平台</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffadb0",
+                        "on-secondary-container": "#57657a",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#001b3e",
+                        "border-subtle": "#E2E8F0",
+                        "on-tertiary-fixed-variant": "#920028",
+                        "primary-fixed-dim": "#aac7ff",
+                        "surface-bright": "#f7f9fb",
+                        "surface-tint": "#2e5ea5",
+                        "outline": "#737782",
+                        "outline-variant": "#c3c6d2",
+                        "tertiary-fixed-dim": "#ffb3b6",
+                        "text-secondary": "#64748B",
+                        "on-primary": "#ffffff",
+                        "text-primary": "#1E293B",
+                        "secondary-container": "#d5e3fc",
+                        "surface": "#f7f9fb",
+                        "primary-fixed": "#d6e3ff",
+                        "inverse-primary": "#aac7ff",
+                        "on-primary-fixed-variant": "#08458b",
+                        "surface-container": "#eceef0",
+                        "background": "#f7f9fb",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#515f74",
+                        "on-primary-container": "#a3c3ff",
+                        "primary-container": "#1a4f95",
+                        "secondary-fixed": "#d5e3fc",
+                        "surface-dim": "#d8dadc",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "on-surface-variant": "#424751",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "inverse-on-surface": "#eff1f3",
+                        "auction-orange": "#EA580C",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error": "#ffffff",
+                        "gov-navy": "#0F172A",
+                        "surface-variant": "#e0e3e5",
+                        "primary": "#003874",
+                        "on-surface": "#191c1e",
+                        "on-tertiary-fixed": "#40000c",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1e",
+                        "tertiary-container": "#a3002e",
+                        "tertiary": "#78001f",
+                        "inverse-surface": "#2d3133",
+                        "tertiary-fixed": "#ffdada",
+                        "success-emerald": "#059669",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-desktop": "32px",
+                        "sidebar-width": "240px",
+                        "gutter": "16px",
+                        "container-max-width": "1440px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "title-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "label-md": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+                        "data-mono": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-lg": ["30px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Hide scrollbar for clean horizontal scrolling */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-text-primary font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar Shared Component -->
+<header class="bg-surface-container-lowest border-b border-border-subtle w-full docked full-width top-0 z-50">
+<div class="flex justify-between items-center w-full px-margin-desktop max-w-container-max-width mx-auto h-16">
+<!-- Brand -->
+<div class="flex items-center gap-4">
+<span class="font-headline-sm text-headline-sm font-bold text-gov-navy">华宁矿产竞拍平台</span>
+</div>
+<!-- Navigation -->
+<nav class="hidden md:flex items-center h-full">
+<a class="h-full flex items-center px-4 text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">首页</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">矿产资源</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">即将拍卖</a>
+<a class="h-full flex items-center px-4 text-primary border-b-2 border-primary font-bold" href="#">正在竞价</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">成交公示</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">信息资讯</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant font-medium hover:text-primary transition-colors" href="#">公开说明</a>
+</nav>
+<!-- Actions -->
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 font-label-md text-label-md border border-border-subtle rounded text-text-primary hover:bg-surface-container-low transition-colors">登录</button>
+<button class="px-4 py-2 font-label-md text-label-md bg-primary-container text-on-primary rounded hover:opacity-90 transition-opacity">企业入驻</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-container-max-width mx-auto px-margin-desktop py-6">
+<!-- Breadcrumbs -->
+<nav class="flex items-center gap-2 text-text-secondary font-label-sm text-label-sm mb-6">
+<a class="hover:text-primary transition-colors" href="#">首页</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="#">正在竞价</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-text-primary font-medium">华宁县盘溪镇小黑龙石灰岩矿采矿权</span>
+</nav>
+<!-- Process Stepper -->
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 mb-8 w-full overflow-x-auto no-scrollbar">
+<div class="flex items-center justify-between min-w-[800px]">
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-text-secondary flex items-center justify-center font-label-md font-bold">1</div>
+<span class="font-label-sm text-label-sm text-text-secondary">浏览公告</span>
+</div>
+<div class="h-px bg-border-subtle flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-text-secondary flex items-center justify-center font-label-md font-bold">2</div>
+<span class="font-label-sm text-label-sm text-text-secondary">参与报名</span>
+</div>
+<div class="h-px bg-border-subtle flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-text-secondary flex items-center justify-center font-label-md font-bold">3</div>
+<span class="font-label-sm text-label-sm text-text-secondary">缴纳保证金</span>
+</div>
+<div class="h-px bg-primary flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1 relative">
+<!-- Current Active Step -->
+<div class="absolute -top-1 w-10 h-10 rounded-full bg-primary-container/20 animate-pulse"></div>
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-md font-bold relative z-10 shadow-[0_0_0_4px_white]">4</div>
+<span class="font-label-sm text-label-sm text-primary font-bold">出价竞拍</span>
+</div>
+<div class="h-px bg-border-subtle flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full border border-border-subtle text-text-secondary flex items-center justify-center font-label-md">5</div>
+<span class="font-label-sm text-label-sm text-text-secondary">竞拍成功</span>
+</div>
+<div class="h-px bg-border-subtle flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full border border-border-subtle text-text-secondary flex items-center justify-center font-label-md">6</div>
+<span class="font-label-sm text-label-sm text-text-secondary">线下签约</span>
+</div>
+<div class="h-px bg-border-subtle flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full border border-border-subtle text-text-secondary flex items-center justify-center font-label-md">7</div>
+<span class="font-label-sm text-label-sm text-text-secondary">支付尾款</span>
+</div>
+<div class="h-px bg-border-subtle flex-1 mx-2"></div>
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-8 h-8 rounded-full border border-border-subtle text-text-secondary flex items-center justify-center font-label-md">8</div>
+<span class="font-label-sm text-label-sm text-text-secondary">完成确认</span>
+</div>
+</div>
+</div>
+<!-- Main Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter items-start">
+<!-- Left Column: Details (Span 7) -->
+<div class="col-span-1 md:col-span-7 flex flex-col gap-6">
+<!-- Title Header -->
+<div>
+<h1 class="font-headline-md text-headline-md text-gov-navy mb-2">华宁县盘溪镇小黑龙石灰岩矿采矿权公开挂牌出让</h1>
+<div class="flex items-center gap-4 font-label-md text-label-md text-text-secondary">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">tag</span>项目编号: HN-KY-2024001</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">visibility</span>围观: 1,245 次</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">group</span>报名: 8 家</span>
+</div>
+</div>
+<!-- Media Gallery Bento -->
+<div class="grid grid-cols-4 grid-rows-2 gap-unit h-[400px]">
+<div class="col-span-3 row-span-2 bg-surface-container rounded-lg overflow-hidden border border-border-subtle relative">
+<img alt="Mine overview" class="w-full h-full object-cover" data-alt="A sweeping, high-resolution aerial photograph of a vast, modern limestone quarry carved into a rugged mountainside. The landscape features stark, terraced white and gray rock faces contrasting with deep shadows. Massive yellow industrial mining dump trucks and excavators appear tiny against the immense scale of the excavation. The lighting is harsh, bright daylight typical of industrial photography, emphasizing the geometric cuts in the earth. The overall mood is industrial, grand, and resource-heavy, reflecting a high-stakes commercial environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuu6TyiGrrw-ESBD0jWeYyMRv9fTVercnabRIF-0jzIJAlZwePB_KgYhmfjV59mcnWoBe7EANx5treewLhOXLiCHeqjG_7ScVyXAA3uy-OxUyhY3PrdvuSSVaYIR-jZPi4I2J3TRR8a59_i-IRkYzd__i1QxhgmnSEZ4gwNRc1HQBKsEn9h0wDf45HPezs7a6OrBSCLDJlhdhjGzi56h8mFCS4CuElpKTxkKZqNQtFm8JxyZpkZ7CnY5ItIzMMbkAHi5kixeyNhVWo">
+<div class="absolute bottom-4 left-4 bg-gov-navy/80 text-white px-3 py-1 rounded font-label-sm text-label-sm backdrop-blur-sm">主矿区航拍图</div>
+</div>
+<div class="col-span-1 row-span-1 bg-surface-container rounded-lg overflow-hidden border border-border-subtle">
+<img alt="Core sample" class="w-full h-full object-cover" data-alt="Close-up macro photography of cylindrical geological core samples resting inside a weathered wooden logging box. The mineral cores display varied bands of grey limestone and darker shale, indicating sedimentary layers. A metal geological pick and a detailed topographical map are partially visible in the blurred background. The lighting is professional, focused studio-style illumination highlighting the texture and composition of the rock. The visual style is analytical and scientific, conveying rigorous geological assessment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAj-C08wxy_a0MHqMYAYHrBrqvo9ecADWwtwmbHjQ5VM6yyR3ktNOQCJ-BwOv0zfXb88EMhuW1UxVezNKBjzTmZNbMY5EXC5wMXp1Bi6bbK-6CIZjaoBGMlbm5bsKtu2937A0qtUvrsbzOe1Q0kGH9T2rm96aVYdfZWushiDdC0HUxUjQJOX5e4IZR62SApJDEuptMfsjuQP9H3AV1CV0tnSjgiJOR8gy-4TQ_46JBjhNHPY0CJyqjShKPO6e-kyexfefRx-7Q71GXx">
+</div>
+<div class="col-span-1 row-span-1 bg-surface-container rounded-lg overflow-hidden border border-border-subtle relative flex items-center justify-center bg-surface-container-highest cursor-pointer hover:bg-border-subtle transition-colors">
+<span class="material-symbols-outlined text-[32px] text-text-secondary">photo_library</span>
+<span class="absolute bottom-2 text-text-secondary font-label-sm text-label-sm">查看全部 12 张</span>
+</div>
+</div>
+<!-- Detail Tabs Container -->
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl overflow-hidden">
+<div class="flex border-b border-border-subtle bg-surface-container-lowest">
+<button class="px-6 py-4 font-title-md text-title-md text-primary border-b-2 border-primary">标的物详情</button>
+<button class="px-6 py-4 font-title-md text-title-md text-text-secondary hover:text-text-primary transition-colors">相关附件 (3)</button>
+<button class="px-6 py-4 font-title-md text-title-md text-text-secondary hover:text-text-primary transition-colors">竞买须知</button>
+</div>
+<div class="p-6">
+<!-- Key Data Grid -->
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="flex flex-col gap-1 p-4 bg-surface rounded-lg border border-border-subtle">
+<span class="font-label-sm text-label-sm text-text-secondary">矿种</span>
+<span class="font-body-lg text-body-lg text-text-primary font-medium">建筑石料用灰岩</span>
+</div>
+<div class="flex flex-col gap-1 p-4 bg-surface rounded-lg border border-border-subtle">
+<span class="font-label-sm text-label-sm text-text-secondary">矿区面积</span>
+<span class="font-body-lg text-body-lg text-text-primary font-medium">0.2458 平方公里</span>
+</div>
+<div class="flex flex-col gap-1 p-4 bg-surface rounded-lg border border-border-subtle">
+<span class="font-label-sm text-label-sm text-text-secondary">资源储量</span>
+<span class="font-body-lg text-body-lg text-text-primary font-medium">1250.50 万吨</span>
+</div>
+<div class="flex flex-col gap-1 p-4 bg-surface rounded-lg border border-border-subtle">
+<span class="font-label-sm text-label-sm text-text-secondary">拟出让年限</span>
+<span class="font-body-lg text-body-lg text-text-primary font-medium">10 年</span>
+</div>
+</div>
+<!-- Description Text -->
+<h3 class="font-title-md text-title-md text-gov-navy mb-3">矿区地理位置与开采条件</h3>
+<p class="font-body-md text-body-md text-text-secondary leading-relaxed mb-6">
+                            该矿区位于华宁县盘溪镇小黑龙村，距县城约25公里，交通便利。矿体呈层状产出，地质构造简单，水文地质条件中等。矿石质量符合建筑碎石标准，剥采比小，适宜露天开采。竞得人需严格按照相关环保和水土保持要求进行矿山建设与开采。
+                        </p>
+<!-- Attachments List -->
+<h3 class="font-title-md text-title-md text-gov-navy mb-3 mt-8 border-t border-border-subtle pt-6">检测报告及附件下载</h3>
+<div class="flex flex-col gap-2">
+<a class="flex items-center justify-between p-3 border border-border-subtle rounded-lg hover:bg-surface-container-low transition-colors group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">picture_as_pdf</span>
+<span class="font-body-md text-body-md text-text-primary">地质勘查储量核实报告.pdf</span>
+</div>
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary">download</span>
+</a>
+<a class="flex items-center justify-between p-3 border border-border-subtle rounded-lg hover:bg-surface-container-low transition-colors group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">picture_as_pdf</span>
+<span class="font-body-md text-body-md text-text-primary">矿产资源开发利用方案.pdf</span>
+</div>
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary">download</span>
+</a>
+<a class="flex items-center justify-between p-3 border border-border-subtle rounded-lg hover:bg-surface-container-low transition-colors group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">description</span>
+<span class="font-body-md text-body-md text-text-primary">竞买申请书及承诺书模板.docx</span>
+</div>
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary">download</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Bidding Operation Card (Span 5) -->
+<div class="col-span-1 md:col-span-5 flex flex-col gap-6">
+<!-- Sticky Bidding Card -->
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 sticky top-20 shadow-sm">
+<!-- Status Header -->
+<div class="flex items-center justify-between pb-4 border-b border-border-subtle mb-4">
+<div class="flex items-center gap-2 px-3 py-1 bg-success-emerald/10 rounded border border-success-emerald/20">
+<span class="material-symbols-outlined text-[18px] text-success-emerald fill animate-pulse">gavel</span>
+<span class="font-label-md text-label-md text-success-emerald font-bold">正在竞价</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-sm text-label-sm text-text-secondary">距结束仅剩</span>
+<span class="font-data-mono text-[20px] font-bold text-error">01:45:22</span>
+</div>
+</div>
+<!-- Price Info -->
+<div class="flex flex-col gap-4 mb-6">
+<div class="flex flex-col bg-surface-container-low p-4 rounded-lg border border-border-subtle">
+<span class="font-label-md text-label-md text-text-secondary mb-1">当前最高价</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-sm text-headline-sm text-auction-orange font-bold">¥</span>
+<span class="font-data-mono text-[36px] font-bold text-auction-orange leading-none tracking-tight">4,850.00</span>
+<span class="font-label-md text-label-md text-auction-orange ml-1">万元</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 px-2">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary">起拍价</span>
+<span class="font-data-mono text-body-lg text-text-primary font-medium">¥ 3,500.00 万</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary">加价幅度</span>
+<span class="font-data-mono text-body-lg text-text-primary font-medium">¥ 50.00 万</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary">竞买保证金</span>
+<span class="font-data-mono text-body-lg text-text-primary font-medium">¥ 500.00 万</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-secondary">出价记录</span>
+<span class="font-data-mono text-body-lg text-text-primary font-medium">27 次</span>
+</div>
+</div>
+</div>
+<!-- Bidding Input & Actions -->
+<div class="flex flex-col gap-4 mt-6 pt-6 border-t border-border-subtle">
+<label class="font-label-md text-label-md text-text-primary">出价加价次数</label>
+<!-- Input Control -->
+<div class="flex items-center border border-border-subtle rounded-lg overflow-hidden h-12 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+<button class="w-12 h-full bg-surface-container hover:bg-surface-container-high text-text-primary flex items-center justify-center border-r border-border-subtle transition-colors">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<input class="flex-1 h-full text-center font-data-mono text-headline-sm font-bold text-text-primary bg-surface-container-lowest border-none focus:ring-0 outline-none" readonly="" type="text" value="+1 次">
+<button class="w-12 h-full bg-surface-container hover:bg-surface-container-high text-text-primary flex items-center justify-center border-l border-border-subtle transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div><div class="text-left mt-1"><span class="font-label-sm text-label-sm text-text-secondary">按加价幅度倍数出价</span></div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-text-secondary">预计总价：¥ 4,900.00 万元 (肆仟玖佰万元整)</span>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-3 mt-2">
+<button class="flex-1 py-3 px-4 bg-surface-container-low border border-border-subtle text-text-primary font-title-md text-title-md rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                                刷新当前价
+                            </button>
+<button class="flex-1 py-3 px-4 bg-primary-container text-on-primary font-title-md text-title-md rounded-lg hover:bg-primary transition-colors flex items-center justify-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">gavel</span>
+                                确认出价
+                            </button>
+</div>
+<p class="font-label-sm text-label-sm text-text-secondary text-center mt-2 flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px]">info</span>出价按加价幅度计算，提交后不可撤销</p>
+</div>
+</div>
+<!-- Live Notification Feed (Optional Bento extra) -->
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl p-4 flex flex-col gap-3 h-48 overflow-hidden relative">
+<h4 class="font-label-md text-label-md text-gov-navy border-b border-border-subtle pb-2">实时动态</h4>
+<div class="flex flex-col gap-3 font-label-sm text-label-sm text-text-secondary opacity-80 animate-slide-up">
+<div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-auction-orange"></span> 华宁***公司 出价 4850 万元</div>
+<div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-text-secondary"></span> 盘溪***企业 出价 4800 万元</div>
+<div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-text-secondary"></span> 云南***集团 出价 4750 万元</div>
+</div>
+<!-- Fading bottom edge -->
+<div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-surface-container-lowest to-transparent pointer-events-none"></div>
+</div>
+</div>
+</div>
+<!-- Bidding History Table Section -->
+<div class="mt-12 mb-8">
+<h2 class="font-headline-sm text-headline-sm text-gov-navy mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined">history</span>
+                出价记录
+            </h2>
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-border-subtle">
+<tr>
+<th class="py-4 px-6 font-label-md text-label-md text-text-secondary font-medium w-32">状态</th>
+<th class="py-4 px-6 font-label-md text-label-md text-text-secondary font-medium">竞买人</th>
+<th class="py-4 px-6 font-label-md text-label-md text-text-secondary font-medium text-right">出价金额 (万元)</th>
+<th class="py-4 px-6 font-label-md text-label-md text-text-secondary font-medium text-right w-48">时间</th>
+</tr>
+</thead>
+<tbody class="font-data-mono text-body-md text-text-primary divide-y divide-border-subtle">
+<!-- Leading Bid -->
+<tr class="bg-auction-orange/5 hover:bg-surface-container-lowest transition-colors">
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 bg-auction-orange text-white rounded text-[12px] font-bold font-label-sm leading-none">领先</span>
+</td>
+<td class="py-4 px-6">华宁***公司</td>
+<td class="py-4 px-6 text-right font-bold text-auction-orange">¥ 4,850.00</td>
+<td class="py-4 px-6 text-right text-text-secondary">14:22:45</td>
+</tr>
+<!-- Outbid rows -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 bg-surface-container-high text-text-secondary rounded text-[12px] font-medium font-label-sm leading-none">出局</span>
+</td>
+<td class="py-4 px-6">盘溪***企业</td>
+<td class="py-4 px-6 text-right">¥ 4,800.00</td>
+<td class="py-4 px-6 text-right text-text-secondary">14:18:12</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors bg-surface-bright">
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 bg-surface-container-high text-text-secondary rounded text-[12px] font-medium font-label-sm leading-none">出局</span>
+</td>
+<td class="py-4 px-6">云南***集团</td>
+<td class="py-4 px-6 text-right">¥ 4,750.00</td>
+<td class="py-4 px-6 text-right text-text-secondary">14:10:05</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 bg-surface-container-high text-text-secondary rounded text-[12px] font-medium font-label-sm leading-none">出局</span>
+</td>
+<td class="py-4 px-6">华宁***公司</td>
+<td class="py-4 px-6 text-right">¥ 4,700.00</td>
+<td class="py-4 px-6 text-right text-text-secondary">14:02:33</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors bg-surface-bright">
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 bg-surface-container-high text-text-secondary rounded text-[12px] font-medium font-label-sm leading-none">出局</span>
+</td>
+<td class="py-4 px-6">昆明***矿业</td>
+<td class="py-4 px-6 text-right">¥ 4,650.00</td>
+<td class="py-4 px-6 text-right text-text-secondary">13:45:11</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 border-t border-border-subtle bg-surface-container-lowest flex justify-center">
+<button class="font-label-md text-label-md text-primary hover:underline">查看完整出价记录 (共27条)</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Shared Component -->
+<footer class="bg-gov-navy w-full py-8 px-margin-desktop text-center border-t-4 border-primary mt-auto">
+<div class="max-w-container-max-width mx-auto flex flex-col items-center gap-4">
+<div class="font-headline-sm text-headline-sm text-white mb-2">华宁矿产竞拍平台</div>
+<nav class="flex flex-wrap justify-center gap-6 mb-4">
+<a class="font-label-sm text-label-sm text-on-primary-fixed-variant hover:text-white transition-colors" href="#">关于我们</a>
+<a class="font-label-sm text-label-sm text-on-primary-fixed-variant hover:text-white transition-colors" href="#">法律法规</a>
+<a class="font-label-sm text-label-sm text-on-primary-fixed-variant hover:text-white transition-colors" href="#">竞买指南</a>
+<a class="font-label-sm text-label-sm text-on-primary-fixed-variant hover:text-white transition-colors" href="#">安全协议</a>
+<a class="font-label-sm text-label-sm text-on-primary-fixed-variant hover:text-white transition-colors" href="#">联系我们</a>
+</nav>
+<div class="font-body-md text-body-md text-on-primary-fixed-variant">
+                © 2024 华宁矿产资源交易中心 版权所有 | 滇ICP备12345678号
+            </div>
+</div>
+</footer>
+
+
+</body></html>

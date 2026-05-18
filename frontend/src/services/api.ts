@@ -80,6 +80,7 @@ type ApiPortalDashboard = {
 
 type ApiResult = {
   id: string;
+  lotId: string;
   lotTitle: string;
   winningEnterpriseName: string;
   finalPrice: string;
@@ -122,6 +123,7 @@ type ApiAccountProfile = {
 
 type ApiAccountDeposit = {
   id: string;
+  lotId: string;
   lotTitle: string | null;
   requiredAmount: string;
   paidAmount: string | null;
@@ -133,6 +135,7 @@ type ApiAccountDeposit = {
 
 type ApiAccountBid = {
   id: string;
+  lotId: string;
   lotTitle: string | null;
   enterpriseName: string;
   maskedEnterpriseName: string;
@@ -146,6 +149,7 @@ type ApiAccountMessage = {
   id: string;
   type: NotificationRecord['type'];
   channel: NotificationRecord['channel'];
+  lotId: string | null;
   lotTitle: string;
   content: string;
   sendStatus: string;
@@ -189,6 +193,7 @@ type ApiAdminDeposit = {
 type ApiAdminBid = {
   id: string;
   sequenceNo: number;
+  lotId: string;
   lotTitle: string | null;
   enterpriseName: string;
   maskedEnterpriseName: string;
@@ -200,6 +205,7 @@ type ApiAdminBid = {
 
 type ApiContract = {
   id: string;
+  lotId: string;
   lotTitle: string;
   enterpriseName: string;
   finalPrice: string;
@@ -209,6 +215,7 @@ type ApiContract = {
 
 type ApiRefund = {
   id: string;
+  lotId: string;
   lotTitle: string;
   enterpriseName: string;
   amount: string;
@@ -521,6 +528,7 @@ function mapLot(lot: ApiLot): Lot {
 function mapResult(result: ApiResult): ResultRecord {
   return {
     id: result.id,
+    lotId: result.lotId,
     lotTitle: result.lotTitle,
     winner: result.winningEnterpriseName,
     finalPrice: money(result.finalPrice),
@@ -552,6 +560,7 @@ function mapContent(content: ApiContent): ContentRecord {
 function mapPublicBid(bid: ApiPublicBid, lotTitle = ''): BidRecord {
   return {
     id: bid.id,
+    lotId: bid.lotId,
     lotTitle,
     enterprise: bid.maskedEnterpriseName,
     maskedEnterprise: bid.maskedEnterpriseName,
@@ -576,6 +585,7 @@ function mapProfile(profile: ApiAccountProfile): AccountProfile {
 function mapDeposit(deposit: ApiAccountDeposit): DepositRecord {
   return {
     id: deposit.id,
+    lotId: deposit.lotId,
     enterprise: '',
     lotTitle: deposit.lotTitle ?? '-',
     amount: money(deposit.paidAmount ?? deposit.requiredAmount),
@@ -605,6 +615,7 @@ function mapEnterprise(enterprise: ApiEnterprise): Enterprise {
 function mapAdminDeposit(deposit: ApiAdminDeposit): DepositRecord {
   return {
     id: deposit.id,
+    lotId: deposit.lotId,
     enterprise: deposit.enterpriseName || deposit.enterpriseId,
     lotTitle: deposit.lotTitle || deposit.lotId,
     amount: money(deposit.paidAmount ?? deposit.requiredAmount),
@@ -619,6 +630,7 @@ function mapAdminDeposit(deposit: ApiAdminDeposit): DepositRecord {
 function mapAccountBid(bid: ApiAccountBid): BidRecord {
   return {
     id: bid.id,
+    lotId: bid.lotId,
     lotTitle: bid.lotTitle ?? '-',
     enterprise: bid.enterpriseName,
     maskedEnterprise: bid.maskedEnterpriseName,
@@ -633,6 +645,7 @@ function mapAccountBid(bid: ApiAccountBid): BidRecord {
 function mapAdminBid(bid: ApiAdminBid): BidRecord {
   return {
     id: String(bid.sequenceNo || bid.id),
+    lotId: bid.lotId,
     lotTitle: bid.lotTitle ?? '-',
     enterprise: bid.enterpriseName,
     maskedEnterprise: bid.maskedEnterpriseName,
@@ -647,6 +660,7 @@ function mapAdminBid(bid: ApiAdminBid): BidRecord {
 function mapContract(contract: ApiContract): ContractRecord {
   return {
     id: contract.id,
+    lotId: contract.lotId,
     lotTitle: contract.lotTitle,
     enterprise: contract.enterpriseName,
     amount: money(contract.finalPrice),
@@ -659,6 +673,7 @@ function mapContract(contract: ApiContract): ContractRecord {
 function mapRefund(refund: ApiRefund): RefundRecord {
   return {
     id: refund.id,
+    lotId: refund.lotId,
     lotTitle: refund.lotTitle,
     enterprise: refund.enterpriseName,
     amount: money(refund.amount),
@@ -671,6 +686,7 @@ function mapRefund(refund: ApiRefund): RefundRecord {
 function mapMessage(message: ApiAccountMessage): NotificationRecord {
   return {
     id: message.id,
+    lotId: message.lotId,
     type: message.type,
     channel: message.channel,
     enterprise: '',
@@ -685,6 +701,7 @@ function mapMessage(message: ApiAccountMessage): NotificationRecord {
 function mapAdminNotification(message: ApiAdminNotification): NotificationRecord {
   return {
     id: message.id,
+    lotId: message.lotId,
     type: message.type,
     channel: message.channel,
     enterprise: message.receiverEnterpriseName,
@@ -699,6 +716,7 @@ function mapAdminNotification(message: ApiAdminNotification): NotificationRecord
 function mapBlacklist(record: ApiBlacklist): BlacklistRecord {
   return {
     id: record.id,
+    lotId: record.lotId ?? '',
     enterprise: record.enterpriseName,
     contact: '-',
     phone: '-',

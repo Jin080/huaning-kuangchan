@@ -151,11 +151,17 @@ export function LiveAuctionList() {
 export function AuctionDetail() {
   const [lot, setLot] = useState<Lot>(api.getLot(getQueryId()));
   const [bidRecords, setBidRecords] = useState<BidRecord[]>(api.getBids());
-  const [notice, setNotice] = useState('请输入符合加价幅度的报价金额。');
-  const [amount, setAmount] = useState('');
+  const [notice, setNotice] = useState('请选择出价加价次数，系统将自动计算报价金额。');
+  const [incrementTimes, setIncrementTimes] = useState(1);
+  const estimatedAmount = calculateBidAmount(lot, incrementTimes);
 
   useEffect(() => {
-    void api.fetchLot(getQueryId()).then((nextLot) => {
+    const queryId = getQueryId();
+    const loadLot = queryId
+      ? api.fetchLot(queryId)
+      : api.fetchLots().then((items) => items.find((item) => item.status === '竞拍中') ?? items[0] ?? api.getLot());
+
+    void loadLot.then((nextLot) => {
       setLot(nextLot);
       void api.fetchBidRecords(nextLot.id, nextLot.title).then(setBidRecords);
     });
@@ -163,49 +169,30 @@ export function AuctionDetail() {
 
   return (
     <PortalLayout active="正在竞价">
-      <div className="process-bar">
-        {['浏览公告', '参与报名', '缴纳保证金', '出价竞拍', '竞拍成功', '线下签约', '支付尾款', '完成确认'].map((step, index) => (
-          <span className={index <= 3 ? 'done' : ''} key={step}>{step}</span>
-        ))}
-      </div>
-      <DetailHero
-        amount={amount}
+      <AuctionDetailView
+        bidRecords={bidRecords}
+        estimatedAmount={estimatedAmount}
+        incrementTimes={incrementTimes}
         lot={lot}
-        mode="竞价"
         notice={notice}
-        onAmountChange={setAmount}
         onBidSubmit={async () => {
           try {
-            await api.submitBid(lot.id, amount);
+            await api.submitBid(lot.id, estimatedAmount);
             const nextRecords = await api.fetchBidRecords(lot.id, lot.title);
             setBidRecords(nextRecords);
+            void api.fetchLot(lot.id).then(setLot);
             setNotice('报价已通过真实接口提交。');
           } catch (error) {
             setNotice(`报价提交失败：${getErrorMessage(error)}`);
           }
         }}
+        onIncrementTimesChange={setIncrementTimes}
         onRefresh={() => {
           void api.fetchLot(lot.id).then(setLot).catch((error: unknown) => {
             setNotice(`刷新当前价失败：${getErrorMessage(error)}`);
           });
         }}
       />
-      <section className="detail-grid">
-        <div>
-          <SectionHeader title="出价记录" subtitle="全部出价记录企业名称脱敏展示" />
-          <DataTable
-            columns={[
-              { key: 'maskedEnterprise', label: '出价企业' },
-              { key: 'amount', label: '出价金额' },
-              { key: 'incrementTimes', label: '加价次数' },
-              { key: 'bidTime', label: '出价时间' },
-              { key: 'isHighest', label: '当前最高价', render: (row) => <StatusTag value={row.isHighest ? '是' : '否'} tone={row.isHighest ? 'green' : 'gray'} /> },
-            ]}
-            rows={bidRecords as unknown as Record<string, unknown>[]}
-          />
-        </div>
-        <InfoTabs sections={['商品详情', '相关附件', '检测报告']} />
-      </section>
     </PortalLayout>
   );
 }
@@ -398,25 +385,263 @@ function PageTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   );
 }
 
+function AuctionDetailView({
+  bidRecords,
+  estimatedAmount,
+  incrementTimes,
+  lot,
+  notice,
+  onBidSubmit,
+  onIncrementTimesChange,
+  onRefresh,
+}: {
+  bidRecords: BidRecord[];
+  estimatedAmount: string;
+  incrementTimes: number;
+  lot: Lot;
+  notice: string;
+  onBidSubmit: () => void;
+  onIncrementTimesChange: (value: number) => void;
+  onRefresh: () => void;
+}) {
+  const bidIncrement = getBidIncrement(lot);
+  const changeIncrementTimes = (nextValue: number) => {
+    onIncrementTimesChange(Math.max(1, nextValue));
+  };
+
+  return (
+    <div className="auction-detail-page">
+      <nav className="breadcrumb-line" aria-label="当前位置">
+        <span>首页</span>
+        <span>›</span>
+        <span>正在竞价</span>
+        <span>›</span>
+        <strong>{lot.title}</strong>
+      </nav>
+      <AuctionProcessStepper />
+      <section className="auction-detail-layout">
+        <div className="auction-detail-main">
+          <header className="auction-title-block">
+            <h1>{lot.title}</h1>
+            <div className="auction-meta-line">
+              <span>项目编号：{lot.id}</span>
+              <span>品种/品位：{lot.category}</span>
+              <span>报名资格：企业认证 + 意向金审核</span>
+            </div>
+          </header>
+          <AuctionGallery lot={lot} />
+          <AuctionInfoPanel lot={lot} />
+        </div>
+        <aside className="bid-side-stack">
+          <BiddingPanel
+            bidIncrement={bidIncrement}
+            bidRecordCount={bidRecords.length}
+            estimatedAmount={estimatedAmount}
+            incrementTimes={incrementTimes}
+            lot={lot}
+            notice={notice}
+            onBidSubmit={onBidSubmit}
+            onIncrementTimesChange={changeIncrementTimes}
+            onRefresh={onRefresh}
+          />
+          <LiveBidFeed bidRecords={bidRecords} />
+        </aside>
+      </section>
+      <AuctionBidHistory bidRecords={bidRecords} />
+    </div>
+  );
+}
+
+function AuctionProcessStepper() {
+  const steps = ['浏览公告', '参与报名', '缴纳保证金', '出价竞拍', '竞拍成功', '线下签约', '支付尾款', '完成确认'];
+
+  return (
+    <div className="auction-stepper" aria-label="竞价流程">
+      <div className="auction-stepper-track">
+        {steps.map((step, index) => (
+          <div className={index === 3 ? 'step active' : index < 3 ? 'step done' : 'step'} key={step}>
+            <span>{index + 1}</span>
+            <strong>{step}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AuctionGallery({ lot }: { lot: Lot }) {
+  return (
+    <div className="auction-gallery" aria-label="拍品图片">
+      <div className="gallery-main">
+        <span>{lot.category}</span>
+        <strong>主矿区航拍图</strong>
+      </div>
+      <div className="gallery-thumb core">岩芯样本</div>
+      <div className="gallery-thumb more">查看全部</div>
+    </div>
+  );
+}
+
+function AuctionInfoPanel({ lot }: { lot: Lot }) {
+  const detailItems = [
+    ['矿种', lot.category],
+    ['数量', lot.quantity],
+    ['产地', lot.origin],
+    ['供应商', lot.supplier],
+  ];
+  const attachments = ['地质勘查储量核实报告.pdf', '矿产资源开发利用方案.pdf', '竞买申请书及承诺书模板.docx'];
+
+  return (
+    <section className="auction-tabs-card">
+      <div className="auction-tabs">
+        <button className="active" type="button">标的物详情</button>
+        <button type="button">相关附件 ({attachments.length})</button>
+        <button type="button">竞买须知</button>
+      </div>
+      <div className="auction-tab-body">
+        <div className="auction-key-grid">
+          {detailItems.map(([label, value]) => (
+            <div className="auction-key-cell" key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+        <h3>矿区地理位置与开采条件</h3>
+        <p>{lot.productDetail || lot.productInfo || '该拍品由平台公开发布，竞买人需按公告、竞拍规则和保证金缴纳说明完成资格手续后参与报价。'}</p>
+        <h3 className="attachment-title">检测报告及附件下载</h3>
+        <div className="attachment-list">
+          {attachments.map((item) => (
+            <button className="attachment-row" key={item} type="button">
+              <span>{item}</span>
+              <strong>下载</strong>
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BiddingPanel({
+  bidIncrement,
+  bidRecordCount,
+  estimatedAmount,
+  incrementTimes,
+  lot,
+  notice,
+  onBidSubmit,
+  onIncrementTimesChange,
+  onRefresh,
+}: {
+  bidIncrement: string;
+  bidRecordCount: number;
+  estimatedAmount: string;
+  incrementTimes: number;
+  lot: Lot;
+  notice: string;
+  onBidSubmit: () => void;
+  onIncrementTimesChange: (value: number) => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="bid-panel">
+      <div className="bid-panel-head">
+        <StatusTag value={lot.status} />
+        <div>
+          <span>距结束仅剩</span>
+          <strong>{lot.countdown}</strong>
+        </div>
+      </div>
+      <div className="current-price-box">
+        <span>当前最高价</span>
+        <strong>{lot.currentPrice}</strong>
+      </div>
+      <dl className="bid-facts">
+        <div><dt>起拍价</dt><dd>{lot.startPrice}</dd></div>
+        <div><dt>加价幅度</dt><dd>{formatMoney(bidIncrement)}</dd></div>
+        <div><dt>竞买保证金</dt><dd>{lot.deposit}</dd></div>
+        <div><dt>出价记录</dt><dd>{bidRecordCount} 次</dd></div>
+      </dl>
+      <div className="bid-control">
+        <label>出价加价次数</label>
+        <div className="increment-control" aria-label="出价加价次数">
+          <button disabled={incrementTimes <= 1} onClick={() => onIncrementTimesChange(incrementTimes - 1)} type="button">−</button>
+          <input aria-label="出价加价次数" readOnly value={`+${incrementTimes} 次`} />
+          <button onClick={() => onIncrementTimesChange(incrementTimes + 1)} type="button">+</button>
+        </div>
+        <div className="bid-estimate">
+          <span>按加价幅度倍数出价</span>
+          <strong>预计总价：{formatMoney(estimatedAmount)}</strong>
+        </div>
+      </div>
+      <div className="bid-actions">
+        <button className="btn secondary" onClick={onRefresh} type="button">刷新当前价</button>
+        <button className="btn primary" onClick={onBidSubmit} type="button">确认出价</button>
+      </div>
+      <p className="bid-notice">{notice} 提交后不可撤销。</p>
+    </section>
+  );
+}
+
+function LiveBidFeed({ bidRecords }: { bidRecords: BidRecord[] }) {
+  const rows = bidRecords.slice(0, 3);
+
+  return (
+    <section className="live-feed-card">
+      <h3>实时动态</h3>
+      {rows.length > 0 ? rows.map((record) => (
+        <p key={record.id}><span />{record.maskedEnterprise} 出价 {record.amount}</p>
+      )) : <p><span />暂无实时出价记录</p>}
+    </section>
+  );
+}
+
+function AuctionBidHistory({ bidRecords }: { bidRecords: BidRecord[] }) {
+  return (
+    <section className="auction-history">
+      <SectionHeader title="出价记录" subtitle="全部出价记录企业名称脱敏展示" />
+      <DataTable
+        columns={[
+          { key: 'isHighest', label: '状态', width: '110px', render: (row) => <StatusTag value={row.isHighest ? '领先' : '出局'} tone={row.isHighest ? 'orange' : 'gray'} /> },
+          { key: 'maskedEnterprise', label: '竞买人' },
+          { key: 'amount', label: '出价金额' },
+          { key: 'incrementTimes', label: '加价次数' },
+          { key: 'bidTime', label: '时间' },
+        ]}
+        rows={bidRecords as unknown as Record<string, unknown>[]}
+      />
+    </section>
+  );
+}
+
 function DetailHero({
-  amount,
+  estimatedAmount,
+  incrementTimes,
   lot,
   mode,
   notice,
-  onAmountChange,
   onBidSubmit,
   onDepositSubmit,
+  onIncrementTimesChange,
   onRefresh,
 }: {
-  amount?: string;
+  estimatedAmount?: string;
+  incrementTimes?: number;
   lot: Lot;
   mode: '公告' | '竞价';
   notice?: string;
-  onAmountChange?: (value: string) => void;
   onBidSubmit?: () => void;
   onDepositSubmit?: () => void;
+  onIncrementTimesChange?: (value: number) => void;
   onRefresh?: () => void;
 }) {
+  const bidIncrement = getBidIncrement(lot);
+  const selectedIncrementTimes = incrementTimes ?? 1;
+  const changeIncrementTimes = (nextValue: number) => {
+    onIncrementTimesChange?.(Math.max(1, nextValue));
+  };
+
   return (
     <section className="detail-hero">
       <div className="detail-image"><span>{lot.category}</span></div>
@@ -437,7 +662,19 @@ function DetailHero({
       <aside className="action-card">
         <strong>{mode === '竞价' ? '出价操作区' : '意向金资格'}</strong>
         <p>{notice ?? (mode === '竞价' ? '当前企业已通过认证和意向金审核，可按加价幅度报价。' : '企业认证通过后，可上传意向金付款凭证。')}</p>
-        {mode === '竞价' ? <input onChange={(event) => onAmountChange?.(event.target.value)} placeholder="请输入报价金额" value={amount ?? ''} /> : null}
+        {mode === '竞价' ? (
+          <>
+            <dl className="summary-list">
+              <div><dt>加价幅度</dt><dd>{formatMoney(bidIncrement)}</dd></div>
+              <div><dt>预计报价</dt><dd className="price">{formatMoney(estimatedAmount ?? '0')}</dd></div>
+            </dl>
+            <div className="button-row" aria-label="出价加价次数">
+              <button className="btn secondary" disabled={selectedIncrementTimes <= 1} onClick={() => changeIncrementTimes(selectedIncrementTimes - 1)} type="button">-</button>
+              <input aria-label="出价加价次数" readOnly style={{ textAlign: 'center', width: 96 }} value={`${selectedIncrementTimes} 次`} />
+              <button className="btn secondary" onClick={() => changeIncrementTimes(selectedIncrementTimes + 1)} type="button">+</button>
+            </div>
+          </>
+        ) : null}
         {mode === '竞价' ? (
           <div className="button-row">
             <button className="btn secondary" onClick={onRefresh} type="button">刷新当前价</button>
@@ -588,4 +825,30 @@ function getErrorMessage(error: unknown): string {
 
 function parseMoney(value: string): string {
   return value.replace(/[^\d.]/g, '') || '0';
+}
+
+function getBidIncrement(lot: Lot): string {
+  const matched = lot.auctionRule?.match(/加价幅度\s*([\d,]+(?:\.\d+)?)/);
+
+  return matched?.[1].replace(/,/g, '') ?? '1';
+}
+
+function calculateBidAmount(lot: Lot, incrementTimes: number): string {
+  const basePrice = Number.parseFloat(parseMoney(lot.currentPrice || lot.startPrice));
+  const bidIncrement = Number.parseFloat(getBidIncrement(lot));
+  const amount = basePrice + Math.max(1, incrementTimes) * bidIncrement;
+  const decimalPlaces = Math.max(
+    countDecimalPlaces(parseMoney(lot.currentPrice || lot.startPrice)),
+    countDecimalPlaces(getBidIncrement(lot)),
+  );
+
+  return amount.toFixed(decimalPlaces);
+}
+
+function countDecimalPlaces(value: string): number {
+  return value.includes('.') ? value.split('.')[1].length : 0;
+}
+
+function formatMoney(value: string): string {
+  return `${value} 元`;
 }

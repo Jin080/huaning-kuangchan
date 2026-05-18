@@ -223,67 +223,18 @@
 - 2026-05-18 11:37 已重跑 T30 全链路真实运行点击复验：seed 数据存在，`/api/lots?pageSize=100`、`/api/admin/lots?pageSize=100`、`/api/account/profile` 均返回 200；门户、后台、企业中心关键点击路径均触发真实 API 200，Playwright `console error` 为 0。
 - 本轮验收模式未把 mock/fallback 展示记为真实 API 通过；结论以 curl 与 Playwright network requests 为准。
 
-## 9. T14 收口记录
+## 16. T35 竞价详情页视觉复刻
 
-- T14 复测口径：前端关键写链路不再只是静态/mock；验收模式下 fallback 显性失败；`公示中` 到 `竞拍中` 通过管理员显式接口 `POST /api/admin/lots/{id}/advance-to-bidding` 完成。
-- 主流程 HTTP/DB 验收脚本：`Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`。
-- 脚本覆盖：后台创建拍品、提交复核、发布复核通过、企业入驻、企业审核、意向金上传与审核、推进竞拍、非法报价拒绝、有效报价、竞拍结束成交、发布成交公示、合同签约/完成、门户看板统计。
+- 已读取 Stitch MCP 项目 `16913530871577335378` 中真实 screen `c5c73f7f64b74dc08447639efabfdd8d`（标题：竞价详情页），并按其布局复刻竞价详情页。
+- `/auctions/live/detail` 无 `?id=` 时，前端先读取真实 `/api/lots?pageSize=100` 选择可用真实拍品，再加载详情和 `/api/lots/{id}/bid-records?pageSize=100`，避免用 mock lotId 触发真实 API 失败。
+- 出价操作区继续沿用 T34 口径：选择“出价加价次数”，前端计算 `当前最高价/起拍价 + 次数 × 加价幅度` 后提交现有 `{ amount }`。
+- Playwright 桌面截图：`docs/qa/t35-auction-detail-desktop.png`；移动端补充截图：`docs/qa/t35-auction-detail-mobile.png`。
+- Playwright 390px 宽度检查：`documentElement.scrollWidth=390`、`innerWidth=390`，未出现页面级横向溢出。
 
-## 10. T18 发布前补强记录
+## 17. T36 Stitch 全站复刻盘点
 
-- 敏感附件权限 HTTP/DB 验证：`Set-Location E:/kuangchan/backend; npm test -- sensitive-files-http-db`。
-- 竞拍结束 HTTP 触发验证：`Set-Location E:/kuangchan/backend; npm test -- auction-closing-http-db`。
-- `advance-to-bidding` 正式口径保持不变：`POST /api/admin/lots/{id}/advance-to-bidding` 是本阶段 `公示中` 到 `竞拍中` 的显式推进方式。
-- 发布验收模式保持不变：前端需设置 `VITE_ACCEPTANCE_MODE=true`，真实 API 失败不得回退 mock。
-
-## 8. T13 验收风险记录
-
-- T13 复测时间：2026-05-17 20:20。
-- 工程验证：后端 `npm run lint`、`npm run typecheck`、`npm test` 通过；前端 `npm run lint`、`npm run build` 通过。
-- `withFallback` 对门户、个人中心、后台列表等读接口可避免白屏，但也会掩盖关键验收失败：后端未启动、接口 404/500、开发请求头不匹配或响应结构不兼容时，页面仍可能展示 mock 数据。
-- T14 做发布收口前，不能仅凭页面可见内容判定真实 API 通过；需增加验收模式、网络失败显性提示、或用 HTTP/E2E 脚本直接断言真实响应。
-- 当前主流程前端阻塞项：后台新建/编辑拍品未接真实写接口，企业入驻提交未接真实写接口，意向金上传未接真实写接口，竞价详情确认出价未接真实写接口。
-- 当前联调口径阻塞项：后端报价要求拍品状态为 `BIDDING`，但本轮未发现 `ANNOUNCING` 自动或手动推进到 `BIDDING` 的明确接口/任务；T14 需要先确认是通过数据准备、定时任务还是新增接口处理。
-
-## 4. 前端状态枚举
-
-- 拍品状态：草稿、待发布复核、发布驳回、公示中、竞拍中、已结束、成交公示中、待签约、已签约、已完成、违约、已取消
-- 企业认证状态：未提交、待审核、审核通过、审核驳回
-- 意向金状态：未提交、待审核、审核通过、审核驳回
-- 合同状态：待签约、已签约、已完成、违约
-- 退款状态：未退款、审核中、已退款
-- 通知类型：成交通知、失败通知
-- 通知渠道：站内消息、短信
-
-## 5. 接口返回建议
-
-列表接口建议统一返回：
-
-```json
-{
-  "items": [],
-  "total": 0,
-  "page": 1,
-  "pageSize": 10
-}
-```
-
-操作接口建议统一返回：
-
-```json
-{
-  "success": true,
-  "message": "操作成功"
-}
-```
-
-错误提示需要覆盖：
-
-- 未登录
-- 企业未认证
-- 企业认证审核中
-- 意向金未审核通过
-- 被拉黑
-- 竞拍已结束
-- 报价不符合加价规则
-- 附件无查看权限
+- 已读取本地 Stitch 源目录 `stitch_document_to_webpage_generator/`，以 `_1` 至 `_36` 的 `code.html`、`pc/code.html`、`stitch_frontend_page_prompts.md` 和 `institutional_integrity/DESIGN.md` 为盘点依据。
+- 完整页面映射与后续分批计划见 `docs/qa/stitch-full-replication-plan.md`。
+- 当前 T35 仅覆盖 `/auctions/live/detail` 竞价详情页；其余门户、后台、企业中心页面仍需后续 T37/T38 分批复刻。
+- 当前 React 路由缺少 Stitch 提示词中的矿产资源列表/详情和后台登录页；是否新增 `/resources`、`/resources/detail`、`/admin/login` 需总控确认。
+- `stitch_document_to_webpage_generator/` 当前建议作为本地参考源，不整体纳入提交；如需入库，建议先去重并由总控确认提交范围。

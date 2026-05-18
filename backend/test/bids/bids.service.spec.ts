@@ -245,6 +245,21 @@ describe('BidsService', () => {
     );
   });
 
+  it('returns increment count from the selected bid-step amount difference', async () => {
+    const { service, lot } = createService({
+      lot: createLot({ currentHighestPrice: decimal('1300') }),
+      bids: [createBid({ amount: decimal('1300') })],
+    });
+
+    const result = await service.placeBid('user-1', 'lot-1', {
+      amount: '1600',
+    });
+
+    expect(lot?.currentHighestPrice?.toString()).toBe('1600');
+    expect(result.amount).toBe('1600');
+    expect(result.incrementCount).toBe(3);
+  });
+
   it('rejects bidding when enterprise certification is pending', async () => {
     const { service } = createService({
       enterprise: createEnterprise({
@@ -304,6 +319,17 @@ describe('BidsService', () => {
 
     await expect(
       service.placeBid('user-1', 'lot-1', { amount: '1350' }),
+    ).rejects.toMatchObject({ code: 'INVALID_BID_INCREMENT' });
+  });
+
+  it('rejects direct amount submissions that are not an integer multiple of bid increment', async () => {
+    const { service } = createService({
+      lot: createLot({ currentHighestPrice: decimal('1300') }),
+      bids: [createBid({ amount: decimal('1300') })],
+    });
+
+    await expect(
+      service.placeBid('user-1', 'lot-1', { amount: '1550' }),
     ).rejects.toMatchObject({ code: 'INVALID_BID_INCREMENT' });
   });
 

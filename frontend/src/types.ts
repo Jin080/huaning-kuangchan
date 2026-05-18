@@ -73,6 +73,7 @@ export type Enterprise = {
 
 export type DepositRecord = {
   id: string;
+  lotId: string;
   enterprise: string;
   lotTitle: string;
   amount: string;
@@ -85,6 +86,7 @@ export type DepositRecord = {
 
 export type BidRecord = {
   id: string;
+  lotId: string;
   lotTitle: string;
   enterprise: string;
   maskedEnterprise: string;
@@ -97,6 +99,7 @@ export type BidRecord = {
 
 export type ResultRecord = {
   id: string;
+  lotId: string;
   lotTitle: string;
   winner: string;
   finalPrice: string;
@@ -106,6 +109,7 @@ export type ResultRecord = {
 
 export type ContractRecord = {
   id: string;
+  lotId: string;
   lotTitle: string;
   enterprise: string;
   amount: string;
@@ -116,6 +120,7 @@ export type ContractRecord = {
 
 export type RefundRecord = {
   id: string;
+  lotId: string;
   lotTitle: string;
   enterprise: string;
   amount: string;
@@ -138,6 +143,7 @@ export type ContentRecord = {
 
 export type NotificationRecord = {
   id: string;
+  lotId: string | null;
   type: '成交通知' | '失败通知';
   channel: '站内消息' | '短信';
   enterprise: string;

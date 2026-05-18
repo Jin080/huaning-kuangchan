@@ -36,6 +36,7 @@ type DepositResponse = {
 type BidResponse = {
   id: string;
   currentHighestPrice: string;
+  incrementCount: number;
 };
 
 type ResultResponse = {
@@ -115,10 +116,13 @@ describe('T14 main flow HTTP/DB acceptance', () => {
     await post('/api/lots/' + lot.id + '/bids', enterpriseAHeaders, { amount: '100' }, 400);
     const bidA = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseAHeaders, { amount: '110' });
     expect(bidA.currentHighestPrice).toBe('110');
+    expect(bidA.incrementCount).toBe(1);
     const bidB = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseBHeaders, { amount: '130' });
     expect(bidB.currentHighestPrice).toBe('130');
+    expect(bidB.incrementCount).toBe(2);
     const finalBid = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseAHeaders, { amount: '150' });
     expect(finalBid.currentHighestPrice).toBe('150');
+    expect(finalBid.incrementCount).toBe(2);
 
     await prisma.lot.update({
       where: { id: lot.id },

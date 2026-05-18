@@ -2527,3 +2527,307 @@
   - T31、T32、T33 仍待排期。
 - 需要总控确认：
   - 无；本轮按用户要求继续提交并推送 T30D 与 T30 复验收口改动。
+
+## 2026-05-18 13:45 - T31 后台/企业端列表补原始 lotId
+
+- 任务名称：T31 后台/企业端列表补原始 lotId
+- 修改文件：
+  - `frontend/src/types.ts`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/data/mock.ts`
+  - `docs/api-contract.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 接口/字段变更：
+  - 后端服务未改动，现有账号/后台交易/通知/黑名单列表响应已包含原始 `lotId`。
+  - 前端行类型与真实 API 映射补充保留 `lotId`：企业端意向金、企业端出价、企业端消息、后台出价、成交结果、合同、退款、通知、黑名单。
+  - mock 列表数据同步补充 `lotId`，保持开发 fallback 行与真实接口字段一致。
+  - `docs/api-contract.md` 补充列表字段口径：相关后台/企业端列表返回行保留原始 `lotId`；无关联拍品的通知或黑名单可返回 `null`。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- lots`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `npm run typecheck` 通过。
+  - `npm test -- lots` 通过：2 个测试套件、6 个用例通过。
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 构建成功。
+- 未完成事项：无；前端标题兜底逻辑仍保留，仅作为后端无 `lotId` 时的兼容路径。
+- 需要总控确认：是否将 T31 标记为 DONE，并进入 T32/T33 排期。
+
+## 2026-05-18 13:58 - T31 总控复核与后续任务登记
+
+- 任务名称：T31 总控复核与后续任务登记
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 复核文件：
+  - `frontend/src/types.ts`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/data/mock.ts`
+  - `docs/api-contract.md`
+  - `docs/agent-handoff.md`
+- T31 复核结果：
+  - 当前 diff 显示 T31 改动集中在前端类型、真实 API mapper、mock fallback、接口契约和交接记录。
+  - 未发现 T31 修改后端业务服务或 Prisma schema。
+  - T31 已在 `docs/task-board.md` 从 TODO 更新为 DONE。
+- 总控复跑验证命令：
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- lots`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 总控复跑验证结果：
+  - 后端 `npm run typecheck` 通过。
+  - 后端 `npm test -- lots` 通过：2 个测试套件、6 个用例通过。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 308ms`。
+- 新增任务登记：
+  - T34：出价按加价次数计算。用户确认竞价操作应为“出价次数 × 加价幅度”，前端提供次数步进器并提交计算后的金额，后端继续校验金额合法性。
+  - T35：拍卖详情页按 Stitch 效果复刻。当前 MCP 资源与模板列表为空，未发现可用 Stitch MCP；若后续提供 Stitch MCP/链接需优先读取真实设计，否则以用户提供截图为基准复刻。
+- 未完成事项：
+  - T31 当前尚未提交/推送。
+  - T34/T35 尚未实施。
+- 需要总控确认：
+  - 是否先启动 T34，再启动 T35。
+  - 是否提交并推送 T31 与本次总控任务登记文档改动。
+
+## 2026-05-18 14:17 - T34 出价按加价次数计算
+
+- 任务名称：T34 出价按加价次数计算
+- 修改文件：
+  - `backend/test/bids/bids.service.spec.ts`
+  - `backend/test/e2e/main-flow-http-db.spec.ts`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `docs/api-contract.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 出价口径：
+  - 竞价详情页不再让用户手输报价金额，改为选择“出价加价次数”，默认 1 次，可通过步进器加减。
+  - 前端按 `当前最高价（无出价时为起拍价） + 出价加价次数 × 加价幅度` 计算预计报价，并将计算后的金额提交到现有出价接口。
+  - 后端生产代码未改；现有 `BidsService` 已按 `amount - (currentHighestPrice ?? startPrice)` 除以 `bidIncrement` 推导 `incrementCount`，并拒绝非正数或非整数倍差值。
+- 接口/字段变更：
+  - `POST /api/lots/{id}/bids` 请求字段不新增，仍提交 `{ amount }`。
+  - 响应继续返回 `incrementCount`，其值表示本次报价相对当前最高价/起拍价的加价次数。
+  - `docs/api-contract.md` 已补充上述出价口径说明。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- bids`
+  - `Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+- 验证结果：
+  - `npm run typecheck` 通过。
+  - `npm test -- bids` 通过：1 个测试套件、12 个用例通过；新增覆盖合法 3 次加价金额返回 `incrementCount=3`，以及直接提交非整数倍金额被拒绝。
+  - `npm test -- main-flow-http-db` 通过：1 个测试套件、1 个用例通过；主流程补充断言 110/130/150 报价分别返回对应加价次数。
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 189ms`。
+- 未完成事项：
+  - 未更新 `docs/task-board.md` 状态，因本次允许范围未包含任务板状态收口。
+  - 未处理工作区中 T31/其他会话既有未提交改动与未跟踪目录。
+- 需要总控确认：
+  - 是否将 T34 标记为 DONE。
+  - 是否由总控统一提交/推送 T31、T34 及其他既有工作区改动。
+
+## 2026-05-18 14:45 - T35 拍卖详情页按 Stitch 效果复刻
+
+- 任务名称：T35 拍卖详情页按 Stitch 效果复刻
+- 设计来源：Stitch MCP 项目 `16913530871577335378`，screen `c5c73f7f64b74dc08447639efabfdd8d`（标题：竞价详情页）；已保存参考产物 `docs/qa/t35-stitch-auction-detail-reference.png` 与 `docs/qa/t35-stitch-auction-detail-reference.html`。
+- 修改文件：
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t35-stitch-auction-detail-reference.png`
+  - `docs/qa/t35-stitch-auction-detail-reference.html`
+  - `docs/qa/t35-auction-detail-desktop.png`
+  - `docs/qa/t35-auction-detail-mobile.png`
+- 视觉复刻范围：
+  - 竞价详情页改为 Stitch 对齐的顶部步骤器、左侧拍品图片区、详情 tabs/附件下载区、右侧 sticky 竞价卡片、实时动态卡、底部全宽出价记录。
+  - 出价操作区保留 T34 “出价加价次数”交互，继续按当前价/起拍价 + 次数 × 加价幅度计算预计报价，并提交现有 `{ amount }`。
+  - `/auctions/live/detail` 无查询参数时先读取真实拍品列表选择真实 lotId，再加载详情和出价记录，避免 mock lotId 触发真实 API 失败。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `curl.exe -i http://127.0.0.1:3000/api/health`
+  - `curl.exe -i http://127.0.0.1:3000/api/lots/11111111-1111-1111-1111-111111111111/bid-records?pageSize=100`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 open http://127.0.0.1:5173/auctions/live/detail`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 resize 1440 1200`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 screenshot --filename E:/kuangchan/docs/qa/t35-auction-detail-desktop.png --full-page`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 requests`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 resize 390 900`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 eval "(() => ({ innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t35 screenshot --filename E:/kuangchan/docs/qa/t35-auction-detail-mobile.png --full-page`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 207ms`。
+  - `GET /api/health` 返回 200。
+  - `GET /api/lots/{id}/bid-records?pageSize=100` 返回 200。
+  - Playwright 桌面打开 `/auctions/live/detail` 后，网络请求 `/api/lots?pageSize=100` 与 `/api/lots/11111111-1111-1111-1111-111111111111/bid-records?pageSize=100` 均返回 200；`console error` 为 0。
+  - Playwright 390px 宽度检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+- 截图产物：
+  - `docs/qa/t35-auction-detail-desktop.png`
+  - `docs/qa/t35-auction-detail-mobile.png`
+  - `docs/qa/t35-stitch-auction-detail-reference.png`
+- 未完成事项：
+  - 未提交/推送本轮改动。
+  - 本轮不改后端、不改 Prisma schema、不改登录/JWT、不改 T31 lotId，不调整 T34 已确认出价口径。
+  - 竞价详情页当前真实 seed 拍品状态为 `公示中`，页面可验证真实 API 加载与视觉布局；真实提交出价仍受后端状态/资格校验约束。
+- 需要总控确认：
+  - 是否将 T35 标记为 DONE。
+  - 是否由总控统一提交/推送 T31、T34、T35 及当前工作区既有改动。
+
+## 2026-05-18 14:51 - T34/T35 总控复核与 Stitch 全站复刻登记
+
+- 任务名称：T34/T35 总控复核与 Stitch 全站复刻登记
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 复核范围：
+  - T34：`frontend/src/pages/PortalPages.tsx`、`backend/test/bids/bids.service.spec.ts`、`backend/test/e2e/main-flow-http-db.spec.ts`、`docs/api-contract.md`
+  - T35：`frontend/src/pages/PortalPages.tsx`、`frontend/src/index.css`、`docs/frontend-backend-integration-checklist.md`、`docs/qa/t35-*`
+  - Stitch 本地源码目录：`stitch_document_to_webpage_generator/`
+- 总控复跑验证命令：
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- bids`
+  - `Set-Location E:/kuangchan/backend; npm test -- main-flow-http-db`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 总控复跑验证结果：
+  - 后端 `npm run typecheck` 通过。
+  - 后端 `npm test -- bids` 通过：1 个测试套件、12 个用例通过。
+  - 后端 `npm test -- main-flow-http-db` 通过：1 个测试套件、1 个用例通过。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 412ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+- QA 产物复核：
+  - `docs/qa/t35-auction-detail-desktop.png` 存在，365500 bytes。
+  - `docs/qa/t35-auction-detail-mobile.png` 存在，195991 bytes。
+  - `docs/qa/t35-stitch-auction-detail-reference.html` 存在，30267 bytes。
+  - `docs/qa/t35-stitch-auction-detail-reference.png` 存在，40162 bytes。
+- 端口状态：
+  - 复核时检测到 3000 与 5173 仍有监听进程；本轮未擅自停止，需确认是否为用户/执行会话保留的服务。
+- 任务板更新：
+  - T34 已由 TODO 更新为 DONE。
+  - T35 已由 TODO 更新为 DONE。
+  - 新增 T36：全站 Stitch 页面效果复刻盘点与分批计划。
+  - 新增 T37：门户与详情页 Stitch 全面复刻。
+  - 新增 T38：后台与企业中心 Stitch 全面复刻。
+- 未完成事项：
+  - T31/T34/T35 当前尚未提交/推送。
+  - `stitch_document_to_webpage_generator/` 当前为未跟踪目录，是否纳入仓库待确认；T36 可读取该目录但不应默认整体提交。
+  - T32/T33 仍待排期。
+- 需要总控确认：
+  - 是否提交并推送 T31/T34/T35 与本次总控复核文档、QA 产物。
+  - 是否启动 T36，并以 `stitch_document_to_webpage_generator/` 为真实 Stitch 页面源做全站复刻盘点。
+
+## 2026-05-18 15:01 - T36 全站 Stitch 页面效果复刻盘点与分批计划
+
+- 任务名称：T36 全站 Stitch 页面效果复刻盘点与分批计划
+- 读取的 Stitch 来源：
+  - `E:/kuangchan/stitch_document_to_webpage_generator/stitch_frontend_page_prompts.md`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/institutional_integrity/DESIGN.md`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_1` 至 `_36` 的 `code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/pc/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/huaning_mineral_auction_platform_1` 至 `_4` 的 `code.html`（与 `pc/_22/_23` 首页版本 hash 相同，判定为重复参考源）
+- 产出文件：
+  - `docs/qa/stitch-full-replication-plan.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 页面映射摘要：
+  - 已完成 Stitch 页面 -> 当前路由/文件 -> 差异 -> 优先级映射，详见 `docs/qa/stitch-full-replication-plan.md`。
+  - T35 已覆盖：`_30/code.html` 对应 `/auctions/live/detail` 竞价详情页。
+  - 仍需复刻：门户首页、公告列表/详情、竞价列表、成交列表/详情、资讯列表/详情、公开说明、登录、企业入驻、后台看板/拍品/审核/交易/内容/文件/日志、企业中心全页。
+  - 当前 React 缺口：矿产资源列表/详情和后台登录页尚无路由；后台竞价记录页有 React 页面但本地 Stitch 目录未发现已生成 HTML，仅有提示词。
+  - 多数 Stitch `screen.png` 仅 28 bytes，不建议作为验收截图；后续 T37/T38 应用 Playwright 重新生成 React 页面截图。
+- 推荐任务拆分：
+  - T37A：门户通用组件与首页。
+  - T37B：门户列表与普通详情。
+  - T37C：门户登录、企业入驻、资源页决策。
+  - T38A：后台通用组件与核心拍品/审核页面。
+  - T38B：后台交易、企业管理、内容运营、系统审计页面。
+  - T38C：企业中心页面。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Get-ChildItem -Recurse E:/kuangchan/stitch_document_to_webpage_generator | Select-Object -First 50`
+  - 读取并摘录关键 Stitch 页面文件路径：`rg --files E:/kuangchan/stitch_document_to_webpage_generator`；按 `<title>/<h1>/<h2>` 摘录 `_1` 至 `_36`、`pc`、重复首页目录。
+  - `Set-Location E:/kuangchan; git diff -- docs/qa/stitch-full-replication-plan.md docs/frontend-backend-integration-checklist.md docs/agent-handoff.md`
+  - `Set-Location E:/kuangchan; git diff --check -- docs/qa/stitch-full-replication-plan.md docs/frontend-backend-integration-checklist.md docs/agent-handoff.md`
+- 验证结果：
+  - `git status --short --branch` 可用；本轮新增 `docs/qa/stitch-full-replication-plan.md`，修改 `docs/frontend-backend-integration-checklist.md`，并仅追加 `docs/agent-handoff.md`。工作区仍有 T31/T34/T35 既有未提交业务代码和 QA 产物，本轮未修改。
+  - `Get-ChildItem -Recurse ... | Select-Object -First 50` 显示 Stitch 目录含 `_1` 至 `_36`、`pc`、`huaning_mineral_auction_platform_1-4`、`institutional_integrity`、`stitch_frontend_page_prompts.md`。
+  - 关键路径摘录：`_18` 即将拍卖公告、`_27` 公告详情、`_34` 正在竞价列表、`_30` 竞价详情、`_26` 成交公示、`_31` 成交详情、`_9/_4/_16/_6/_5` 后台拍品与审核、`_8/_32/_2/_19/_12/_24` 企业中心、`_1/_10/_11/_15/_25/_28/_33/_36` 后台运营/交易/审计。
+  - 文档 diff 检查通过；未修改业务代码、后端、Prisma schema 或前端页面代码。
+- 未完成事项：
+  - 未实施 T37/T38。
+  - 未提交/推送。
+  - 未处理 T31/T34/T35 既有未提交改动。
+- 需要总控确认：
+  - 是否新增并复刻 `/resources`、`/resources/detail`。
+  - 是否新增 `/admin/login`，或等待 T33 生产认证统一处理。
+  - 是否允许将去重后的 Stitch 源 HTML 或设计规范纳入仓库；当前建议不要整体提交 `stitch_document_to_webpage_generator/`。
+  - 是否按 T37A/T37B/T37C/T38A/T38B/T38C 子批次启动后续复刻。
+
+## 2026-05-18 15:08 - T36 总控复核与本地 Stitch 目录策略确认
+
+- 任务名称：T36 总控复核与本地 Stitch 目录策略确认
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 复核文件：
+  - `docs/qa/stitch-full-replication-plan.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`
+  - `docs/task-board.md`
+- 用户确认：
+  - `stitch_document_to_webpage_generator/` 只作为本地参考目录使用，不纳入仓库提交。
+  - 不停止当前服务，用户需要继续查看前端效果。
+- 总控复核结果：
+  - `docs/qa/stitch-full-replication-plan.md` 存在，包含 Stitch 来源、当前 React 路由范围、T35 覆盖情况、页面映射表、通用组件与样式盘点、T37/T38 子任务拆分和全局验证门槛。
+  - `docs/frontend-backend-integration-checklist.md` 已追加 T36 摘要，并明确 `stitch_document_to_webpage_generator/` 建议作为本地参考源不整体纳入提交。
+  - `docs/agent-handoff.md` 已追加 T36 交接记录。
+  - `docs/task-board.md` 已将 T36 从 TODO 更新为 DONE，T37 状态保持 TODO，T38 状态保持 TODO。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Get-Content -Raw E:/kuangchan/docs/qa/stitch-full-replication-plan.md`
+  - `Select-String -Path E:/kuangchan/docs/frontend-backend-integration-checklist.md -Pattern 'T36|Stitch|全站复刻'`
+  - `Select-String -Path E:/kuangchan/docs/task-board.md -Pattern '\| T36 \||\| T37 \||\| T38 \|'`
+- 验证结果：
+  - `git status --short --branch` 可用；当前工作区仍含 T31/T34/T35/T36 相关未提交改动、T35/T36 QA 产物，以及未跟踪 `stitch_document_to_webpage_generator/` 本地参考目录。
+  - 已读取 T36 计划文档，内容覆盖完整页面映射与分批计划。
+  - 已确认任务板 T36 为 DONE，T37/T38 待启动/待排期。
+- 未完成事项：
+  - T31/T34/T35/T36 尚未提交/推送。
+  - T37/T38 尚未实施。
+  - T32/T33 仍待排期。
+- 需要总控确认：
+  - 是否提交并推送 T31/T34/T35/T36 相关改动，但排除 `stitch_document_to_webpage_generator/`。
+  - 是否启动 T37A 门户通用组件与首页复刻。
+
+## 2026-05-18 15:20 - 总控上下文移交与提交准备
+
+- 任务名称：总控上下文移交与提交准备
+- 用户确认：
+  - `stitch_document_to_webpage_generator/` 只作为本地参考目录使用，不纳入仓库提交。
+  - 不停止当前 3000/5173 服务，用户需要继续查看前端效果。
+  - T37A 已由用户启动；本轮提交不纳入 T37A 后续改动。
+- 本轮准备提交范围：
+  - T31：前端列表保留原始 `lotId`。
+  - T34：竞价详情按“出价加价次数”计算报价，后端测试锁定合法/非法金额口径。
+  - T35：竞价详情页按 Stitch 参考源复刻，含桌面/移动截图与参考 HTML/PNG。
+  - T36：全站 Stitch 页面效果复刻盘点与分批计划。
+- 明确排除：
+  - `stitch_document_to_webpage_generator/` 本地参考目录。
+  - T37A 后续新增改动。
+- 新会话总控职责摘要：
+  - 继续作为华宁矿产竞拍平台“总控调度 Agent”，只做调度、读取文档、检查交付、维护任务总表、发现冲突、拆分并行任务、组织联调验收。
+  - 不直接大范围写业务代码；只有明确要求总控文档更新时，小范围修改 `docs/task-board.md`、`docs/module-ownership.md`、`docs/integration-checklist.md`、`docs/api-contract.md`、`docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`docs/qa/**`。
+  - 总控验收必须读取实际文件和交接记录，不能只相信口头总结；没有实际命令输出不能说“通过”。
+  - 固定事实保持：后端 NestJS + TypeScript + Prisma + PostgreSQL；前端 React + TypeScript + Vite；开发认证头为 `x-user-id`/`x-user-role`；`backend/prisma/schema.prisma` 由数据模型会话独占；`docs/api-contract.md` 是唯一接口契约文件；`renzheng/*.png` 删除不得恢复。
+- 当前后续主线：
+  - T37A：门户通用组件与首页 Stitch 复刻，已启动，需新会话继续按 T36 计划验收。
+  - T37B/T37C/T38A/T38B/T38C：等待后续分批。
+  - T32：后台拍品录入本地图片/附件上传体验，上线必做。
+  - T33：登录/JWT 与角色权限生产化，上线必做。
+- 需要总控确认：
+  - 本轮提交并推送完成后，新会话从 `origin/main` 最新提交继续。

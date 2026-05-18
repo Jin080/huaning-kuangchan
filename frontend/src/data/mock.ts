@@ -125,6 +125,7 @@ export const enterprises: Enterprise[] = [
 export const deposits: DepositRecord[] = [
   {
     id: 'D001',
+    lotId: lots[0].id,
     enterprise: '中核华原钛白股份有限公司',
     lotTitle: lots[0].title,
     amount: '560,000 元',
@@ -135,6 +136,7 @@ export const deposits: DepositRecord[] = [
   },
   {
     id: 'D002',
+    lotId: lots[2].id,
     enterprise: '紫金矿业集团股份有限公司',
     lotTitle: lots[2].title,
     amount: '480,000 元',
@@ -145,6 +147,7 @@ export const deposits: DepositRecord[] = [
   },
   {
     id: 'D003',
+    lotId: lots[1].id,
     enterprise: '山东黄金矿业股份有限公司',
     lotTitle: lots[1].title,
     amount: '320,000 元',
@@ -159,6 +162,7 @@ export const deposits: DepositRecord[] = [
 export const bids: BidRecord[] = [
   {
     id: 'B001',
+    lotId: lots[0].id,
     lotTitle: lots[0].title,
     enterprise: '紫金矿业集团股份有限公司',
     maskedEnterprise: '紫金矿业***有限公司',
@@ -170,6 +174,7 @@ export const bids: BidRecord[] = [
   },
   {
     id: 'B002',
+    lotId: lots[0].id,
     lotTitle: lots[0].title,
     enterprise: '中核华原钛白股份有限公司',
     maskedEnterprise: '中核华原***有限公司',
@@ -181,6 +186,7 @@ export const bids: BidRecord[] = [
   },
   {
     id: 'B003',
+    lotId: lots[2].id,
     lotTitle: lots[2].title,
     enterprise: '山东黄金矿业股份有限公司',
     maskedEnterprise: '山东黄金***有限公司',
@@ -195,6 +201,7 @@ export const bids: BidRecord[] = [
 export const results: ResultRecord[] = [
   {
     id: 'R001',
+    lotId: lots[1].id,
     lotTitle: '云南玉溪华宁县建筑石灰岩矿采剥废石',
     winner: '云南建投矿业有限公司',
     finalPrice: '3,286.00 万元',
@@ -203,6 +210,7 @@ export const results: ResultRecord[] = [
   },
   {
     id: 'R002',
+    lotId: lots[2].id,
     lotTitle: '甘肃白银煤矸石综合利用资源包',
     winner: '甘肃恒源新材料有限公司',
     finalPrice: '1,126.40 万元',
@@ -214,6 +222,7 @@ export const results: ResultRecord[] = [
 export const contracts: ContractRecord[] = [
   {
     id: 'C001',
+    lotId: results[0].lotId,
     lotTitle: results[0].lotTitle,
     enterprise: results[0].winner,
     amount: results[0].finalPrice,
@@ -223,6 +232,7 @@ export const contracts: ContractRecord[] = [
   },
   {
     id: 'C002',
+    lotId: results[1].lotId,
     lotTitle: results[1].lotTitle,
     enterprise: results[1].winner,
     amount: results[1].finalPrice,
@@ -235,6 +245,7 @@ export const contracts: ContractRecord[] = [
 export const refunds: RefundRecord[] = [
   {
     id: 'F001',
+    lotId: results[0].lotId,
     lotTitle: results[0].lotTitle,
     enterprise: '紫金矿业集团股份有限公司',
     amount: '260,000 元',
@@ -244,6 +255,7 @@ export const refunds: RefundRecord[] = [
   },
   {
     id: 'F002',
+    lotId: results[0].lotId,
     lotTitle: results[0].lotTitle,
     enterprise: '山东黄金矿业股份有限公司',
     amount: '260,000 元',
@@ -286,6 +298,7 @@ export const contents: ContentRecord[] = [
 export const notifications: NotificationRecord[] = [
   {
     id: 'M001',
+    lotId: lots[0].id,
     type: '成交通知',
     channel: '短信',
     enterprise: '中核华原钛白股份有限公司',
@@ -297,6 +310,7 @@ export const notifications: NotificationRecord[] = [
   },
   {
     id: 'M002',
+    lotId: lots[2].id,
     type: '失败通知',
     channel: '站内消息',
     enterprise: '紫金矿业集团股份有限公司',
@@ -311,6 +325,7 @@ export const notifications: NotificationRecord[] = [
 export const blacklist = [
   {
     id: 'BL001',
+    lotId: lots[0].id,
     enterprise: '某某矿产品贸易有限公司',
     contact: '王某',
     phone: '137****1190',
