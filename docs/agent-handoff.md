@@ -3165,3 +3165,140 @@
   - T33 登录/JWT 与角色权限生产化待排期。
 - 需要总控确认：
   - 是否启动 T38，或优先启动上线必做的 T32/T33。
+
+## 2026-05-18 16:57 - T38A 后台管理 Stitch 页面复刻
+
+- 任务名称：T38A 后台管理 Stitch 页面复刻
+- 负责模块：前端视觉 / 后台管理
+- Stitch 来源：
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_17/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_9/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_4/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_16/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_6/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_5/code.html`
+  - `docs/qa/stitch-full-replication-plan.md` 中 T38A 映射
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/components/DataTable.tsx`
+  - `frontend/src/components/FilterBar.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t38-artifacts/t38a-admin-dashboard-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lots-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lot-edit-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lot-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-enterprise-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-deposit-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lots-mobile.png`
+- 新增文件：
+  - `docs/qa/t38-artifacts/t38a-admin-dashboard-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lots-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lot-edit-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lot-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-enterprise-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-deposit-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lots-mobile.png`
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 保留的真实 API 行为：
+  - `/admin/lots` 继续优先调用 `api.fetchAdminLots()`，状态操作继续使用 `submitLotReview`、`advanceLotToBidding`、`closeLot`。
+  - `/admin/lots/edit` 继续使用 `createLot`、`updateLot`、`submitLotReview`；上传卡仅为 Stitch 视觉占位，未实现 T32 本地上传。
+  - `/admin/reviews/lots` 继续优先调用 `fetchAdminLotReviews()`，审核通过/驳回继续调用既有真实接口。
+  - `/admin/reviews/enterprises` 继续优先调用 `fetchAdminEnterpriseReviews()`，审核通过/驳回继续调用既有真实接口。
+  - `/admin/reviews/deposits` 继续优先调用 `fetchAdminDepositReviews()`，审核通过/驳回继续调用既有真实接口。
+  - 后台真实接口不可用时仍沿用既有 mock fallback 和页面 notice；状态操作失败仍保留当前页面状态并提示。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t38a open http://127.0.0.1:5173/admin/dashboard`
+  - Playwright 打开并截图 `/admin/dashboard`、`/admin/lots`、`/admin/lots/edit`、`/admin/reviews/lots`、`/admin/reviews/enterprises`、`/admin/reviews/deposits`
+  - Playwright 390px 宽度检查上述 6 条后台路径的 `scrollWidth <= innerWidth`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 224ms`。
+  - Playwright 6 条 T38A 后台路径逐页 `console error` 为 0。
+  - 首次 390px 复核发现移动端后台侧栏横向导航把页面级 `scrollWidth` 撑到 928；已限制后台移动端容器宽度与侧栏内部横向滚动。
+  - 修复后 390px 复核覆盖 6 条后台路径，均返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+- 截图产物：
+  - `docs/qa/t38-artifacts/t38a-admin-dashboard-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lots-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lot-edit-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lot-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-enterprise-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-deposit-review-desktop.png`
+  - `docs/qa/t38-artifacts/t38a-admin-lots-mobile.png`
+- 未完成事项：
+  - 未提交/推送本轮改动。
+  - 未实施 T38B 后台交易、企业管理、内容运营、系统审计页面复刻。
+  - 未实施 T38C 企业中心复刻。
+  - 未实施 T32 本地图片/附件上传体验；未实施 T33 登录/JWT。
+  - 未修改后端、Prisma schema、登录/JWT、T34 出价口径。
+  - 未提交 `stitch_document_to_webpage_generator/`、`.playwright-cli/` 或 `frontend/.playwright-cli/`。
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否将 T38A 标记为 DONE。
+  - 是否继续启动 T38B 后台其余管理页面复刻，或优先回到 T32/T33 上线必做能力。
+
+## 2026-05-18 17:06 - 总控复核 T38A 后台管理 Stitch 页面复刻
+
+- 任务名称：总控复核 T38A 后台管理 Stitch 页面复刻，并更新任务板
+- 负责模块：总控调度
+- 读取文件与记录：
+  - `docs/agent-handoff.md`
+  - `docs/task-board.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/stitch-full-replication-plan.md`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/components/DataTable.tsx`
+  - `frontend/src/components/FilterBar.tsx`
+  - `frontend/src/index.css`
+  - `docs/qa/t38-artifacts/t38a-*.png`
+- 总控确认的实际改动：
+  - `frontend/src/pages/AdminPages.tsx`：后台首页、拍品列表、新建/编辑拍品、标的发布复核、企业认证审核、意向金审核改为更接近 Stitch 的后台工作台、表格、详情抽屉与审核页面视觉；上传卡仅为视觉占位，未实现 T32 本地上传能力。
+  - `frontend/src/components/Layouts.tsx`：后台侧栏导航补图标化视觉，顶部改为面包屑与标题组合。
+  - `frontend/src/components/DataTable.tsx`、`frontend/src/components/FilterBar.tsx`：补管理端分页条数选择与筛选标题。
+  - `frontend/src/index.css`：补后台深色侧栏、待办卡片、高密度表格、筛选区、右侧详情抽屉与移动端响应式样式。
+  - `docs/frontend-backend-integration-checklist.md`：新增 T38A 接入记录。
+  - `docs/task-board.md`：T38 更新为 IN_PROGRESS，新增 T38A 并标记 DONE。
+- 排除确认：
+  - 未修改后端、Prisma schema、登录/JWT、T34 出价口径。
+  - 未提交 `stitch_document_to_webpage_generator/`，该目录继续作为本地参考目录。
+  - 未提交 `.playwright-cli/` 或 `frontend/.playwright-cli/`。
+- 总控复跑验证命令：
+  - `git status --short --branch`
+  - `git diff --stat`
+  - `git diff --name-only`
+  - `Get-ChildItem -LiteralPath E:/kuangchan/docs/qa/t38-artifacts | Select-Object Name,Length,LastWriteTime | Sort-Object Name`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/admin/dashboard`
+  - Playwright 逐页打开 `/admin/dashboard`、`/admin/lots`、`/admin/lots/edit`、`/admin/reviews/lots`、`/admin/reviews/enterprises`、`/admin/reviews/deposits`，并执行 `console error` 与 390px 宽度检查。
+- 总控复跑验证结果：
+  - `git status --short --branch` 显示当前 `main...origin/main`，T38A 与总控文档文件未提交；未跟踪项含 `docs/qa/t38-artifacts/` 与 `stitch_document_to_webpage_generator/`。
+  - `git diff --stat` 显示 7 个已跟踪文件变更，含 `docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、4 个前端组件/页面文件与 `frontend/src/index.css`。
+  - T38A 截图存在且非空：`t38a-admin-dashboard-desktop.png` 109887 bytes、`t38a-admin-deposit-review-desktop.png` 93208 bytes、`t38a-admin-enterprise-review-desktop.png` 99651 bytes、`t38a-admin-lot-edit-desktop.png` 121476 bytes、`t38a-admin-lot-review-desktop.png` 92699 bytes、`t38a-admin-lots-desktop.png` 100934 bytes、`t38a-admin-lots-mobile.png` 85525 bytes。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 211ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/admin/dashboard` 返回 HTTP 200，确认当前 5173 服务可访问；未停止服务。
+  - Playwright 6 条 T38A 后台路径逐页 `console error` 为 0。
+  - Playwright 390px 宽度检查覆盖 6 条后台路径，均返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+- 结论：
+  - T38A 总控复核通过。
+  - T38 父任务保持 IN_PROGRESS，等待 T38B/T38C 后续分批。
+- 未完成事项：
+  - T38B 后台交易、企业管理、内容运营、系统审计页面复刻待排期。
+  - T38C 企业中心复刻待排期。
+  - T32 真实上传接口与拍品表单上传体验待排期；用户已确认需要真实上传接口，不接受仅本地选择占位作为最终实现。
+  - T33 登录/JWT 与角色权限生产化待排期。
+- 需要总控确认：
+  - 是否提交并推送 T38A 与本次总控复核记录。
+  - T32 是否拆为 `T32A 后端真实上传接口` 与 `T32B 前端拍品表单上传接入` 顺序执行。

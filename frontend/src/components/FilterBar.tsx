@@ -3,6 +3,10 @@ import { ButtonRow } from './Button';
 export function FilterBar({ fields }: { fields: string[] }) {
   return (
     <section className="filter-panel">
+      <div className="filter-title">
+        <strong>筛选条件</strong>
+        <span>按业务字段快速定位记录</span>
+      </div>
       <div className="filter-grid">
         {fields.map((field, index) => (
           <label className="field" key={field}>

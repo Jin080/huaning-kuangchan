@@ -94,30 +94,104 @@ const rowActions = (onAction?: RowActionHandler, labels: string[] = [], getTarge
   ),
 });
 
+function renderLotCell(row: Record<string, unknown>) {
+  const title = getStringValue(row, 'title') || getStringValue(row, 'lotTitle') || '-';
+  const id = getStringValue(row, 'id') || getStringValue(row, 'lotId') || '暂无编号';
+
+  return (
+    <div className="admin-object-cell">
+      <span aria-hidden="true">矿</span>
+      <div>
+        <strong>{title}</strong>
+        <small>No. {id}</small>
+      </div>
+    </div>
+  );
+}
+
+function renderLotTitleCell(row: Record<string, unknown>) {
+  const title = getStringValue(row, 'lotTitle') || getStringValue(row, 'title') || '-';
+  const id = getStringValue(row, 'lotId') || getStringValue(row, 'id') || '';
+
+  return (
+    <div className="admin-title-cell">
+      <strong>{title}</strong>
+      {id ? <small>No. {id}</small> : null}
+    </div>
+  );
+}
+
+function renderEnterpriseCell(row: Record<string, unknown>) {
+  const name = getStringValue(row, 'name') || '-';
+  const code = getStringValue(row, 'creditCode') || '统一社会信用代码待返回';
+
+  return (
+    <div className="admin-title-cell">
+      <strong>{name}</strong>
+      <small>{code}</small>
+    </div>
+  );
+}
+
+function renderEnterpriseNameCell(row: Record<string, unknown>) {
+  const name = getStringValue(row, 'enterprise') || getStringValue(row, 'name') || '-';
+
+  return (
+    <div className="admin-title-cell">
+      <strong>{name}</strong>
+      <small>意向金提交企业</small>
+    </div>
+  );
+}
+
 export function AdminDashboard() {
+  const todoItems = [
+    { label: '待发布复核', helper: '矿权上架前终审', value: '8', tone: 'orange', to: '/admin/reviews/lots' },
+    { label: '待企业认证审核', helper: '新增竞买人资质', value: '12', tone: 'blue', to: '/admin/reviews/enterprises' },
+    { label: '待意向金审核', helper: '线下汇款确认', value: '21', tone: 'red', to: '/admin/reviews/deposits' },
+  ];
+  const logRows = api.getLogs().slice(0, 4);
+
   return (
     <AdminLayout active="首页看板">
       <PageHead title="后台首页/数据看板" subtitle="查看成交统计、审核待办与最近操作。" />
+      <section className="admin-todo-grid" aria-label="待办事项">
+        {todoItems.map((item) => (
+          <button className={`admin-todo-card ${item.tone}`} key={item.label} onClick={() => navigateTo(item.to)} type="button">
+            <span aria-hidden="true">{item.tone === 'orange' ? '!' : item.tone === 'red' ? '￥' : '企'}</span>
+            <strong>{item.label}</strong>
+            <small>{item.helper}</small>
+            <b>{item.value}</b>
+          </button>
+        ))}
+      </section>
+      <SectionHeader title="交易数据看板" />
       <StatCards stats={api.getStats()} />
-      <section className="two-column">
-        <div>
-          <SectionHeader title="待办事项" />
-          <div className="todo-grid">
-            {['待发布复核 8', '待企业认证 12', '待意向金审核 21', '待合同登记 5'].map((item) => <button key={item} type="button">{item}</button>)}
-          </div>
-        </div>
-        <div>
-          <SectionHeader title="最近操作日志" />
+      <section className="admin-dashboard-grid">
+        <div className="admin-panel admin-panel-wide">
+          <SectionHeader action="查看全部" actionTo="/admin/results" title="最近成交结果公示" />
           <DataTable
             columns={[
-              { key: 'operator', label: '操作人' },
-              { key: 'action', label: '动作' },
-              { key: 'objectName', label: '对象' },
-              { key: 'operatedAt', label: '时间' },
+              { key: 'lotTitle', label: '矿权名称', width: '38%' },
+              { key: 'finalPrice', label: '成交价' },
+              { key: 'winner', label: '竞得人' },
+              { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
             ]}
-            rows={api.getLogs() as unknown as Record<string, unknown>[]}
+            rows={api.getResults().slice(0, 5) as unknown as Record<string, unknown>[]}
           />
         </div>
+        <aside className="admin-panel admin-log-panel">
+          <SectionHeader action="完整审计" actionTo="/admin/logs" title="系统操作日志" />
+          <div className="admin-log-list">
+            {logRows.map((log) => (
+              <article key={log.id}>
+                <span aria-hidden="true" />
+                <small>{log.operatedAt} · {log.operator}</small>
+                <p>{log.action}：{log.objectName}</p>
+              </article>
+            ))}
+          </div>
+        </aside>
       </section>
     </AdminLayout>
   );
@@ -138,7 +212,7 @@ export function LotManagementPage() {
     fallbackRows: api.getLots() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLots() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'title', label: '拍品标题', width: '25%' },
+      { key: 'title', label: '拍品信息', width: '28%', render: renderLotCell },
       { key: 'startPrice', label: '起拍价' },
       { key: 'quantity', label: '数量' },
       { key: 'supplier', label: '供应商' },
@@ -195,6 +269,21 @@ export function LotEditPage() {
         {formGroups.map(([title, fields]) => (
           <fieldset key={title}>
             <legend>{title}</legend>
+            {title === '商品与附件' ? (
+              <div className="admin-upload-grid" aria-label="附件上传视觉占位">
+                {[
+                  ['拍品图一', '当前保留 URL 填写，T32 再接入本地上传'],
+                  ['拍品图二', '支持拍品多角度图片 URL'],
+                  ['检测报告', '支持 PDF 或检测报告 URL'],
+                ].map(([name, helper]) => (
+                  <div className="admin-upload-card" key={name}>
+                    <span aria-hidden="true">{name === '检测报告' ? '文' : '+'}</span>
+                    <strong>{name}</strong>
+                    <small>{helper}</small>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="form-grid">
               {fields.map(([name, label, value]) => (
                 <label className="field" key={name}>
@@ -246,7 +335,7 @@ export function LotReviewPage() {
     fallbackRows: api.getLots().filter((x) => ['待发布复核', '公示中', '发布驳回'].includes(x.status)) as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLotReviews() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'title', label: '拍品标题', width: '26%' },
+      { key: 'title', label: '拍品信息', width: '28%', render: renderLotCell },
       { key: 'supplier', label: '提交人' },
       { key: 'startPrice', label: '起拍价' },
       { key: 'deposit', label: '保证金金额' },
@@ -273,7 +362,7 @@ export function EnterpriseReviewPage() {
     fallbackRows: api.getEnterprises() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminEnterpriseReviews() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'name', label: '企业名', width: '25%' },
+      { key: 'name', label: '企业资料', width: '26%', render: renderEnterpriseCell },
       { key: 'contact', label: '联系人' },
       { key: 'phone', label: '联系电话' },
       { key: 'category', label: '用户类别' },
@@ -301,8 +390,8 @@ export function DepositReviewPage() {
     fallbackRows: api.getDeposits() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminDepositReviews() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'enterprise', label: '企业名称', width: '24%' },
-      { key: 'lotTitle', label: '拍品名称', width: '28%' },
+      { key: 'enterprise', label: '企业名称', width: '22%', render: renderEnterpriseNameCell },
+      { key: 'lotTitle', label: '拍品名称', width: '28%', render: renderLotTitleCell },
       { key: 'amount', label: '应缴保证金金额' },
       { key: 'voucher', label: '凭证' },
       { key: 'status', label: '审核状态', render: (row) => <StatusTag value={String(row.status)} /> },
@@ -683,17 +772,27 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
       <PageHead title={config.title} subtitle="真实接口优先加载；接口不可用时保留 mock 数据，状态操作失败不改变当前页面。" actions={config.topActions} />
       <p className="admin-api-notice">{notice}</p>
       {extraContent}
-      <FilterBar fields={config.filters} />
-      <DataTable columns={config.columns} rows={rows} />
-      <aside className="drawer-preview">
-        <h3>{config.drawerTitle}</h3>
-        {config.drawerSections.map((section) => (
-          <div className="drawer-section" key={section}>
-            <strong>{section}</strong>
-            <p>展示 {section} 信息，后续由后端接口返回。</p>
+      <section className="admin-workspace">
+        <div className="admin-workspace-main">
+          <FilterBar fields={config.filters} />
+          <DataTable columns={config.columns} rows={rows} />
+        </div>
+        <aside className="drawer-preview">
+          <div className="drawer-preview-head">
+            <span aria-hidden="true">详</span>
+            <div>
+              <h3>{config.drawerTitle}</h3>
+              <p>右侧详情抽屉视觉位，行操作与真实接口保持原逻辑。</p>
+            </div>
           </div>
-        ))}
-      </aside>
+          {config.drawerSections.map((section, index) => (
+            <div className="drawer-section" key={section}>
+              <strong>{index + 1}. {section}</strong>
+              <p>展示 {section} 信息，后续由后端接口返回。</p>
+            </div>
+          ))}
+        </aside>
+      </section>
     </AdminLayout>
   );
 }

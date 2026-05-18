@@ -36,6 +36,11 @@ export function DataTable<T extends object>({
       <div className="table-footer">
         <span>共 {rows.length || 0} 条记录</span>
         <div className="pagination">
+          <select aria-label="每页条数" defaultValue="10">
+            <option value="10">10 条/页</option>
+            <option value="20">20 条/页</option>
+            <option value="50">50 条/页</option>
+          </select>
           <button type="button">‹</button>
           <button className="active" type="button">
             1

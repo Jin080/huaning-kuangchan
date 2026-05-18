@@ -265,3 +265,12 @@
 - 本轮未修改后端、Prisma schema、登录/JWT、T34 出价口径，未提交 `stitch_document_to_webpage_generator/`、`.playwright-cli/` 或 `frontend/.playwright-cli/`。
 - Playwright 390px 宽度检查覆盖 `/login` 与 `/enterprise/register`，结果均为 `scrollWidth=390`、`innerWidth=390`、`overflow=false`；两页 `console error` 为 0。
 - Playwright 截图保存到 `docs/qa/t37-artifacts/`，文件名前缀为 `t37c-`。
+
+## 21. T38A 后台通用组件与核心拍品/审核页面 Stitch 复刻
+
+- 已基于 `stitch_document_to_webpage_generator/_17/code.html`、`_9/code.html`、`_4/code.html`、`_16/code.html`、`_6/code.html`、`_5/code.html` 复刻后台首页、拍品列表、新建/编辑拍品、标的发布复核、企业认证审核、意向金凭证审核的主要视觉。
+- 后台框架改为 Stitch 风格深色侧栏、顶部面包屑、待办卡片、数据看板、筛选卡片、高密度表格和右侧详情抽屉视觉位；后台表格分页和筛选区域补齐更接近 Stitch 的管理端密度。
+- 真实 API 行为保持不变：后台列表继续优先调用 `fetchAdminLots()`、`fetchAdminLotReviews()`、`fetchAdminEnterpriseReviews()`、`fetchAdminDepositReviews()`；状态操作继续调用既有审核/流转接口，失败时保留当前页面状态并提示；开发失败仍按既有 mock fallback 策略处理。
+- 本轮未修改后端、Prisma schema、登录/JWT、T34 出价口径，也未引入本地上传业务能力；新建/编辑拍品页的上传卡仅为视觉占位，真实本地上传仍留给 T32。
+- Playwright 覆盖 `/admin/dashboard`、`/admin/lots`、`/admin/lots/edit`、`/admin/reviews/lots`、`/admin/reviews/enterprises`、`/admin/reviews/deposits`：逐页 `console error` 为 0；390px 检查均为 `scrollWidth=390`、`innerWidth=390`、`overflow=false`。
+- Playwright 截图保存到 `docs/qa/t38-artifacts/`，文件名前缀为 `t38a-`。

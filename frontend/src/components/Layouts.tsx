@@ -5,6 +5,15 @@ import { navigateTo } from '../navigation';
 const portalNav = ['首页', '矿产资源', '即将拍卖', '正在竞价', '成交公示', '信息资讯', '公开说明'];
 const adminNav = ['首页看板', '拍品管理', '审核管理', '交易管理', '企业管理', '内容运营', '系统审计'];
 const accountNav = ['中心首页', '我的企业认证', '我的意向金', '我的出价记录', '我的通知'];
+const adminIconByNav: Record<string, string> = {
+  首页看板: '▦',
+  拍品管理: '◆',
+  审核管理: '✓',
+  交易管理: '￥',
+  企业管理: '企',
+  内容运营: '文',
+  系统审计: '盾',
+};
 
 const portalPathByNav: Record<string, string> = {
   首页: '/',
@@ -89,7 +98,7 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
         <nav>
           {adminNav.map((item) => (
             <button className={item === active ? 'active' : ''} key={item} onClick={() => navigateTo(adminPathByNav[item])} type="button">
-              <span className="nav-dot" />
+              <span className="nav-dot">{adminIconByNav[item]}</span>
               {item}
             </button>
           ))}
@@ -104,7 +113,10 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
       </aside>
       <div className="admin-main">
         <header className="admin-topbar">
-          <span>{active} {subActive ? `› ${subActive}` : ''}</span>
+          <div>
+            <span className="admin-breadcrumb">首页 › {active}{subActive ? ` › ${subActive}` : ''}</span>
+            <strong>{subActive ?? active}</strong>
+          </div>
           <div>
             <button type="button">通知</button>
             <button type="button">退出</button>
