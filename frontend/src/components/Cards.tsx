@@ -1,4 +1,5 @@
 import type { Lot, Stat } from '../types';
+import { navigateTo } from '../navigation';
 import { ButtonRow } from './Button';
 import { StatusTag } from './StatusTag';
 
@@ -16,7 +17,9 @@ export function StatCards({ stats }: { stats: Stat[] }) {
   );
 }
 
-export function LotCard({ lot, action = '查看详情' }: { lot: Lot; action?: string }) {
+export function LotCard({ lot, action = '查看详情', actionTo }: { lot: Lot; action?: string; actionTo?: string }) {
+  const target = actionTo ?? (action.includes('竞价') ? `/auctions/live/detail?id=${lot.id}` : `/announcements/upcoming/detail?id=${lot.id}`);
+
   return (
     <article className="lot-card">
       <div className="lot-thumb">
@@ -53,20 +56,20 @@ export function LotCard({ lot, action = '查看详情' }: { lot: Lot; action?: s
             <dd>{lot.origin}</dd>
           </div>
         </dl>
-        <ButtonRow actions={[{ label: action, tone: action.includes('竞价') ? 'primary' : 'secondary' }]} />
+        <ButtonRow actions={[{ label: action, tone: action.includes('竞价') ? 'primary' : 'secondary', to: target }]} />
       </div>
     </article>
   );
 }
 
-export function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: string }) {
+export function SectionHeader({ title, subtitle, action, actionTo }: { title: string; subtitle?: string; action?: string; actionTo?: string }) {
   return (
     <div className="section-header">
       <div>
         <h2>{title}</h2>
         {subtitle ? <p>{subtitle}</p> : null}
       </div>
-      {action ? <button className="text-link" type="button">{action}</button> : null}
+      {action ? <button className="text-link" onClick={actionTo ? () => navigateTo(actionTo) : undefined} type="button">{action}</button> : null}
     </div>
   );
 }

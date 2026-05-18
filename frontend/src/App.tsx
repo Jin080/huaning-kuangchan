@@ -1,3 +1,6 @@
+import { Fragment, useEffect, useState } from 'react';
+
+import { getCurrentLocation, NAVIGATION_EVENT } from './navigation';
 import {
   AccountHome,
   MyBidsPage,
@@ -73,9 +76,23 @@ const routes: Record<string, () => React.ReactNode> = {
 };
 
 function App() {
+  const [location, setLocation] = useState(getCurrentLocation());
+
+  useEffect(() => {
+    const syncLocation = () => setLocation(getCurrentLocation());
+
+    window.addEventListener(NAVIGATION_EVENT, syncLocation);
+    window.addEventListener('popstate', syncLocation);
+
+    return () => {
+      window.removeEventListener(NAVIGATION_EVENT, syncLocation);
+      window.removeEventListener('popstate', syncLocation);
+    };
+  }, []);
+
   const path = window.location.pathname;
   const render = routes[path] ?? routes['/'];
-  return render();
+  return <Fragment key={location}>{render()}</Fragment>;
 }
 
 export default App;

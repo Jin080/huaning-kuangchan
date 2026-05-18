@@ -2062,3 +2062,77 @@
 - 未完成事项：
   - 远程推送待网络恢复后重试：`git push origin main`。
   - T29 前端导航联通实现待执行会话启动。
+
+## 2026-05-18 09:53 - T29 前端页面导航联通与按钮跳转收口
+
+- 任务名称：T29 前端页面导航联通与按钮跳转收口
+- 修改文件：
+  - `frontend/src/App.tsx`
+  - `frontend/src/types.ts`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/components/Button.tsx`
+  - `frontend/src/components/Cards.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `frontend/src/navigation.ts`
+- 导航变更：
+  - 新增轻量导航方法：`navigateTo()` 使用 `history.pushState` 写入路径并派发自定义导航事件；`App.tsx` 监听自定义事件与 `popstate`，支持页面内点击和浏览器返回/前进后重新渲染。
+  - 门户顶栏已接通：首页、矿产资源、即将拍卖、正在竞价、成交公示、信息资讯、公开说明、登录、企业入驻；矿产资源暂映射到即将拍卖列表。
+  - 后台侧栏已接通：首页看板、拍品管理、审核管理、交易管理、企业管理、内容运营、系统审计；分组入口映射到已有默认页面。
+  - 企业中心菜单已接通：中心首页、我的企业认证、我的意向金、我的出价记录、我的通知。
+  - 关键按钮已接通：查看更多、查看公告、进入竞价、查看详情、返回列表、返回首页、新建拍品、取消等；详情跳转尽量携带 `?id=`。
+  - 限制：部分后台/企业端记录真实接口映射后只保留拍品标题、不保留原始拍品 ID；前端会先按标题匹配本地拍品列表，仍匹配不到时跳对应详情默认页。
+- 接口变更：无；未修改真实 API 口径。
+- 数据模型变更：无；未修改 Prisma schema。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; rg "rowActions\([^\[]|查看公告</button>|进入竞价</button>|查看更多|返回列表|返回首页|新建拍品|取消</button>" frontend/src`
+- 验证结果：
+  - `npm run lint` 通过：`eslint .` exit 0。
+  - `npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `✓ built in 294ms`。
+  - `rg` 检查未发现旧版 `rowActions` 调用签名；输出的关键按钮均已接入导航或保留原有业务动作。
+- 未完成事项：
+  - 未执行浏览器人工或 Playwright 点击验证。
+  - 登录按钮仅跳转现有企业中心页面，不实现真实登录/JWT。
+  - “搜索”、分页、筛选查询/重置、文件预览/下载、日志详情等非本轮明确关键跳转仍保持展示或占位行为。
+- 需要总控确认：
+  - 是否补充启动前端后的人工或 Playwright 点击验收。
+  - 是否将后台/企业端列表映射补充原始 `lotId` 作为后续 API/类型增强任务。
+
+## 2026-05-18 10:25 - T29 总控复核与点击验收
+
+- 任务名称：T29 总控复核与点击验收
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 推送复核：
+  - `git push origin main` 已重试成功。
+  - 远程 `origin/main` 已从 `018f499` 更新到 `85d2260`，包含 T20-T29 分发前的发布与总控归档提交。
+- T29 交付复核：
+  - 已核对实际 diff，T29 修改集中在前端导航相关文件、`docs/frontend-backend-integration-checklist.md` 和 `docs/agent-handoff.md`，并新增 `frontend/src/navigation.ts`。
+  - 未发现后端业务代码、Prisma schema、登录/JWT 或 `renzheng/*.png` 改动。
+  - Playwright 运行产生的临时目录 `frontend/.playwright-cli` 已清理，未纳入提交范围。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git push origin main`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan/frontend; npx --yes --package @playwright/cli playwright-cli open http://127.0.0.1:5173`
+  - `Set-Location E:/kuangchan/frontend; npx --yes --package @playwright/cli playwright-cli eval "<点击验收脚本>"`
+- 验证结果：
+  - `git push origin main` 成功：`018f499..85d2260  main -> main`。
+  - `npm run lint` 通过：`eslint .` exit 0。
+  - `npm run build` 通过：`tsc -b && vite build` exit 0，Vite 输出 `built in 209ms`。
+  - `git diff --check` 通过，无 whitespace error；仍有既有 LF/CRLF warning。
+  - Playwright 点击验收通过 15 项：门户顶栏正在竞价/成交公示/企业入驻、入驻返回登录、登录返回首页、首页查看即将拍卖、即将拍卖查看公告、公告详情返回列表、后台拍品管理/新建拍品/取消/系统审计、企业中心我的意向金/我的通知、浏览器返回。
+  - Playwright 控制台错误为前端 dev server 下 `/api/...` 404 和登录页密码框 form 提示；未启动后端代理导致，不影响本轮导航跳转验收。
+- 未完成事项：
+  - T29 前端导航改动当前尚未提交。
+  - 后台/企业端列表缺少原始 `lotId` 的增强仍建议后续另起任务。
+- 需要总控确认：
+  - 是否提交并推送 T29 前端导航联通改动。

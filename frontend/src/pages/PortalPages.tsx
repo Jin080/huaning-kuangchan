@@ -6,6 +6,7 @@ import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { PortalLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
+import { navigateTo } from '../navigation';
 import { api, type DepositVoucherPayload, type EnterpriseRegisterPayload } from '../services/api';
 import type { BidRecord, ContentRecord, Lot, ResultRecord, Stat, TableColumn } from '../types';
 
@@ -18,7 +19,7 @@ const lotColumns: TableColumn<Lot>[] = [
   { key: 'auctionTime', label: '竞拍时间' },
   { key: 'deposit', label: '保证金金额' },
   { key: 'status', label: '状态', render: (row) => <StatusTag value={row.status} /> },
-  { key: 'actions', label: '操作', render: () => <button className="link-btn" type="button">查看公告</button> },
+  { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(`/announcements/upcoming/detail?id=${row.id}`)} type="button">查看公告</button> },
 ];
 
 const resultColumns: TableColumn<ResultRecord>[] = [
@@ -26,7 +27,7 @@ const resultColumns: TableColumn<ResultRecord>[] = [
   { key: 'winner', label: '中标企业名称' },
   { key: 'finalPrice', label: '最终成交价' },
   { key: 'publicTime', label: '公示时间' },
-  { key: 'actions', label: '操作', render: () => <button className="link-btn" type="button">查看详情</button> },
+  { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(`/results/detail?id=${row.id}`)} type="button">查看详情</button> },
 ];
 
 export function PortalHome() {
@@ -57,24 +58,24 @@ export function PortalHome() {
         <div className="hero-notice">
           <strong>交易提醒</strong>
           <p>企业参与竞价前需完成认证，并通过对应拍品意向金凭证审核。</p>
-          <ButtonRow actions={[{ label: '查看即将拍卖', tone: 'primary' }, { label: '企业入驻', tone: 'secondary' }]} />
+          <ButtonRow actions={[{ label: '查看即将拍卖', tone: 'primary', to: '/announcements/upcoming' }, { label: '企业入驻', tone: 'secondary', to: '/enterprise/register' }]} />
         </div>
       </section>
       <StatCards stats={stats} />
       <section className="two-column">
         <div>
-          <SectionHeader title="即将拍卖公告" action="查看更多" />
+          <SectionHeader title="即将拍卖公告" action="查看更多" actionTo="/announcements/upcoming" />
           <DataTable columns={lotColumns.slice(0, 6)} rows={upcomingLots} />
         </div>
         <div>
-          <SectionHeader title="正在竞价" action="查看更多" />
+          <SectionHeader title="正在竞价" action="查看更多" actionTo="/auctions/live" />
           <div className="stack-list">
             {liveLots.map((lot) => <LotCard action="进入竞价" key={lot.id} lot={lot} />)}
           </div>
         </div>
       </section>
       <section>
-        <SectionHeader title="成交公示" action="查看更多" />
+        <SectionHeader title="成交公示" action="查看更多" actionTo="/results" />
         <DataTable columns={resultColumns} rows={results} />
       </section>
     </PortalLayout>
@@ -245,7 +246,7 @@ export function ResultDetail() {
           <div><dt>最终成交价</dt><dd className="price">{result.finalPrice}</dd></div>
           <div><dt>公示时间</dt><dd>{result.publicTime}</dd></div>
         </dl>
-        <ButtonRow actions={[{ label: '返回列表' }, { label: '查看拍品信息', tone: 'primary' }]} />
+        <ButtonRow actions={[{ label: '返回列表', to: '/results' }, { label: '查看拍品信息', tone: 'primary', to: '/announcements/upcoming/detail' }]} />
       </section>
     </PortalLayout>
   );
@@ -271,7 +272,7 @@ export function NewsList() {
               { key: 'category', label: '分类' },
               { key: 'summary', label: '摘要' },
               { key: 'publishedAt', label: '发布时间' },
-              { key: 'actions', label: '操作', render: () => <button className="link-btn" type="button">查看详情</button> },
+              { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(`/news/detail?id=${String(row.id)}`)} type="button">查看详情</button> },
             ]}
             rows={contents as unknown as Record<string, unknown>[]}
           />
@@ -298,7 +299,7 @@ export function NewsDetail() {
         <p className="muted">发布时间：{article.publishedAt}</p>
         <p>为进一步规范矿产资源交易信息公开，平台对拍品公告、公示、竞价、成交结果等关键环节进行统一展示和状态留痕。</p>
         <p>企业用户应根据公告要求完成认证、意向金缴纳和凭证上传，平台审核通过后方可参与对应拍品竞价。</p>
-        <ButtonRow actions={[{ label: '返回列表' }]} />
+        <ButtonRow actions={[{ label: '返回列表', to: '/news' }]} />
       </article>
     </PortalLayout>
   );
@@ -343,7 +344,7 @@ export function LoginPage() {
         <label className="field"><span>用户名</span><input placeholder="请输入用户名" /></label>
         <label className="field"><span>密码</span><input placeholder="请输入密码" type="password" /></label>
         <label className="field"><span>图形验证码</span><input placeholder="请输入验证码" /></label>
-        <ButtonRow actions={[{ label: '登录', tone: 'primary' }, { label: '企业入驻' }, { label: '返回首页', tone: 'ghost' }]} />
+        <ButtonRow actions={[{ label: '登录', tone: 'primary', to: '/account' }, { label: '企业入驻', to: '/enterprise/register' }, { label: '返回首页', tone: 'ghost', to: '/' }]} />
         <p className="form-tip">账号已被限制时提示：账号已被限制，请联系平台客服。</p>
       </section>
     </div>
@@ -445,7 +446,7 @@ function DetailHero({
         ) : (
           <div className="button-row">
             <button className="btn primary" onClick={onDepositSubmit} type="button">上传意向金付款凭证</button>
-            <button className="btn secondary" type="button">返回列表</button>
+            <button className="btn secondary" onClick={() => navigateTo('/announcements/upcoming')} type="button">返回列表</button>
           </div>
         )}
       </aside>
@@ -497,7 +498,7 @@ function LongForm({
         <div className="button-row">
           <button className="btn secondary" type="button">保存</button>
           <button className="btn primary" onClick={onSubmit} type="button">提交审核</button>
-          <button className="btn secondary" type="button">返回登录</button>
+          <button className="btn secondary" onClick={() => navigateTo('/login')} type="button">返回登录</button>
         </div>
       </div>
     </form>

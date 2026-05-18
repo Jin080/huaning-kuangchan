@@ -6,6 +6,7 @@ import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { AdminLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
+import { navigateTo } from '../navigation';
 import { api, type BlacklistMutationPayload, type ContentMutationPayload, type LotMutationPayload } from '../services/api';
 import type { Action, TableColumn } from '../types';
 
@@ -23,6 +24,7 @@ type AdminListConfig = {
 };
 
 type RowActionHandler = (label: string, row: Record<string, unknown>) => Promise<void>;
+type RowNavigationHandler = (label: string, row: Record<string, unknown>) => string | undefined;
 
 const REVIEW_REJECT_REASON = '后台页面快速驳回，请补充或修正资料。';
 const BLACKLIST_RELEASE_REASON = '后台页面手动解除黑名单。';
@@ -64,13 +66,27 @@ const CONTENT_CATEGORY_OPTIONS = [
 ];
 const CONTENT_CATEGORY_BY_LABEL = Object.fromEntries(CONTENT_CATEGORY_OPTIONS.map(([code, label]) => [label, code]));
 
-const rowActions = (onAction?: RowActionHandler, ...labels: string[]): TableColumn<Record<string, unknown>> => ({
+const rowActions = (onAction?: RowActionHandler, labels: string[] = [], getTarget?: RowNavigationHandler): TableColumn<Record<string, unknown>> => ({
   key: 'actions',
   label: '操作',
   render: (row) => (
     <div className="inline-actions">
       {labels.map((label) => (
-        <button className={label.includes('驳回') || label.includes('违约') || label.includes('拉黑') ? 'danger-link' : 'link-btn'} key={label} onClick={() => void onAction?.(label, row)} type="button">
+        <button
+          className={label.includes('驳回') || label.includes('违约') || label.includes('拉黑') ? 'danger-link' : 'link-btn'}
+          key={label}
+          onClick={() => {
+            const target = getTarget?.(label, row);
+
+            if (target) {
+              navigateTo(target);
+              return;
+            }
+
+            void onAction?.(label, row);
+          }}
+          type="button"
+        >
           {label}
         </button>
       ))}
@@ -129,9 +145,9 @@ export function LotManagementPage() {
       { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'auctionTime', label: '竞拍期' },
       { key: 'updatedAt', label: '更新时间' },
-      rowActions(handleAction, '查看', '编辑', '提交复核', '进入竞拍', '关闭/取消'),
+      rowActions(handleAction, ['查看', '编辑', '提交复核', '进入竞拍', '关闭/取消'], getLotManagementTarget),
     ],
-    topActions: [{ label: '新建拍品', tone: 'primary' }],
+    topActions: [{ label: '新建拍品', tone: 'primary', to: '/admin/lots/edit' }],
     drawerTitle: '拍品详情',
     drawerSections: ['基础信息', '竞价规则', '保证金规则', '时间规则', '附件与检测报告'],
   }} />;
@@ -208,7 +224,7 @@ export function LotEditPage() {
           <div className="button-row">
             <button className="btn secondary" onClick={() => void submitLot(false)} type="button">保存草稿</button>
             <button className="btn primary" onClick={() => void submitLot(true)} type="button">提交复核</button>
-            <button className="btn secondary" type="button">取消</button>
+            <button className="btn secondary" onClick={() => navigateTo('/admin/lots')} type="button">取消</button>
           </div>
         </div>
       </form>
@@ -236,7 +252,7 @@ export function LotReviewPage() {
       { key: 'deposit', label: '保证金金额' },
       { key: 'auctionTime', label: '竞拍时间' },
       { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
-      rowActions(handleAction, '查看', '审核通过', '审核驳回'),
+      rowActions(handleAction, ['查看', '审核通过', '审核驳回'], getLotReviewTarget),
     ],
     drawerTitle: '标的复核详情',
     drawerSections: ['商品基础信息', '竞价规则', '保证金规则', '客户须知', '附件与检测报告', '驳回原因'],
@@ -264,7 +280,7 @@ export function EnterpriseReviewPage() {
       { key: 'type', label: '用户类型' },
       { key: 'status', label: '审核状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'submittedAt', label: '提交时间' },
-      rowActions(handleAction, '查看', '审核通过', '审核驳回'),
+      rowActions(handleAction, ['查看', '审核通过', '审核驳回']),
     ],
     drawerTitle: '企业资料详情',
     drawerSections: ['企业基础信息', '法人及联系人', '经营信息', '付款银行账户', '收款银行账户', '企业资质与营业执照', '重新提交记录'],
@@ -291,7 +307,7 @@ export function DepositReviewPage() {
       { key: 'voucher', label: '凭证' },
       { key: 'status', label: '审核状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'submittedAt', label: '提交时间' },
-      rowActions(handleAction, '查看凭证', '审核通过', '审核驳回'),
+      rowActions(handleAction, ['查看凭证', '审核通过', '审核驳回'], getDepositReviewTarget),
     ],
     drawerTitle: '凭证审核详情',
     drawerSections: ['企业信息', '拍品信息', '应缴保证金金额', '付款凭证预览', '审核记录', '驳回原因'],
@@ -314,7 +330,7 @@ export function BidManagementPage() {
       { key: 'amount', label: '出价金额' },
       { key: 'incrementTimes', label: '加价次数' },
       { key: 'bidTime', label: '出价时间' },
-      rowActions(undefined, '查看拍品', '查看企业'),
+      rowActions(undefined, ['查看拍品', '查看企业'], getBidTarget),
     ],
     drawerTitle: '出价详情',
     drawerSections: ['拍品信息', '企业信息', '出价金额', '服务器接收时间'],
@@ -339,7 +355,7 @@ export function ResultManagementPage() {
       { key: 'finalPrice', label: '最终成交价' },
       { key: 'publicTime', label: '生成时间' },
       { key: 'status', label: '公示状态', render: (row) => <StatusTag value={String(row.status)} /> },
-      rowActions(handleAction, '查看', '发布公示'),
+      rowActions(handleAction, ['查看', '发布公示'], getResultTarget),
     ],
     drawerTitle: '成交详情',
     drawerSections: ['拍品摘要', '中标企业', '最终成交价', '竞拍结束时间', '公示状态'],
@@ -367,7 +383,7 @@ export function ContractManagementPage() {
       { key: 'status', label: '合同状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'updatedAt', label: '更新时间' },
       { key: 'operator', label: '操作人' },
-      rowActions(handleAction, '标记已签约', '标记已完成', '标记违约'),
+      rowActions(handleAction, ['标记已签约', '标记已完成', '标记违约']),
     ],
     drawerTitle: '合同状态详情',
     drawerSections: ['成交信息', '合同状态流转', '备注', '违约原因'],
@@ -394,7 +410,7 @@ export function RefundManagementPage() {
       { key: 'status', label: '退款状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'updatedAt', label: '更新时间' },
       { key: 'operator', label: '操作人' },
-      rowActions(handleAction, '标记审核中', '标记已退款'),
+      rowActions(handleAction, ['标记审核中', '标记已退款']),
     ],
     drawerTitle: '退款状态详情',
     drawerSections: ['企业信息', '拍品信息', '保证金金额', '状态备注'],
@@ -423,7 +439,7 @@ export function BlacklistManagementPage() {
           { key: 'reason', label: '拉黑原因', width: '25%' },
           { key: 'operator', label: '操作人' },
           { key: 'operatedAt', label: '操作时间' },
-          rowActions(handleAction, '查看', '解除拉黑'),
+          rowActions(handleAction, ['查看', '解除拉黑']),
         ],
         drawerTitle: '黑名单企业详情',
         drawerSections: ['企业信息', '违约记录', '拉黑原因', '解除原因'],
@@ -519,7 +535,7 @@ export function ContentManagementPage() {
           { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
           { key: 'publishedAt', label: '发布时间' },
           { key: 'updatedBy', label: '更新人' },
-          rowActions(handleContentAction, '编辑', '发布', '下架'),
+          rowActions(handleContentAction, ['编辑', '发布', '下架']),
         ]}
         rows={rows}
       />
@@ -573,7 +589,7 @@ export function NotificationManagementPage() {
       { key: 'lotTitle', label: '拍品名称', width: '24%' },
       { key: 'status', label: '发送状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'sentAt', label: '发送时间' },
-      rowActions(undefined, '查看内容'),
+      rowActions(undefined, ['查看内容']),
     ],
     drawerTitle: '通知内容详情',
     drawerSections: ['通知类型', '通知渠道', '接收企业', '通知内容', '发送状态'],
@@ -595,7 +611,7 @@ export function FileManagementPage() {
       { key: 'uploader', label: '上传人' },
       { key: 'uploadedAt', label: '上传时间' },
       { key: 'ref', label: '关联对象', width: '24%' },
-      rowActions(undefined, '预览', '下载', '查看引用'),
+      rowActions(undefined, ['预览', '下载', '查看引用']),
     ],
     drawerTitle: '文件预览',
     drawerSections: ['文件预览', '关联业务', '权限控制提示'],
@@ -617,7 +633,7 @@ export function OperationLogPage() {
       { key: 'objectName', label: '对象名称', width: '30%' },
       { key: 'result', label: '操作结果' },
       { key: 'operatedAt', label: '操作时间' },
-      rowActions(undefined, '查看详情'),
+      rowActions(undefined, ['查看详情']),
     ],
     drawerTitle: '日志详情',
     drawerSections: ['操作人', '操作时间', '操作动作', '对象信息', '操作结果', '备注'],
@@ -762,6 +778,82 @@ function useAdminRowAction(
       window.alert(`${label}调用后台接口失败，页面数据已保持不变。`);
     }
   }, [handlers]);
+}
+
+function getLotManagementTarget(label: string, row: Record<string, unknown>) {
+  const id = getRowId(row);
+
+  if (label === '查看') {
+    return id ? `/announcements/upcoming/detail?id=${id}` : '/announcements/upcoming/detail';
+  }
+
+  if (label === '编辑') {
+    return id ? `/admin/lots/edit?id=${id}` : '/admin/lots/edit';
+  }
+
+  return undefined;
+}
+
+function getLotReviewTarget(label: string, row: Record<string, unknown>) {
+  const id = getRowId(row);
+
+  if (label === '查看') {
+    return id ? `/announcements/upcoming/detail?id=${id}` : '/announcements/upcoming/detail';
+  }
+
+  return undefined;
+}
+
+function getDepositReviewTarget(label: string, row: Record<string, unknown>) {
+  if (label !== '查看凭证') {
+    return undefined;
+  }
+
+  return getLotDetailTarget(row, false);
+}
+
+function getBidTarget(label: string, row: Record<string, unknown>) {
+  if (label === '查看拍品') {
+    return getLotDetailTarget(row, false);
+  }
+
+  if (label === '查看企业') {
+    return '/admin/reviews/enterprises';
+  }
+
+  return undefined;
+}
+
+function getResultTarget(label: string, row: Record<string, unknown>) {
+  const id = getRowId(row);
+
+  if (label === '查看') {
+    return id ? `/results/detail?id=${id}` : '/results/detail';
+  }
+
+  return undefined;
+}
+
+function getLotDetailTarget(row: Record<string, unknown>, allowRowId = true) {
+  const lotId = getStringValue(row, 'lotId') || getLotIdByTitle(row) || (allowRowId ? getStringValue(row, 'id') : '');
+
+  return lotId ? `/announcements/upcoming/detail?id=${lotId}` : '/announcements/upcoming/detail';
+}
+
+function getLotIdByTitle(row: Record<string, unknown>) {
+  const lotTitle = getStringValue(row, 'lotTitle');
+
+  return api.getLots().find((lot) => lot.title === lotTitle)?.id ?? '';
+}
+
+function getRowId(row: Record<string, unknown>) {
+  return getStringValue(row, 'id');
+}
+
+function getStringValue(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+
+  return value === undefined || value === null ? '' : String(value);
 }
 
 function buildLotPayload(formData: FormData): LotMutationPayload {

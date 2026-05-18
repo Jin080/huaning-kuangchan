@@ -18,6 +18,8 @@ export type Action = {
   label: string;
   tone?: 'primary' | 'secondary' | 'danger' | 'ghost';
   disabled?: boolean;
+  to?: string;
+  onClick?: () => void;
 };
 
 export type LotStatus =

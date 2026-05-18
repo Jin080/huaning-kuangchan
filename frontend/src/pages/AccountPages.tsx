@@ -6,6 +6,7 @@ import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { AccountLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
+import { navigateTo } from '../navigation';
 import { api } from '../services/api';
 import type { AccountProfile, BidRecord, DepositRecord, NotificationRecord } from '../types';
 
@@ -88,7 +89,7 @@ export function MyCertificationPage() {
       <section className="status-panel">
         <StatusTag value={profile.certificationStatus} />
         <p>企业名称：{profile.enterpriseName}。认证资料详情接口暂未纳入本阶段，当前先展示账号绑定企业状态。</p>
-        <ButtonRow actions={[{ label: '编辑资料' }, { label: '重新提交', tone: 'primary' }, { label: '返回中心' }]} />
+        <ButtonRow actions={[{ label: '编辑资料', to: '/enterprise/register' }, { label: '重新提交', tone: 'primary', to: '/enterprise/register' }, { label: '返回中心', to: '/account' }]} />
       </section>
       <ReadOnlyGroups groups={[
         ['账号信息', ['用户名', '头像']],
@@ -119,7 +120,17 @@ export function MyDepositsPage() {
         { key: 'submittedAt', label: '提交时间' },
         { key: 'reviewedAt', label: '审核时间' },
         { key: 'rejectReason', label: '驳回原因' },
-        { key: 'actions', label: '操作', render: () => <div className="inline-actions"><button className="link-btn" type="button">查看凭证</button><button className="link-btn" type="button">重新上传</button><button className="link-btn" type="button">查看公告</button></div> },
+        {
+          key: 'actions',
+          label: '操作',
+          render: (row) => (
+            <div className="inline-actions">
+              <button className="link-btn" onClick={() => navigateTo('/account/deposits')} type="button">查看凭证</button>
+              <button className="link-btn" onClick={() => navigateTo('/announcements/upcoming')} type="button">重新上传</button>
+              <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row))} type="button">查看公告</button>
+            </div>
+          ),
+        },
       ]} rows={deposits as unknown as Record<string, unknown>[]} />
     </AccountLayout>
   );
@@ -143,7 +154,7 @@ export function MyBidsPage() {
         { key: 'bidTime', label: '出价时间' },
         { key: 'isHighest', label: '是否当前最高价', render: (row) => <StatusTag value={row.isHighest ? '是' : '否'} tone={row.isHighest ? 'green' : 'gray'} /> },
         { key: 'auctionStatus', label: '竞价状态' },
-        { key: 'actions', label: '操作', render: () => <button className="link-btn" type="button">查看竞价详情</button> },
+        { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row, '/auctions/live/detail'))} type="button">查看竞价详情</button> },
       ]} rows={bids as unknown as Record<string, unknown>[]} />
     </AccountLayout>
   );
@@ -177,7 +188,7 @@ export function MyMessagesPage() {
           label: '操作',
           render: (row) => (
             <div className="inline-actions">
-              <button className="link-btn" type="button">查看详情</button>
+              <button className="link-btn" onClick={() => navigateTo('/account/messages')} type="button">查看详情</button>
               <button className="link-btn" onClick={() => markRead(String(row.id))} type="button">标记已读</button>
             </div>
           ),
@@ -209,4 +220,16 @@ function ReadOnlyGroups({ groups }: { groups: Array<[string, string[]]> }) {
       ))}
     </div>
   );
+}
+
+function getLotFallbackTarget(row: Record<string, unknown>, path = '/announcements/upcoming/detail') {
+  const lotId = String(row.lotId ?? '') || getLotIdByTitle(row);
+
+  return lotId ? `${path}?id=${lotId}` : path;
+}
+
+function getLotIdByTitle(row: Record<string, unknown>) {
+  const lotTitle = String(row.lotTitle ?? '');
+
+  return api.getLots().find((lot) => lot.title === lotTitle)?.id ?? '';
 }
