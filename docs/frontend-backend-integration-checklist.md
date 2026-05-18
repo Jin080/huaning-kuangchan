@@ -238,3 +238,12 @@
 - 当前 T35 仅覆盖 `/auctions/live/detail` 竞价详情页；其余门户、后台、企业中心页面仍需后续 T37/T38 分批复刻。
 - 当前 React 路由缺少 Stitch 提示词中的矿产资源列表/详情和后台登录页；是否新增 `/resources`、`/resources/detail`、`/admin/login` 需总控确认。
 - `stitch_document_to_webpage_generator/` 当前建议作为本地参考源，不整体纳入提交；如需入库，建议先去重并由总控确认提交范围。
+
+## 18. T37A 门户通用组件与首页 Stitch 复刻
+
+- 已基于 `stitch_document_to_webpage_generator/_22/code.html`、`pc/code.html` 与 `institutional_integrity/DESIGN.md` 复刻门户公共头部、首页和页脚。
+- 首页改为 Stitch 主版结构：顶部政务导航、四个数据看板卡片、左侧正在竞价卡片与矿产资源表、右侧即将拍卖公告/成交公示/信息资讯列表、深蓝页脚。
+- 真实 API 接入保持不变：`fetchStats()`、`fetchLots()`、`fetchResults()`、`fetchContents()` 继续优先读取真实接口，失败策略仍由既有 `withFallback` 控制。
+- 门户导航行为保持不变；本轮未新增 `/resources` 路由，顶部“矿产资源”和首页资源区“查看全部”仍按 T29/T36 口径跳转到 `/announcements/upcoming`。
+- Playwright 截图：`docs/qa/t37-artifacts/t37a-portal-home-desktop.png`、`docs/qa/t37-artifacts/t37a-portal-home-mobile.png`。
+- Playwright 390px 宽度检查：`documentElement.scrollWidth=390`、`innerWidth=390`，未出现页面级横向溢出；`console error` 为 0。

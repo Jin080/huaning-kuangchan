@@ -38,27 +38,39 @@ export function PortalLayout({ active, children }: { active: string; children: R
   return (
     <div className="app-shell portal-shell">
       <header className="portal-header">
-        <div className="brand-mark">
-          <span>矿</span>
-          <div>
-            <strong>华宁矿产竞拍平台</strong>
-            <small>公开 公平 公正</small>
+        <div className="portal-header-inner">
+          <div className="portal-brand" onClick={() => navigateTo('/')} role="button" tabIndex={0}>
+            华宁矿产竞拍平台
           </div>
-        </div>
-        <nav>
-          {portalNav.map((item) => (
-            <button className={item === active ? 'active' : ''} key={item} onClick={() => navigateTo(portalPathByNav[item])} type="button">
-              {item}
-            </button>
-          ))}
-        </nav>
-        <div className="header-actions">
-          <button type="button">搜索</button>
-          <button onClick={() => navigateTo('/login')} type="button">登录</button>
-          <button className="solid" onClick={() => navigateTo('/enterprise/register')} type="button">企业入驻</button>
+          <nav>
+            {portalNav.map((item) => (
+              <button className={item === active ? 'active' : ''} key={item} onClick={() => navigateTo(portalPathByNav[item])} type="button">
+                {item}
+              </button>
+            ))}
+          </nav>
+          <div className="header-actions">
+            <label className="header-search">
+              <span aria-hidden="true">⌕</span>
+              <input placeholder="搜索资源/公告..." />
+            </label>
+            <button onClick={() => navigateTo('/login')} type="button">登录</button>
+            <button className="solid" onClick={() => navigateTo('/enterprise/register')} type="button">企业入驻</button>
+          </div>
         </div>
       </header>
       <main>{children}</main>
+      <footer className="portal-footer">
+        <div>
+          <strong>华宁矿产竞拍平台</strong>
+          <nav aria-label="页脚导航">
+            {['关于我们', '法律法规', '竞买指南', '安全协议', '联系我们'].map((item) => (
+              <button key={item} onClick={() => navigateTo('/disclosures')} type="button">{item}</button>
+            ))}
+          </nav>
+          <p>© 2026 华宁矿产资源交易中心 版权所有 | 滇ICP备12345678号</p>
+        </div>
+      </footer>
     </div>
   );
 }

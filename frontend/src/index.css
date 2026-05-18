@@ -48,17 +48,42 @@ button {
   margin: 0 auto;
 }
 
-.portal-header {
-  height: 72px;
+.portal-shell {
+  min-height: 100vh;
   display: flex;
-  align-items: center;
-  gap: 28px;
-  padding: 0 32px;
+  flex-direction: column;
+}
+
+.portal-shell main {
+  flex: 1;
+  padding: 32px 0 48px;
+}
+
+.portal-header {
+  width: 100%;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.portal-header-inner {
+  width: min(1440px, calc(100vw - 64px));
+  height: 64px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.portal-brand {
+  flex: 0 0 auto;
+  color: var(--navy);
+  font-size: 20px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .brand-mark,
@@ -97,7 +122,9 @@ button {
 .portal-header nav {
   flex: 1;
   display: flex;
-  gap: 4px;
+  gap: 18px;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .portal-header nav button,
@@ -108,7 +135,7 @@ button {
   border: 0;
   background: transparent;
   color: var(--muted);
-  padding: 10px 12px;
+  padding: 8px 6px;
   border-radius: 4px;
 }
 
@@ -120,9 +147,48 @@ button {
   background: #eef4ff;
 }
 
+.portal-header nav button.active {
+  position: relative;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.portal-header nav button.active::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: -14px;
+  height: 2px;
+  background: var(--primary);
+}
+
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.header-search {
+  width: 256px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--outline-variant, #c3c6d2);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--muted);
+}
+
+.header-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: var(--text);
 }
 
 .header-actions .solid {
@@ -154,6 +220,27 @@ button {
   grid-template-columns: 1fr 360px;
   gap: 32px;
   background: linear-gradient(180deg, #fff, #f8fbff);
+}
+
+.portal-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 32px;
+  align-items: start;
+  min-width: 0;
+}
+
+.portal-home-main,
+.portal-home-aside {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+}
+
+.portal-home-grid section,
+.live-card-grid,
+.lot-card {
+  min-width: 0;
 }
 
 .eyebrow {
@@ -222,25 +309,54 @@ td {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin: 20px 0;
+  margin: 0 0 32px;
 }
 
 .stat-card {
-  padding: 20px;
+  min-height: 132px;
+  padding: 24px;
   border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-card span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 700;
+}
+
+.stat-card span i {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--primary);
+  font-style: normal;
 }
 
 .stat-card strong {
   display: block;
-  font-size: 26px;
+  color: var(--navy);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 30px;
+  line-height: 1.25;
   margin: 10px 0 6px;
+}
+
+.stat-card strong em {
+  margin-left: 6px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 500;
 }
 
 .stat-card small {
@@ -270,11 +386,15 @@ td {
   justify-content: space-between;
   gap: 20px;
   align-items: flex-end;
-  margin: 24px 0 16px;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
 }
 
 .page-title {
   display: block;
+  margin-top: 24px;
+  border-bottom: 0;
 }
 
 .page-title.compact {
@@ -288,6 +408,19 @@ td {
   background: transparent;
   color: var(--primary);
   font-weight: 600;
+}
+
+.section-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+  color: var(--navy);
+}
+
+.section-header h2 span {
+  color: var(--primary);
+  font-size: 18px;
 }
 
 .danger-link {
@@ -307,7 +440,6 @@ td {
 
 .lot-card {
   display: grid;
-  grid-template-columns: 120px 1fr;
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: 8px;
@@ -316,11 +448,24 @@ td {
 
 .lot-thumb,
 .detail-image {
-  background: linear-gradient(135deg, #e5edf8, #f8fafc);
+  min-height: 160px;
+  background:
+    linear-gradient(160deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.38)),
+    repeating-linear-gradient(168deg, rgba(255,255,255,0.42) 0 7px, rgba(15,23,42,0.08) 8px 15px),
+    #c8d2df;
   display: grid;
-  place-items: center;
-  color: var(--primary);
+  align-content: end;
+  justify-items: start;
+  padding: 12px;
+  color: #fff;
   font-weight: 700;
+}
+
+.lot-thumb span {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(234, 88, 12, 0.94);
+  font-size: 12px;
 }
 
 .lot-body {
@@ -344,6 +489,188 @@ td {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 20px;
+}
+
+.lot-price-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.lot-price-row strong {
+  color: var(--orange);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.lot-progress {
+  height: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-container-highest, #e0e3e5);
+}
+
+.lot-progress span {
+  display: block;
+  height: 100%;
+  background: var(--orange);
+}
+
+.resource-table-card,
+.home-list-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.resource-table-card table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.resource-table-card th {
+  padding: 12px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.resource-table-card td {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-table-card td:last-child {
+  color: var(--primary);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-weight: 800;
+  text-align: right;
+}
+
+.resource-table-card tr {
+  cursor: pointer;
+}
+
+.resource-table-card tbody tr:hover {
+  background: var(--surface-soft);
+}
+
+.live-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-list-card {
+  display: grid;
+  padding: 16px;
+  gap: 14px;
+}
+
+.home-list-card.compact {
+  gap: 12px;
+}
+
+.home-notice-item,
+.home-result-item,
+.home-news-item {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  padding: 0 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.home-list-card > button:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.home-notice-item span,
+.home-result-item span,
+.home-news-item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.home-notice-item strong,
+.home-news-item strong,
+.home-result-item b {
+  color: var(--navy);
+  line-height: 1.45;
+}
+
+.home-result-item span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-result-item span em {
+  overflow: hidden;
+  color: var(--muted);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-result-item span strong {
+  flex: 0 0 auto;
+  color: var(--green);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.portal-footer {
+  padding: 32px;
+  border-top: 4px solid var(--primary);
+  background: var(--navy);
+  color: #fff;
+  text-align: center;
+}
+
+.portal-footer > div {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.portal-footer strong {
+  font-size: 20px;
+}
+
+.portal-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 22px;
+}
+
+.portal-footer button {
+  border: 0;
+  background: transparent;
+  color: #a3c3ff;
+}
+
+.portal-footer p {
+  margin: 0;
+  color: #a3c3ff;
 }
 
 dl {
@@ -634,6 +961,12 @@ dd {
   gap: 24px;
 }
 
+.bid-side-stack {
+  position: sticky;
+  top: 92px;
+  align-self: start;
+}
+
 .auction-title-block h1 {
   margin-bottom: 8px;
   color: var(--navy);
@@ -830,8 +1163,7 @@ dd {
 }
 
 .bid-panel {
-  position: sticky;
-  top: 92px;
+  position: static;
   padding: 24px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
@@ -1271,13 +1603,65 @@ legend {
     width: min(100% - 32px, 1440px);
   }
 
+  .portal-shell main {
+    padding: 20px 0 36px;
+  }
+
+  .portal-header {
+    height: auto;
+    min-height: 64px;
+  }
+
+  .portal-header-inner {
+    width: min(100% - 32px, 1440px);
+    height: auto;
+    min-height: 64px;
+    flex-wrap: wrap;
+    padding: 12px 0;
+    gap: 12px;
+  }
+
+  .portal-header nav {
+    order: 3;
+    flex-basis: 100%;
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 2px;
+  }
+
+  .portal-header nav button {
+    flex: 0 0 auto;
+  }
+
+  .portal-header nav button.active::after {
+    bottom: -2px;
+  }
+
+  .brand-mark,
+  .portal-brand {
+    min-width: 0;
+  }
+
+  .header-actions {
+    flex: 1 1 100%;
+    order: 2;
+    margin-left: auto;
+    overflow-x: auto;
+  }
+
+  .header-search {
+    width: min(100%, 220px);
+  }
+
   .hero-panel,
   .two-column,
   .card-grid,
   .content-layout,
   .form-grid,
   .account-shell,
-  .auction-detail-layout {
+  .auction-detail-layout,
+  .portal-home-grid,
+  .live-card-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1287,6 +1671,22 @@ legend {
   .meta-grid,
   .summary-list {
     grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    min-height: 112px;
+  }
+
+  .resource-table-card {
+    overflow-x: auto;
+  }
+
+  .resource-table-card table {
+    min-width: 620px;
+  }
+
+  .portal-footer {
+    padding: 28px 16px;
   }
 
   .auction-detail-page {
@@ -1312,7 +1712,7 @@ legend {
     min-height: 240px;
   }
 
-  .bid-panel {
+  .bid-side-stack {
     position: static;
   }
 

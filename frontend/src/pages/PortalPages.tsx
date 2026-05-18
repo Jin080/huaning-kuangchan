@@ -34,51 +34,99 @@ export function PortalHome() {
   const [stats, setStats] = useState<Stat[]>(api.getStats());
   const [lots, setLots] = useState<Lot[]>(api.getLots());
   const [results, setResults] = useState<ResultRecord[]>(api.getResults());
+  const [contents, setContents] = useState<ContentRecord[]>(api.getContents());
   const liveLots = lots.filter((lot) => lot.status === '竞拍中');
   const upcomingLots = lots.filter((lot) => lot.status === '公示中');
+  const displayLiveLots = liveLots.length > 0 ? liveLots.slice(0, 2) : lots.slice(0, 2);
+  const displayUpcomingLots = upcomingLots.length > 0 ? upcomingLots.slice(0, 3) : lots.slice(0, 3);
 
   useEffect(() => {
     void api.fetchStats().then(setStats);
     void api.fetchLots().then(setLots);
     void api.fetchResults().then(setResults);
+    void api.fetchContents().then(setContents);
   }, []);
 
   return (
     <PortalLayout active="首页">
-      <section className="hero-panel">
-        <div>
-          <span className="eyebrow">华宁国企矿产资源公开交易服务</span>
-          <h1>华宁矿产竞拍平台</h1>
-          <p>集中展示矿产资源、拍卖公告、在线竞价入口与成交公示，支撑企业认证、意向金审核和竞价全流程留痕。</p>
-          <div className="search-line">
-            <input placeholder="搜索拍品名称、供应商、产地" />
-            <button type="button">搜索</button>
-          </div>
-        </div>
-        <div className="hero-notice">
-          <strong>交易提醒</strong>
-          <p>企业参与竞价前需完成认证，并通过对应拍品意向金凭证审核。</p>
-          <ButtonRow actions={[{ label: '查看即将拍卖', tone: 'primary', to: '/announcements/upcoming' }, { label: '企业入驻', tone: 'secondary', to: '/enterprise/register' }]} />
-        </div>
-      </section>
       <StatCards stats={stats} />
-      <section className="two-column">
-        <div>
-          <SectionHeader title="即将拍卖公告" action="查看更多" actionTo="/announcements/upcoming" />
-          <DataTable columns={lotColumns.slice(0, 6)} rows={upcomingLots} />
+      <div className="portal-home-grid">
+        <div className="portal-home-main">
+          <section>
+            <SectionHeader icon="⚖" title="正在竞价" action="查看全部 >" actionTo="/auctions/live" />
+            <div className="live-card-grid">
+              {displayLiveLots.map((lot, index) => <LotCard action="进入竞价" key={lot.id} lot={lot} progress={index === 0 ? 85 : 60} />)}
+            </div>
+          </section>
+          <section>
+            <SectionHeader icon="◆" title="矿产资源" action="查看全部 >" actionTo="/announcements/upcoming" />
+            <PortalResourceTable lots={lots.slice(0, 4)} />
+          </section>
         </div>
-        <div>
-          <SectionHeader title="正在竞价" action="查看更多" actionTo="/auctions/live" />
-          <div className="stack-list">
-            {liveLots.map((lot) => <LotCard action="进入竞价" key={lot.id} lot={lot} />)}
-          </div>
-        </div>
-      </section>
-      <section>
-        <SectionHeader title="成交公示" action="查看更多" actionTo="/results" />
-        <DataTable columns={resultColumns} rows={results} />
-      </section>
+        <aside className="portal-home-aside">
+          <section>
+            <SectionHeader icon="▣" title="即将拍卖公告" />
+            <div className="home-list-card">
+              {displayUpcomingLots.map((lot) => (
+                <button className="home-notice-item" key={lot.id} onClick={() => navigateTo(`/announcements/upcoming/detail?id=${lot.id}`)} type="button">
+                  <span>公示期：{getPublicityEnd(lot.publicityPeriod)}</span>
+                  <strong>{lot.title}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section>
+            <SectionHeader icon="✓" title="成交公示" />
+            <div className="home-list-card compact">
+              {results.slice(0, 3).map((result) => (
+                <button className="home-result-item" key={result.id} onClick={() => navigateTo(`/results/detail?id=${result.id}`)} type="button">
+                  <span><em>{result.winner}</em><strong>{result.finalPrice}</strong></span>
+                  <b>{result.lotTitle}</b>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section>
+            <SectionHeader icon="◎" title="信息资讯" action="更多 >" actionTo="/news" />
+            <div className="home-list-card compact">
+              {contents.slice(0, 3).map((content) => (
+                <button className="home-news-item" key={content.id} onClick={() => navigateTo(`/news/detail?id=${content.id}`)} type="button">
+                  <span>{content.category} · {content.publishedAt}</span>
+                  <strong>{content.title}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
     </PortalLayout>
+  );
+}
+
+function PortalResourceTable({ lots }: { lots: Lot[] }) {
+  return (
+    <div className="resource-table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>资源名称</th>
+            <th>产地</th>
+            <th>资源量</th>
+            <th>起拍价</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lots.map((lot) => (
+            <tr key={lot.id} onClick={() => navigateTo(`/announcements/upcoming/detail?id=${lot.id}`)}>
+              <td>{lot.title}</td>
+              <td>{lot.origin}</td>
+              <td>{lot.quantity}</td>
+              <td>{lot.startPrice}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -705,6 +753,12 @@ function InfoTabs({ sections }: { sections: string[] }) {
 
 function getQueryId() {
   return new URLSearchParams(window.location.search).get('id') ?? undefined;
+}
+
+function getPublicityEnd(publicityPeriod: string) {
+  const parts = publicityPeriod.split(' 至 ');
+
+  return parts[1] ?? publicityPeriod;
 }
 
 function LongForm({

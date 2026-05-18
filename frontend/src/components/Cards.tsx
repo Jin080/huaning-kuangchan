@@ -6,10 +6,10 @@ import { StatusTag } from './StatusTag';
 export function StatCards({ stats }: { stats: Stat[] }) {
   return (
     <section className="stat-grid">
-      {stats.map((stat) => (
+      {stats.map((stat, index) => (
         <article className={`stat-card ${stat.tone ?? 'blue'}`} key={stat.label}>
-          <span>{stat.label}</span>
-          <strong>{stat.value}</strong>
+          <span><i aria-hidden="true">{['▥', '￥', '↺', '◈'][index] ?? '◇'}</i>{stat.label}</span>
+          <strong>{splitStatValue(stat.value).value}<em>{splitStatValue(stat.value).unit}</em></strong>
           <small>{stat.helper}</small>
         </article>
       ))}
@@ -17,7 +17,7 @@ export function StatCards({ stats }: { stats: Stat[] }) {
   );
 }
 
-export function LotCard({ lot, action = '查看详情', actionTo }: { lot: Lot; action?: string; actionTo?: string }) {
+export function LotCard({ lot, action = '查看详情', actionTo, progress }: { lot: Lot; action?: string; actionTo?: string; progress?: number }) {
   const target = actionTo ?? (action.includes('竞价') ? `/auctions/live/detail?id=${lot.id}` : `/announcements/upcoming/detail?id=${lot.id}`);
 
   return (
@@ -30,6 +30,15 @@ export function LotCard({ lot, action = '查看详情', actionTo }: { lot: Lot; 
           <h3>{lot.title}</h3>
           <StatusTag value={lot.status} />
         </div>
+        <div className="lot-price-row">
+          <span>当前价</span>
+          <strong>{lot.currentPrice}</strong>
+        </div>
+        {progress ? (
+          <div className="lot-progress" aria-label="竞价热度">
+            <span style={{ width: `${progress}%` }} />
+          </div>
+        ) : null}
         <dl className="meta-grid">
           <div>
             <dt>起拍价</dt>
@@ -62,14 +71,23 @@ export function LotCard({ lot, action = '查看详情', actionTo }: { lot: Lot; 
   );
 }
 
-export function SectionHeader({ title, subtitle, action, actionTo }: { title: string; subtitle?: string; action?: string; actionTo?: string }) {
+export function SectionHeader({ title, subtitle, action, actionTo, icon }: { title: string; subtitle?: string; action?: string; actionTo?: string; icon?: string }) {
   return (
     <div className="section-header">
       <div>
-        <h2>{title}</h2>
+        <h2>{icon ? <span aria-hidden="true">{icon}</span> : null}{title}</h2>
         {subtitle ? <p>{subtitle}</p> : null}
       </div>
       {action ? <button className="text-link" onClick={actionTo ? () => navigateTo(actionTo) : undefined} type="button">{action}</button> : null}
     </div>
   );
+}
+
+function splitStatValue(value: string) {
+  const matched = value.match(/^(.+?)(\s*[^\d\s,，.]+)$/);
+
+  return {
+    value: matched?.[1].trim() ?? value,
+    unit: matched?.[2].trim() ?? '',
+  };
 }

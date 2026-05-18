@@ -2831,3 +2831,110 @@
   - T33：登录/JWT 与角色权限生产化，上线必做。
 - 需要总控确认：
   - 本轮提交并推送完成后，新会话从 `origin/main` 最新提交继续。
+
+## 2026-05-18 15:22 - T37A 门户通用组件与首页 Stitch 复刻
+
+- 任务名称：T37A 门户通用组件与首页 Stitch 复刻
+- Stitch 来源：
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_22/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/pc/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/institutional_integrity/DESIGN.md`
+- 修改文件：
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/components/Cards.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t37-artifacts/t37a-portal-home-desktop.png`
+  - `docs/qa/t37-artifacts/t37a-portal-home-mobile.png`
+- 复刻范围：
+  - 门户公共头部改为 Stitch 主版的政务门户导航、搜索框、登录和企业入驻入口。
+  - 首页改为数据看板 + 正在竞价卡片 + 矿产资源表 + 即将拍卖公告/成交公示/信息资讯侧栏结构。
+  - 新增门户深蓝页脚，保留现有真实 API 加载和 `navigateTo` 导航行为。
+  - 本轮不新增资源页路由，不实施后台/企业中心复刻，不改 T35 竞价详情页和 T34 出价口径。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a open http://127.0.0.1:5173/`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a resize 1440 1200`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37a-portal-home-desktop.png --full-page`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a resize 390 900`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a eval "(() => ({ innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37a-portal-home-mobile.png --full-page`
+  - `Set-Location E:/kuangchan; git diff --check -- 'frontend/src/components/Layouts.tsx' 'frontend/src/components/Cards.tsx' 'frontend/src/pages/PortalPages.tsx' 'frontend/src/index.css'`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 197ms`。
+  - Playwright `/` 桌面截图已生成，桌面宽度检查 `innerWidth=1440`、`scrollWidth=1440`。
+  - Playwright `console error` 为 0。
+  - Playwright 390px 移动端复验 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`；初次检查发现首页网格横向溢出，已通过补充 `min-width: 0` 修复后复验通过。
+  - `git diff --check` 通过，仅有既有 LF/CRLF warning，无 whitespace error。
+- 截图产物：
+  - `docs/qa/t37-artifacts/t37a-portal-home-desktop.png`
+  - `docs/qa/t37-artifacts/t37a-portal-home-mobile.png`
+- 未完成事项：
+  - 未提交/推送本轮改动。
+  - 未实施 T37B/T37C，不复刻门户列表/详情、登录、企业入驻或资源新增路由。
+  - 未修改后端、Prisma schema、登录/JWT、T34 出价口径或 `stitch_document_to_webpage_generator/` 本地参考目录。
+- 需要总控确认：
+  - 是否将 T37A 标记为 DONE。
+  - 是否继续启动 T37B 门户列表与普通详情复刻。
+  - 是否仍维持 `/resources`、`/resources/detail` 暂不新增，待 T37C/总控确认。
+
+## 2026-05-18 15:40 - T37A 总控复核与任务板同步
+
+- 任务名称：T37A 总控复核与任务板同步
+- 复核文件：
+  - `docs/agent-handoff.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/stitch-full-replication-plan.md`
+  - `docs/task-board.md`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/components/Cards.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 用户确认：
+  - `frontend/.playwright-cli/` 保留为本地临时目录，后续提交继续排除。
+  - `stitch_document_to_webpage_generator/` 继续只作为本地参考目录，不纳入提交。
+- 复核结果：
+  - T37A 改动集中在门户公共头部、首页、页脚与相关样式；未发现后端、Prisma schema、登录/JWT、T34 出价口径改动。
+  - `docs/frontend-backend-integration-checklist.md` 已追加 T37A 记录；总控发现其后误带旧章节重复内容，已清理为仅追加 T37A 段落。
+  - `docs/qa/t37-artifacts/` 中存在门户桌面/移动截图；另有竞价详情 overlap 复核截图，来自本轮把 sticky 作用点从 `.bid-panel` 调整到 `.bid-side-stack` 的配套验证。
+- 总控复跑验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Get-ChildItem -LiteralPath E:/kuangchan/docs/qa/t37-artifacts -Force | Select-Object Name,Length`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check -- frontend/src/components/Layouts.tsx frontend/src/components/Cards.tsx frontend/src/pages/PortalPages.tsx frontend/src/index.css docs/frontend-backend-integration-checklist.md docs/agent-handoff.md`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check open http://127.0.0.1:5173/`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check resize 390 900`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check eval "(() => ({ innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check open http://127.0.0.1:5173/auctions/live/detail`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37a-check eval "(() => ({ url: location.href, innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+- 总控复跑验证结果：
+  - `git status --short --branch` 显示当前 main 与 origin/main 同步到 `46bc962`，并有 T37A 相关未提交改动；未跟踪目录含 `docs/qa/t37-artifacts/`、`frontend/.playwright-cli/`、`stitch_document_to_webpage_generator/`。
+  - QA 产物存在：`t37a-portal-home-desktop.png` 161775 bytes、`t37a-portal-home-mobile.png` 147769 bytes、`t37a-portal-home-mobile-control.png` 147769 bytes、`t37a-auction-detail-overlap-fix.png` 362136 bytes、`t37a-auction-detail-overlap-control.png` 349023 bytes。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 217ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+  - Playwright 首页 `/`：`console error` 为 0；390px 复核返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright 竞价详情 `/auctions/live/detail`：`console error` 为 0；桌面宽度复核返回 `innerWidth=1280`、`scrollWidth=1280`、`bodyScrollWidth=1280`、`overflow=false`。
+- 任务板更新：
+  - T37 父任务由 TODO 更新为 IN_PROGRESS。
+  - 新增 T37A 并标记 DONE。
+- 未完成事项：
+  - T37B/T37C 尚未实施。
+  - T38 尚未实施。
+  - T32/T33 仍待排期。
+  - `frontend/.playwright-cli/` 与 `stitch_document_to_webpage_generator/` 继续作为本地目录排除提交。
+- 需要总控确认：
+  - 是否提交并推送 T37A 与本次总控复核记录。
+  - 是否继续启动 T37B 门户列表与普通详情复刻。
