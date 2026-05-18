@@ -39,22 +39,21 @@
 | T28 | DONE | 提交归档 | 提交完成归档与推送前确认 | T27 | T28 提交完成归档与推送前确认会话 | 本地发布与总控归档记录已恢复推送成功；`origin/main` 已到 `85d2260` |
 | T29 | DONE | 前端导航 | 前端页面导航联通与按钮跳转收口 | T28 | T29 前端页面导航联通与按钮跳转收口会话 | 已补轻量导航工具并接通门户顶栏、后台侧栏、企业中心菜单和关键按钮；lint/build/Playwright 点击验收通过 |
 | T30 | NEEDS_REVIEW | 联调验收 | 前后端真实运行点击联调 | T29 | T30 联调验收会话 | 真实运行点击联调未通过；点击跳转成立，但真实 API 加载被 CORS/seed/pageSize/开发用户 UUID 阻塞 |
-| T30A | IN_PROGRESS | 联调修复 | CORS/OPTIONS 最小修复 | T30 | T30A 执行会话 | 修复前端 5173 调用后端 3100 时的 CORS/OPTIONS 预检阻塞 |
-| T30B | IN_PROGRESS | 联调数据 | Seed 配置与开发数据修复 | T30 | T30B 执行会话 | 修复 `npx prisma db seed` 无数据问题，并产出 ADMIN/ENTERPRISE 用户 UUID |
-| T30C | IN_PROGRESS | 联调修复 | Lots 查询参数数字转换修复 | T30 | T30C 执行会话 | 修复 `/api/lots?pageSize=100` 与 `/api/admin/lots?pageSize=100` 查询参数 400 |
-| T30D | BLOCKED | 联调认证 | 开发认证用户 UUID 口径同步 | T30B | T30D 待命 | 等 T30B 给出真实 UUID 后再调整前端开发请求头口径与文档 |
+| T30A | DONE | 联调修复 | CORS/OPTIONS 最小修复 | T30 | T30A 执行会话 | 已启用开发 CORS/OPTIONS；总控复跑 `main-cors`、lint、typecheck 通过 |
+| T30B | DONE | 联调数据 | Seed 配置与开发数据修复 | T30 | T30B 执行会话 | 已修复 seed 配置并产出 ADMIN/ENTERPRISE 用户 UUID；总控复跑 seed 与只读计数通过 |
+| T30C | DONE | 联调修复 | Lots 查询参数数字转换修复 | T30 | T30C 执行会话 | 已修复 `/api/lots?pageSize=100` 与 `/api/admin/lots?pageSize=100` 查询参数 400；总控复跑 lots 测试通过 |
+| T30D | TODO | 联调认证 | 开发认证用户 UUID 口径同步 | T30B | 待启动 | 已取得真实 UUID，可启动前端开发请求头口径同步与企业中心真实 API 验证 |
 | T31 | TODO | 数据增强 | 后台/企业端列表补原始 lotId | T30D | 待排期 | 后续增强：补齐后台/企业端列表行可用的原始拍品 ID，减少前端按标题兜底匹配 |
 | T32 | TODO | 文件上传 | 后台拍品录入本地图片/附件上传体验 | T30,T31 | 待排期 | 上线必做：后台新建/编辑拍品支持点击上传并弹窗选择本地图片/检测报告，上传成功后回填拍品表单 |
 | T33 | TODO | 生产认证 | 登录/JWT 与角色权限生产化 | T30 | 待排期 | 上线必做：替换开发期 `x-user-id`/`x-user-role` 直传模式，完成登录、JWT、会话持久化和 ADMIN/ENTERPRISE 权限保护 |
 
 ## 当前可并行任务
 
-- T30A/T30B/T30C 已并行执行；写入范围分别为后端启动/CORS、seed 数据、lots 查询 DTO，需总控后续逐项验收。
+- T30D 可启动：基于 T30B 输出的真实 ADMIN/ENTERPRISE UUID，同步前端开发认证头口径并验证企业中心真实 API。
 - 可并行只读盘点：如需扩大范围，可另起只读会话盘点后台首页最近操作日志真实 API 接入、登录/JWT、结构化延时竞价、内置定时框架的后续排期。
 - 发布后待确认：确认结构化延时竞价、后台非主链路真实接入、内置定时框架的后续阶段排期。
 
 ## 当前必须串行任务
 
-- T30D 开发认证用户 UUID 口径同步：必须等待 T30B 产出并经总控确认真实 ADMIN/ENTERPRISE 用户 UUID 后再启动。
 - T30 复验：必须等待 T30A/T30B/T30C/T30D 全部完成并验收后，再重跑真实运行点击联调。
 - T32/T33 属于上线必做能力，建议在 T30 联调问题闭合后排入最近一批，不建议与 T30 混做。

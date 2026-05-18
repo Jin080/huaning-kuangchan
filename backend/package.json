@@ -54,6 +54,9 @@
     ],
     "testEnvironment": "node"
   },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "eslintConfig": {
     "root": true,
     "parser": "@typescript-eslint/parser",

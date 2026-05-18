@@ -70,7 +70,7 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
+  const enterpriseUser = await prisma.user.upsert({
     where: { username: 'enterprise_demo' },
     update: {
       roleId: enterpriseRole.id,
@@ -164,6 +164,18 @@ async function main() {
       },
     });
   }
+
+  const [userCount, enterpriseCount, lotCount, contentCount] = await Promise.all([
+    prisma.user.count(),
+    prisma.enterprise.count(),
+    prisma.lot.count(),
+    prisma.content.count(),
+  ]);
+
+  console.log('Prisma seed completed.');
+  console.log(`users=${userCount}, enterprises=${enterpriseCount}, lots=${lotCount}, contents=${contentCount}`);
+  console.log(`ADMIN x-user-id=${admin.id}, x-user-role=ADMIN`);
+  console.log(`ENTERPRISE x-user-id=${enterpriseUser.id}, x-user-role=ENTERPRISE`);
 }
 
 main()

@@ -2240,6 +2240,41 @@
   - 是否授权修复列表查询 DTO 的数字转换问题。
   - 是否确认开发认证头继续使用用户 UUID，而不是 username，并据此调整前端默认开发用户配置或文档。
 
+## 2026-05-18 10:53 - T30C Lots 查询参数数字转换修复
+
+- 任务名称：T30C Lots 查询参数数字转换修复
+- 负责模块：后端 Lots 查询 DTO
+- 修改文件：
+  - `backend/src/modules/lots/dto/lot-query.dto.ts`
+  - `backend/test/lots/lot-query.dto.spec.ts`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/test/lots/lot-query.dto.spec.ts`
+- 删除文件：无
+- 接口变更：无接口契约变更；修复 `LotQueryDto` 对 query string 中 `page`、`pageSize` 的数字转换，使 `/api/lots?pageSize=100` 与 `/api/admin/lots?pageSize=100` 不再因字符串参数触发 `IsInt` 校验 400。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 Prisma schema。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- lot-query.dto.spec.ts`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test -- lots`
+  - `Set-Location E:/kuangchan/backend; $env:PORT='3100'; npm run start`
+  - `curl.exe "http://127.0.0.1:3100/api/lots?page=1&pageSize=100"`
+  - `curl.exe -H "x-user-id: 11111111-1111-4111-8111-111111111111" -H "x-user-role: ADMIN" "http://127.0.0.1:3100/api/admin/lots?page=1&pageSize=100"`
+  - `curl.exe "http://127.0.0.1:3100/api/lots?pageSize=100"`
+  - `curl.exe -H "x-user-id: 11111111-1111-4111-8111-111111111111" -H "x-user-role: ADMIN" "http://127.0.0.1:3100/api/admin/lots?pageSize=100"`
+- 验证结果：
+  - 新增 DTO 测试先红后绿：修复前 `page/pageSize must be an integer number`，修复后通过。
+  - `npm run lint` 通过。
+  - `npm run typecheck` 通过。
+  - `npm test -- lots` 通过：2 个测试套件、6 个用例通过。
+  - 临时启动后端 3100 成功；四个 Lots curl 验证均返回 HTTP 200，响应中 `pageSize` 为数字 `100`。
+  - 验证完成后已停止本次临时启动的后端进程并清理临时日志文件。
+- 未完成事项：无；工作区仍存在本任务开始前已有的其他模块/文档改动，本任务未处理。
+- 阻塞问题：无
+- 需要总控确认：无
+
 ## 2026-05-18 10:50 - T30B Seed 配置与开发数据修复
 
 - 任务名称：T30B Seed 配置与开发数据修复
@@ -2269,3 +2304,77 @@
   - 未修复 T30 记录中的 CORS/OPTIONS 问题
   - 未修复列表查询 DTO 数字转换问题
   - 未实施登录/JWT 生产化，开发期仍使用 `x-user-id`/`x-user-role`
+
+## 2026-05-18 10:53 - T30A CORS/OPTIONS 最小修复
+
+- 任务名称：T30A CORS/OPTIONS 最小修复
+- 负责模块：后端基础/集成联调
+- 修改文件：
+  - `backend/src/main.ts`
+  - `backend/test/main-cors.spec.ts`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/test/main-cors.spec.ts`
+- 删除文件：无
+- 接口变更：无业务接口变更；后端全局启用 CORS，允许开发前端 `http://127.0.0.1:5173`、`http://localhost:5173` 跨源访问，并允许 `x-user-id`、`x-user-role` 开发认证头通过 OPTIONS 预检。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 Prisma schema。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- main-cors`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `curl.exe -i -X OPTIONS http://127.0.0.1:3100/api/admin/logs?pageSize=100 -H "Origin: http://127.0.0.1:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: x-user-id,x-user-role"`
+- 验证结果：
+  - `npm test -- main-cors` 通过，覆盖 5173 origin 与 `x-user-id,x-user-role` 预检头。
+  - `npm run lint` 通过。
+  - `npm run typecheck` 通过。
+  - OPTIONS curl 返回 `HTTP/1.1 204 No Content`，包含 `Access-Control-Allow-Origin: http://127.0.0.1:5173`、`Access-Control-Allow-Methods: GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS`、`Access-Control-Allow-Headers: Content-Type,Authorization,x-user-id,x-user-role`，不再返回 `Cannot OPTIONS ...`。
+- 未完成事项：
+  - seed 开发数据、`pageSize=100` 查询参数转换、企业开发用户 UUID 等问题不属于 T30A 范围，当前状态以对应任务或后续复测记录为准。
+  - 未执行浏览器 Playwright 复测；本轮以 HTTP OPTIONS 预检和后端工程 gate 验证。
+- 阻塞问题：无 T30A 范围内阻塞。
+- 需要总控确认：
+  - 是否进入 T30 后续复测，确认浏览器控制台不再出现 CORS/OPTIONS 阻塞。
+  - 是否继续按对应任务结果复测 seed、列表查询参数转换和企业开发用户 UUID 问题。
+
+## 2026-05-18 11:05 - T30A/T30B/T30C 总控复核
+
+- 任务名称：T30A/T30B/T30C 总控复核
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 复核范围：
+  - T30A：`backend/src/main.ts`、`backend/test/main-cors.spec.ts`
+  - T30B：`backend/package.json`、`backend/prisma/seed.ts`
+  - T30C：`backend/src/modules/lots/dto/lot-query.dto.ts`、`backend/test/lots/lot-query.dto.spec.ts`
+- 总控验证命令：
+  - `Set-Location E:/kuangchan/backend; npm test -- main-cors`
+  - `Set-Location E:/kuangchan/backend; npm test -- lot-query.dto.spec.ts`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npx prisma db seed`
+  - `Set-Location E:/kuangchan/backend; node -e "<Prisma 只读计数和用户 UUID 查询>"`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm test -- lots`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 总控验证结果：
+  - `npm test -- main-cors` 通过：1 个测试套件、1 个用例通过。
+  - `npm test -- lot-query.dto.spec.ts` 通过：1 个测试套件、1 个用例通过。
+  - `npm run typecheck` 通过。
+  - `npx prisma db seed` 通过，输出 `Prisma seed completed.`。
+  - 只读计数通过：`users=2,lots=1,enterprises=1,contents=4`。
+  - 可用开发请求头已确认：
+    - ADMIN：`x-user-id: 0d3ed994-8ebf-47ec-bf11-2eb86f008ae6`，`x-user-role: ADMIN`
+    - ENTERPRISE：`x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599`，`x-user-role: ENTERPRISE`
+  - `npm run lint` 通过。
+  - `npm test -- lots` 通过：2 个测试套件、6 个用例通过。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+- 状态结论：
+  - T30A：DONE。
+  - T30B：DONE。
+  - T30C：DONE。
+  - T30D：解除阻塞，可基于上述真实 UUID 启动。
+- 未完成事项：
+  - T30D 尚未实施。
+  - T30 全链路真实运行点击复验尚未重跑。
+  - 当前本地 `main` 仍有未推送文档提交，需网络恢复后重试 `git push origin main`。

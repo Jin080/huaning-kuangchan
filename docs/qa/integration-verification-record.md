@@ -348,3 +348,28 @@
 - 页面点击跳转本身基本可达，T29 导航能力在真实运行环境下继续成立。
 - 前端页面在验收模式下抛错但仍保留初始 mock 视觉内容，人工验收时不能以页面可见表格判定真实 API 成功。
 - `frontend/vite.config.ts` 当前无 dev proxy；若继续使用默认 `/api` 而非绝对 API 地址，也需要明确代理或同源部署方案。
+
+## Retest: 2026-05-18 10:53 - T30A CORS/OPTIONS 最小修复
+
+本节为追加记录。T30A 仅修复后端入口 CORS/OPTIONS 配置，未修改 Prisma schema、前端 API 逻辑、登录/JWT、seed 或列表 DTO。
+
+| Command | Result | Evidence |
+|---|---|---|
+| `Set-Location E:/kuangchan/backend; npm test -- main-cors` | PASS | 新增 `application CORS` 用例通过，覆盖 `Origin: http://127.0.0.1:5173` 与 `Access-Control-Request-Headers: x-user-id,x-user-role` 的 OPTIONS 预检。 |
+| `Set-Location E:/kuangchan/backend; npm run lint` | PASS | `eslint "{src,test}/**/*.ts"` exit 0。 |
+| `Set-Location E:/kuangchan/backend; npm run typecheck` | PASS | `tsc --noEmit` exit 0。 |
+| `curl.exe -i -X OPTIONS http://127.0.0.1:3100/api/admin/logs?pageSize=100 -H "Origin: http://127.0.0.1:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: x-user-id,x-user-role"` | PASS | 返回 `HTTP/1.1 204 No Content`，包含 `Access-Control-Allow-Origin: http://127.0.0.1:5173`、`Access-Control-Allow-Methods: GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS`、`Access-Control-Allow-Headers: Content-Type,Authorization,x-user-id,x-user-role`。 |
+
+### T30A Result
+
+| Area | Result | Reason |
+|---|---|---|
+| OPTIONS preflight | PASS | `/api/admin/logs?pageSize=100` 的 OPTIONS 不再返回 `Cannot OPTIONS ...`。 |
+| Browser CORS header | PASS_BY_HTTP_PREFLIGHT | 预检响应已返回匹配 5173 的 `Access-Control-Allow-Origin`。 |
+| Development auth headers | PASS | CORS allow headers 明确包含 `x-user-id` 与 `x-user-role`。 |
+
+### T30 Items Outside T30A
+
+- T30-BLOCK-002：seed 开发数据不属于 T30A 修复范围，当前状态以 T30B 或后续复测记录为准。
+- T30-BLOCK-003：`pageSize=100` 查询参数数字转换不属于 T30A 修复范围，当前状态以 T30C 或后续复测记录为准。
+- T30-BLOCK-004：企业中心默认开发用户 ID 不属于 T30A 修复范围，当前状态以 seed/认证联调或后续复测记录为准。
