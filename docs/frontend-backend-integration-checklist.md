@@ -211,6 +211,15 @@
 - 关键按钮已接通：查看更多、查看公告、进入竞价、查看详情、返回列表、返回首页、新建拍品、取消等。
 - 详情跳转优先携带 `?id=`；当当前行没有可用拍品 ID 时，前端会尝试用拍品标题匹配本地拍品列表，仍无法匹配时跳到对应详情默认页。
 
+## 15. T30 真实运行点击联调
+
+- 后端当前源码可在 `PORT=3100` 启动，`GET /api/health` 返回 200。
+- 前端可在 `VITE_API_BASE_URL=http://127.0.0.1:3100/api`、`VITE_ACCEPTANCE_MODE=true` 下启动。
+- 浏览器真实联调当前被 CORS/OPTIONS 阻塞：后端未返回 `Access-Control-Allow-Origin`，带开发认证头的后台/企业请求会触发预检并失败。
+- `GET /api/lots?pageSize=100` 与 `GET /api/admin/lots?pageSize=100` 当前返回 400；前端列表请求使用该参数格式，真实加载会失败。
+- `npx prisma db seed` 本轮退出码为 0，但未写入用户、企业、拍品、内容等数据；因此没有可用于企业中心验收的企业用户 UUID。
+- T30 当前结论：点击跳转成立，但“点击跳转 + 真实 API 加载”未同时成立；不得把 mock/fallback 页面展示记为通过。
+
 ## 9. T14 收口记录
 
 - T14 复测口径：前端关键写链路不再只是静态/mock；验收模式下 fallback 显性失败；`公示中` 到 `竞拍中` 通过管理员显式接口 `POST /api/admin/lots/{id}/advance-to-bidding` 完成。

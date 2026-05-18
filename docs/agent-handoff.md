@@ -2155,3 +2155,117 @@
 - 未完成事项：
   - T30 执行会话待启动。
   - T31 待 T30 结果出来后排期。
+
+## 2026-05-18 10:48 - 上线前后台录入与认证目标补记
+
+- 任务名称：上线前后台录入与认证目标补记
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 背景：
+  - 用户确认上线后拍品数据由人工在管理端录入。
+  - 当前后台已有拍品新建/编辑基础链路，但上线运营需要更完整的本地文件选择上传体验，以及生产级登录/JWT 权限体系。
+- 新增任务：
+  - T32：后台拍品录入本地图片/附件上传体验。目标是后台新建/编辑拍品时支持点击上传并弹窗选择本地图片、检测报告等文件，上传成功后自动回填拍品表单。
+  - T33：登录/JWT 与角色权限生产化。目标是替换开发期 `x-user-id`/`x-user-role` 直传模式，完成登录、JWT、会话持久化和 ADMIN/ENTERPRISE 权限保护。
+- 进度判断：
+  - 当前主线处于 T30 前后端真实运行点击联调阶段。
+  - T31 已登记为后台/企业端列表补原始 `lotId` 的后续增强。
+  - T32/T33 已登记为上线必做，但尚未进入实现；建议在 T30 联调问题闭合后排入最近一批。
+- 风险：
+  - T32 涉及文件上传前后端体验、附件权限和拍品表单字段回填，可能需要复用现有 files 模块并补前端上传控件。
+  - T33 涉及认证口径切换，完成后必须重跑主流程、敏感附件权限和企业数据隔离验收。
+- 未完成事项：
+  - 本轮只登记任务目标，未修改业务代码。
+  - 当前仍存在未跟踪 Playwright 临时目录 `frontend/.playwright-cli/`，本轮未处理。
+
+## 2026-05-18 10:39 - T30 前后端真实运行点击联调
+
+- 任务名称：T30 前后端真实运行点击联调
+- 修改文件：
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 启动命令：
+  - `Set-Location E:/kuangchan/backend; $env:PORT='3100'; npm run start`
+  - `Set-Location E:/kuangchan/frontend; $env:VITE_API_BASE_URL='http://127.0.0.1:3100/api'; $env:VITE_ACCEPTANCE_MODE='true'; $env:VITE_DEV_ADMIN_USER_ID='admin_demo'; $env:VITE_DEV_ENTERPRISE_USER_ID='enterprise_demo'; npm run dev -- --host 127.0.0.1 --port 5173`
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan/backend; npx prisma db seed`
+  - `curl.exe http://127.0.0.1:3100/api/health`
+  - `curl.exe http://127.0.0.1:3100/api/lots`
+  - `curl.exe http://127.0.0.1:3100/api/lots?pageSize=100`
+  - `curl.exe -H "x-user-id: admin_demo" -H "x-user-role: ADMIN" http://127.0.0.1:3100/api/admin/logs`
+  - `curl.exe -H "x-user-id: enterprise_demo" -H "x-user-role: ENTERPRISE" http://127.0.0.1:3100/api/account/profile`
+  - `npx --yes --package @playwright/cli playwright-cli` 打开浏览器、点击/访问门户、后台、企业中心页面，并读取 `requests` 与 `console error`
+- 验证结果：
+  - 后端 `npm run lint` 通过。
+  - 后端 `npm run typecheck` 通过。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 244ms`。
+  - 后端当前源码服务在 3100 启动成功，`GET /api/health` 返回 200。
+  - 前端验收模式在 5173 启动成功，真实 API 失败会报 `验收模式下真实 API 请求失败，已阻止 mock fallback。`
+  - `npx prisma db seed` 退出码为 0，输出 `.env` 加载和 Prisma 版本升级提示；执行后只读计数仍为 `users=0,lots=0,enterprises=0,bids=0,notifications=0,deposits=0,contents=0`。
+  - 直连 API：`/api/portal/dashboard`、`/api/lots`、`/api/results`、`/api/contents`、`/api/admin/lots`、`/api/admin/logs` 可返回 200，其中空库列表多为 `items=[]`。
+  - 直连 API：`/api/lots?pageSize=100` 与 `/api/admin/lots?pageSize=100` 返回 400，提示 `pageSize must be an integer number`。
+  - 直连 API：`/api/account/profile` 使用 `x-user-id: enterprise_demo` 返回 500。
+  - Playwright 覆盖门户：首页、即将拍卖、正在竞价、成交公示、信息资讯；页面跳转成立，但浏览器真实 API 被 CORS 拦截。
+  - Playwright 覆盖后台：后台看板、拍品管理、标的发布复核、操作日志；页面跳转成立，但后台真实 API 被 CORS/OPTIONS 阻断。
+  - Playwright 覆盖企业中心：中心首页、我的企业认证、我的意向金、我的出价记录、我的通知；页面跳转成立，但企业真实 API 被 CORS/OPTIONS 阻断，且无可用企业用户 UUID。
+- 通过项：
+  - 前端 lint/build 不退化。
+  - 后端当前源码服务可启动，健康接口可访问。
+  - 部分关键 API 直连可访问。
+  - 门户、后台、企业中心点击跳转路径可达。
+  - 验收模式下真实 API 失败未被记录为通过。
+- 阻塞项：
+  - T30-BLOCK-001：后端未启用 CORS/OPTIONS，前端使用绝对真实 API 地址时，浏览器请求被 `No 'Access-Control-Allow-Origin' header` 拦截；带开发认证头的后台/企业请求预检失败。
+  - T30-BLOCK-002：现有 seed 命令成功返回但未写入数据，无法提供可用 admin/enterprise 用户 UUID 和真实列表数据。
+  - T30-BLOCK-003：前端当前列表请求 `/api/lots?pageSize=100`、`/api/admin/lots?pageSize=100` 与后端 DTO 参数转换不匹配，直连返回 400。
+  - T30-BLOCK-004：企业中心默认 `x-user-id: enterprise_demo` 不是可用用户 UUID；空库下账号接口返回 500。
+- 非阻塞项：
+  - 后台首页最近操作日志仍展示 mock；本轮主要记录真实运行风险，未扩大范围修复。
+  - Playwright CLI 曾生成 `frontend/.playwright-cli/` 临时目录，已在确认其位于 frontend 下后清理。
+- 未完成事项：
+  - T30 未达到“点击跳转 + 真实 API 加载”同时成立的验收标准。
+  - 未修改业务代码、未修 CORS、未修 DTO、未修 seed、未实施 T31。
+- 需要总控确认：
+  - 是否授权后续修复 CORS/OPTIONS 或改用 Vite dev proxy/同源验收方案。
+  - 是否授权修复 seed 配置或提供可用测试数据包。
+  - 是否授权修复列表查询 DTO 的数字转换问题。
+  - 是否确认开发认证头继续使用用户 UUID，而不是 username，并据此调整前端默认开发用户配置或文档。
+
+## 2026-05-18 10:50 - T30B Seed 配置与开发数据修复
+
+- 任务名称：T30B Seed 配置与开发数据修复
+- 修改文件：
+  - `backend/package.json`
+  - `backend/prisma/seed.ts`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 数据写入范围：
+  - 未修改 `backend/prisma/schema.prisma`
+  - 未清空已有业务数据
+  - 通过幂等 upsert/count 写入或更新开发数据：`roles`、`users`、`enterprises`、`lots`、`contents`
+  - seed 后包含 admin 用户、enterprise_demo 用户、示例企业、示例拍品、4 条已发布内容
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npx prisma db seed`
+  - `Set-Location E:/kuangchan/backend; node -e "<Prisma 只读查询 users/lots/enterprises/contents 计数>"`
+  - `Set-Location E:/kuangchan/backend; node -e "<Prisma 只读查询 admin、enterprise_demo 的 id 与 role>"`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+- 验证结果：
+  - `npx prisma db seed` 通过，输出 `Running seed command \`ts-node prisma/seed.ts\` ...`、`Prisma seed completed.`、计数与开发请求头 UUID
+  - 只读计数查询通过：`{"users":2,"lots":1,"enterprises":1,"contents":4}`
+  - 只读用户查询通过：`admin` 角色为 `ADMIN`，`enterprise_demo` 角色为 `ENTERPRISE`
+  - `npm run typecheck` 通过
+- 可用 x-user-id/x-user-role：
+  - ADMIN：`x-user-id: 0d3ed994-8ebf-47ec-bf11-2eb86f008ae6`，`x-user-role: ADMIN`
+  - ENTERPRISE：`x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599`，`x-user-role: ENTERPRISE`
+- 未完成事项：
+  - 未修复 T30 记录中的 CORS/OPTIONS 问题
+  - 未修复列表查询 DTO 数字转换问题
+  - 未实施登录/JWT 生产化，开发期仍使用 `x-user-id`/`x-user-role`

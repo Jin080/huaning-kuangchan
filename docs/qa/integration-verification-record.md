@@ -264,3 +264,87 @@
 | T26-RISK-003 | Low | 后台首页最近操作日志仍保留 mock，文件管理/操作日志独立页面已接真实 API。 | 后续后台首页接入任务 |
 | T26-RISK-004 | Low | 三条关键 E2E 共享测试数据库，不宜并行执行；本轮最终以顺序复跑通过为准。 | 测试执行规范 |
 | T26-RISK-005 | Low | `git diff --check` 有 LF/CRLF warning。 | 总控提交策略确认 |
+
+## Retest: 2026-05-18 10:39 - T30 前后端真实运行点击联调
+
+本节为追加记录。T30 启动当前源码后端与前端验收模式，使用真实浏览器点击门户、后台、企业中心关键路径；本轮不修改业务代码、不修改 Prisma schema、不修改登录/JWT、不实施 T31。
+
+### Engineering Gate
+
+| Command | Result | Evidence |
+|---|---|---|
+| `Set-Location E:/kuangchan/backend; npm run lint` | PASS | `eslint "{src,test}/**/*.ts"` exit 0。 |
+| `Set-Location E:/kuangchan/backend; npm run typecheck` | PASS | `tsc --noEmit` exit 0。 |
+| `Set-Location E:/kuangchan/frontend; npm run lint` | PASS | `eslint .` exit 0。 |
+| `Set-Location E:/kuangchan/frontend; npm run build` | PASS | `tsc -b && vite build` exit 0；Vite 输出 `built in 244ms`。 |
+
+### Service Startup
+
+| Area | Result | Evidence |
+|---|---|---|
+| Backend current source service | PASS | `PORT=3100; npm run start` 启动成功，Nest 日志显示 `Nest application successfully started`，`GET http://127.0.0.1:3100/api/health` 返回 200。 |
+| Existing backend on 3000 | INFO | 执行前发现 `3000` 已有 `node --enable-source-maps E:\kuangchan\backend\dist\src\main`，健康接口也返回本项目服务；T30 后续验收使用 3100 当前源码实例。 |
+| Frontend acceptance service | PASS_WITH_BLOCKERS | `VITE_API_BASE_URL=http://127.0.0.1:3100/api; VITE_ACCEPTANCE_MODE=true; npm run dev -- --host 127.0.0.1 --port 5173` 启动成功，Vite ready。启动后真实 API 失败触发验收模式错误，未静默 fallback。 |
+
+### Seed Result
+
+| Command | Result | Evidence |
+|---|---|---|
+| `Set-Location E:/kuangchan/backend; npx prisma db seed` | EXIT_0_BUT_NO_DATA | 输出：`Environment variables loaded from .env`，随后仅显示 Prisma `6.8.2 -> 7.8.0` 升级提示；无业务错误。执行后只读计数仍为 `users=0,lots=0,enterprises=0,bids=0,notifications=0,deposits=0,contents=0`。未修改 `seed.ts`、`schema.prisma` 或 `package.json`。 |
+
+### Direct HTTP API
+
+| API | Result | Evidence |
+|---|---|---|
+| `GET /api/health` | PASS | 200。 |
+| `GET /api/portal/dashboard` | PASS_EMPTY | 200，空库下成交统计为 0。 |
+| `GET /api/lots` | PASS_EMPTY | 200，返回 `items=[]`。 |
+| `GET /api/results` | PASS_EMPTY | 200，返回 `items=[]`。 |
+| `GET /api/contents` | PASS_EMPTY | 200，返回 `items=[]`。 |
+| `GET /api/admin/lots` with `x-user-id: admin_demo`, `x-user-role: ADMIN` | PASS_EMPTY | 200，返回 `items=[]`。 |
+| `GET /api/admin/logs` with `x-user-id: admin_demo`, `x-user-role: ADMIN` | PASS | 200，返回操作日志列表。 |
+| `GET /api/lots?pageSize=100` | FAIL | 400，响应提示 `pageSize must be an integer number`；`LotQueryDto` 未对查询参数做 `Type(() => Number)` 转换。 |
+| `GET /api/admin/lots?pageSize=100` | FAIL | 400，同上。前端当前调用该 URL。 |
+| `GET /api/account/profile` with `x-user-id: enterprise_demo`, `x-user-role: ENTERPRISE` | FAIL | 500，空库且默认 `enterprise_demo` 是 username 口径，不是可用用户 UUID。 |
+
+### Browser Acceptance
+
+| Area | Click Coverage | Result | Evidence |
+|---|---|---|---|
+| 门户 | `/`、`/announcements/upcoming`、`/auctions/live`、`/results`、`/news` | BLOCKED_REAL_API | 页面跳转成立；浏览器请求 `http://127.0.0.1:3100/api/...` 被 CORS 拦截，控制台报 `No 'Access-Control-Allow-Origin' header` 与 `验收模式下真实 API 请求失败，已阻止 mock fallback`。页面仍显示 mock 初始数据，不能判定真实 API 加载通过。 |
+| 后台 | `/admin/dashboard`、`/admin/lots`、`/admin/reviews/lots`、`/admin/logs` | BLOCKED_REAL_API | 页面跳转成立；带 `x-user-id/x-user-role` 的后台请求触发 OPTIONS 预检，后端返回 `Cannot OPTIONS /api/admin/logs?pageSize=100` 或浏览器 CORS 失败。后台页面显示 mock/fallback 数据，不能判定真实 API 加载通过。 |
+| 企业中心 | `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages` | BLOCKED_REAL_API | 页面跳转成立；企业端请求被 CORS 预检拦截，且 seed 未写入用户，无法取得可用企业用户 UUID。页面显示 mock/fallback 数据，不能判定真实 API 加载通过。 |
+
+### Auth Header Used
+
+| Role | Header Used | Verification Result |
+|---|---|---|
+| ADMIN | `x-user-id: admin_demo`, `x-user-role: ADMIN` | 后台只读接口直连可访问部分接口，例如 `/api/admin/logs` 200；浏览器因 CORS 预检失败，不能完成前端真实 API 加载验收。 |
+| ENTERPRISE | `x-user-id: enterprise_demo`, `x-user-role: ENTERPRISE` | 当前不是可用用户 UUID；空库下 `/api/account/profile` 返回 500。未取得可用企业用户 UUID。 |
+
+### T30 Judgement
+
+| Area | Result | Reason |
+|---|---|---|
+| 前端 lint/build 不退化 | PASS | 本轮 fresh `lint/build` 均通过。 |
+| 后端服务可启动 | PASS | 当前源码服务在 3100 启动，健康接口 200。 |
+| 关键 API 可访问 | PASS_PARTIAL | 健康、门户看板、默认列表、后台日志可直连；拍品列表带 `pageSize` 查询失败，企业中心默认开发头失败。 |
+| 门户 3 条点击链路 | CLICK_PASS_API_BLOCKED | 跳转成立，真实 API 被 CORS 阻断。 |
+| 后台 3 条点击链路 | CLICK_PASS_API_BLOCKED | 跳转成立，真实 API 被 CORS/OPTIONS 阻断。 |
+| 企业中心 3 条点击链路 | CLICK_PASS_API_BLOCKED | 跳转成立，真实 API 被 CORS/OPTIONS 阻断，且缺可用企业用户 UUID。 |
+| 真实 API 失败处理 | PASS | 失败未写成通过；本节明确标记阻塞。 |
+
+### Blockers
+
+| ID | Severity | Issue | Evidence | Suggested Owner |
+|---|---|---|---|---|
+| T30-BLOCK-001 | High | 前端验收模式配置到绝对真实 API 地址后，后端未启用 CORS/OPTIONS，浏览器真实 API 全链路被拦截。 | 控制台：`No 'Access-Control-Allow-Origin' header`；OPTIONS `/api/admin/logs?pageSize=100` 返回 404 `Cannot OPTIONS ...`。 | 后端基础/集成联调 |
+| T30-BLOCK-002 | High | `npx prisma db seed` 退出码为 0 但未写入开发数据，无法提供可用 admin/enterprise 用户 UUID 和真实列表数据。 | seed 后 `users=0,lots=0,enterprises=0,contents=0`。 | 环境/数据模型 |
+| T30-BLOCK-003 | High | 前端调用 `/api/lots?pageSize=100`、`/api/admin/lots?pageSize=100`，后端返回 400，查询参数未转换为数字。 | 直连 HTTP 400：`pageSize must be an integer number`。 | 后端拍品/API DTO |
+| T30-BLOCK-004 | High | 企业中心默认开发请求头使用 `enterprise_demo`，但账号接口按用户 UUID 查询；空库下返回 500。 | `/api/account/profile` with `enterprise_demo` 返回 500。 | 认证/账号联调 |
+
+### Non-Blocking / Notes
+
+- 页面点击跳转本身基本可达，T29 导航能力在真实运行环境下继续成立。
+- 前端页面在验收模式下抛错但仍保留初始 mock 视觉内容，人工验收时不能以页面可见表格判定真实 API 成功。
+- `frontend/vite.config.ts` 当前无 dev proxy；若继续使用默认 `/api` 而非绝对 API 地址，也需要明确代理或同源部署方案。
