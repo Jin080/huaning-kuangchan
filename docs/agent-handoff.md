@@ -3058,3 +3058,110 @@
 - 需要总控确认：
   - 是否提交并推送 T37B、`.gitignore` 与本次总控复核记录。
   - 是否继续启动 T37C 门户登录、企业入驻、资源页决策。
+
+## 2026-05-18 16:26 - T37C 门户登录、企业入驻、资源页决策
+
+- 任务名称：T37C 门户登录、企业入驻、资源页决策
+- Stitch 来源：
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_35/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_35/screen.png`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/_29/code.html`
+  - `E:/kuangchan/stitch_document_to_webpage_generator/stitch_frontend_page_prompts.md` 中矿产资源列表/详情提示词
+- 修改文件：
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t37-artifacts/t37c-login-desktop.png`
+  - `docs/qa/t37-artifacts/t37c-enterprise-register-desktop.png`
+  - `docs/qa/t37-artifacts/t37c-enterprise-register-mobile.png`
+- 复刻范围：
+  - `/login` 企业登录页：复刻 Stitch 独立政务登录卡、验证码、错误提示、返回首页/企业入驻入口；不实施 T33 登录/JWT。
+  - `/enterprise/register` 企业入驻页：复刻 Stitch 流程步骤、分组表单、附件上传卡和底部操作栏；保留现有 `POST /api/enterprises/register` 真实提交。
+- 资源页决策：
+  - 本轮不新增 `/resources`、`/resources/detail`。
+  - 原因：本任务允许修改范围不包含 `frontend/src/App.tsx`，且本地 Stitch 仅有矿产资源列表/详情提示词、没有对应生成 HTML；现有门户“矿产资源”继续沿用 T37A/T29 口径映射到 `/announcements/upcoming` 和现有拍品数据/fallback。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c open http://127.0.0.1:5173/login`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37c-login-desktop.png --full-page`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c eval "(() => ({ url: location.href, innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-register open http://127.0.0.1:5173/enterprise/register`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-register screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37c-enterprise-register-desktop.png --full-page`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-register console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-register eval "(() => ({ url: location.href, innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-register screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37c-enterprise-register-mobile.png --full-page`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 193ms`。
+  - Playwright `/login`：桌面截图已生成，`console error` 为 0；390px 检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/enterprise/register`：桌面和移动截图已生成，`console error` 为 0；390px 检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - `git diff --check` 通过，无 whitespace error；仅有既有 LF/CRLF warning。
+- 截图产物：
+  - `docs/qa/t37-artifacts/t37c-login-desktop.png`
+  - `docs/qa/t37-artifacts/t37c-enterprise-register-desktop.png`
+  - `docs/qa/t37-artifacts/t37c-enterprise-register-mobile.png`
+- 未完成事项：
+  - 未提交/推送本轮改动。
+  - 未新增 `/resources`、`/resources/detail`；如后续总控确认新增，需要单独授权修改路由文件。
+  - 未实施登录/JWT 生产化、后台登录页或真实文件上传体验。
+- 需要总控确认：
+  - 是否接受本轮资源页“不新增路由、沿用现有拍品公告入口”的决策。
+  - 是否将 T37C 标记为 DONE，并继续排期 T38 或 T32/T33。
+
+## 2026-05-18 16:36 - 总控复核 T37C 并收口 T37
+
+- 任务名称：总控复核 T37C 门户登录、企业入驻、资源页决策，并更新 T37 状态
+- 读取文件与记录：
+  - `docs/agent-handoff.md`
+  - `docs/task-board.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/qa/t37-artifacts/t37c-*.png`
+- 总控确认的实际改动：
+  - `frontend/src/pages/PortalPages.tsx`：`/login` 改为 Stitch 风格企业登录页，`/enterprise/register` 改为带流程步骤、分组表单、附件卡与底部操作的企业入驻页；保留 `navigateTo` 和企业入驻真实提交函数。
+  - `frontend/src/index.css`：新增登录页、入驻页、上传卡、协议确认与移动端响应式样式。
+  - `docs/frontend-backend-integration-checklist.md`：新增 T37C 接入记录与资源页决策。
+  - `docs/task-board.md`：新增 T37C DONE，T37 父任务更新为 DONE，下一批改为 T38/T32/T33。
+- 排除确认：
+  - 未提交 `stitch_document_to_webpage_generator/`，该目录继续作为本地参考目录。
+  - 未提交 `.playwright-cli/` 或 `frontend/.playwright-cli/`。
+- 总控复跑验证命令：
+  - `git status --short --branch`
+  - `Get-ChildItem -Path 'E:/kuangchan/docs/qa/t37-artifacts' -Filter 't37c-*.png' | Select-Object Name,Length,LastWriteTime`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/login`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-login open http://127.0.0.1:5173/login`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-register open http://127.0.0.1:5173/enterprise/register`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-login console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-register console error`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-login resize 390 844`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-register resize 390 844`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-login eval "(() => ({ url: location.href, innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-register eval "(() => ({ url: location.href, innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, overflow: document.documentElement.scrollWidth > window.innerWidth }))"`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-login screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37c-control-login-mobile.png --full-page`
+  - `npx --yes --package @playwright/cli playwright-cli -s=t37c-control-register screenshot --filename E:/kuangchan/docs/qa/t37-artifacts/t37c-control-register-mobile.png --full-page`
+- 总控复跑验证结果：
+  - `git status --short --branch` 显示当前 `main...origin/main`，T37C 相关文件未提交，另有未跟踪 `stitch_document_to_webpage_generator/`。
+  - T37C 执行会话截图存在且非空：`t37c-enterprise-register-desktop.png` 152957 bytes、`t37c-enterprise-register-mobile.png` 146954 bytes、`t37c-login-desktop.png` 34774 bytes。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 261ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/login` 返回 HTTP 200，确认当前 5173 服务可访问；未停止服务。
+  - Playwright `/login`：`console error` 为 0；390px 检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`；新增总控移动截图 `t37c-control-login-mobile.png` 27947 bytes。
+  - Playwright `/enterprise/register`：`console error` 为 0；390px 检查返回 `innerWidth=390`、`scrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`；新增总控移动截图 `t37c-control-register-mobile.png` 146566 bytes。
+- 结论：
+  - T37C 总控复核通过。
+  - T37 门户与详情页 Stitch 全面复刻按 T37A/T37B/T37C 分批范围收口，任务板已标记 DONE。
+- 未完成事项：
+  - T38 后台与企业中心 Stitch 全面复刻待启动。
+  - T32 后台拍品录入本地图片/附件上传体验待排期。
+  - T33 登录/JWT 与角色权限生产化待排期。
+- 需要总控确认：
+  - 是否启动 T38，或优先启动上线必做的 T32/T33。

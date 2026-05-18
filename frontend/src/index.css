@@ -1793,14 +1793,115 @@ dd {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: #edf3f8;
+  padding: 16px;
+  background: var(--surface-soft);
+}
+
+.login-shell {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 24px;
+}
+
+.login-brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  color: var(--navy);
+}
+
+.login-brand span {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--primary);
+  background: #d6e3ff;
+  font-weight: 800;
+}
+
+.login-brand h1 {
+  margin: 0;
+  font-size: 24px;
 }
 
 .login-card {
-  width: 440px;
   padding: 32px;
   display: grid;
+  gap: 18px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+.login-card h2 {
+  margin: 0 0 6px;
+  color: var(--navy);
+  font-size: 20px;
+  text-align: center;
+}
+
+.login-alert {
+  padding: 12px;
+  border: 1px solid #f8b4b4;
+  border-radius: 4px;
+  color: var(--red);
+  background: #ffdad6;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.login-field input {
+  height: 44px;
+}
+
+.captcha-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 12px;
+}
+
+.captcha-box {
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--navy);
+  background:
+    repeating-linear-gradient(145deg, rgba(15, 23, 42, 0.08) 0 1px, transparent 1px 8px),
+    var(--surface-container-highest, #e0e3e5);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.login-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 2px;
+}
+
+.login-links {
+  display: flex;
+  justify-content: space-between;
   gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.login-links button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-support {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: center;
 }
 
 .form-tip {
@@ -1808,39 +1909,187 @@ dd {
   color: var(--red);
 }
 
+.register-page {
+  padding-bottom: 84px;
+}
+
+.register-head {
+  margin: 12px 0 28px;
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  text-align: center;
+}
+
+.register-head h1 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 30px;
+}
+
+.register-steps {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  width: min(780px, 100%);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.register-steps li {
+  position: relative;
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.register-steps li::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: calc(50% + 24px);
+  right: calc(-50% + 24px);
+  height: 2px;
+  background: var(--line);
+}
+
+.register-steps li:last-child::after {
+  display: none;
+}
+
+.register-steps span {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--surface-container-highest, #e0e3e5);
+  font-weight: 800;
+}
+
+.register-steps .active {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.register-steps .active span {
+  color: #fff;
+  background: var(--primary);
+}
+
+.register-notice {
+  width: min(780px, 100%);
+  margin: 0 auto 20px;
+  padding: 12px 14px;
+  border: 1px solid #dce8f7;
+  border-radius: 4px;
+  color: var(--primary-deep);
+  background: #f2f6fb;
+  font-size: 13px;
+  text-align: center;
+}
+
 .long-form {
   display: grid;
   gap: 18px;
-  padding-bottom: 86px;
+  padding-bottom: 0;
 }
 
 fieldset {
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: 8px;
-  padding: 20px;
+  padding: 22px 24px 24px;
 }
 
 legend {
   color: var(--text);
   font-weight: 800;
   padding: 0 8px;
+  border-left: 4px solid var(--primary);
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+
+.register-upload {
+  min-height: 126px;
+  padding: 18px;
+  border: 1px dashed var(--outline-variant, #c3c6d2);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.register-upload.compact-upload {
+  min-height: 104px;
+}
+
+.register-upload > span {
+  margin: 0;
+  color: var(--text);
+}
+
+.register-upload button {
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font-weight: 800;
+}
+
+.register-upload small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.register-agreement {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.register-agreement input {
+  flex: 0 0 auto;
+  width: 16px;
+  margin-top: 3px;
+}
+
+.register-agreement span {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 .sticky-actions {
   position: sticky;
   bottom: 0;
   padding: 14px 20px;
-  background: rgba(255, 255, 255, 0.94);
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.08);
+}
+
+.sticky-actions .button-row {
+  justify-content: flex-end;
 }
 
 .admin-shell {
@@ -2213,5 +2462,67 @@ legend {
 
   .table-card {
     overflow-x: auto;
+  }
+
+  .login-page {
+    align-items: start;
+    padding-top: 28px;
+  }
+
+  .login-card {
+    padding: 24px 20px;
+  }
+
+  .login-brand h1 {
+    font-size: 20px;
+  }
+
+  .captcha-row {
+    grid-template-columns: 1fr;
+  }
+
+  .captcha-box {
+    width: 110px;
+  }
+
+  .register-head {
+    margin-top: 4px;
+    text-align: left;
+    justify-items: stretch;
+  }
+
+  .register-head h1 {
+    font-size: 26px;
+    text-align: center;
+  }
+
+  .register-steps {
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 2px;
+  }
+
+  .register-steps li {
+    flex: 0 0 92px;
+  }
+
+  fieldset {
+    padding: 18px;
+  }
+
+  .register-upload {
+    min-height: 112px;
+  }
+
+  .sticky-actions {
+    padding: 12px;
+  }
+
+  .sticky-actions .button-row {
+    justify-content: stretch;
+  }
+
+  .sticky-actions .btn {
+    flex: 1 1 100%;
   }
 }

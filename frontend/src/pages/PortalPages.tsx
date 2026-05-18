@@ -438,20 +438,37 @@ export function DisclosurePage() {
 export function LoginPage() {
   return (
     <div className="login-page">
-      <section className="login-card">
-        <div className="brand-mark">
+      <div className="login-shell">
+        <div className="login-brand">
           <span>矿</span>
-          <div>
-            <strong>华宁矿产竞拍平台</strong>
-            <small>企业用户登录</small>
-          </div>
+          <h1>华宁矿产竞拍平台</h1>
         </div>
-        <label className="field"><span>用户名</span><input placeholder="请输入用户名" /></label>
-        <label className="field"><span>密码</span><input placeholder="请输入密码" type="password" /></label>
-        <label className="field"><span>图形验证码</span><input placeholder="请输入验证码" /></label>
-        <ButtonRow actions={[{ label: '登录', tone: 'primary', to: '/account' }, { label: '企业入驻', to: '/enterprise/register' }, { label: '返回首页', tone: 'ghost', to: '/' }]} />
-        <p className="form-tip">账号已被限制时提示：账号已被限制，请联系平台客服。</p>
-      </section>
+        <section className="login-card">
+          <h2>企业用户登录</h2>
+          <div className="login-alert">用户名或密码错误，请重新输入。</div>
+          <label className="field login-field">
+            <span>用户名</span>
+            <input defaultValue="HN-MINING-2023" placeholder="请输入统一社会信用代码或账号" />
+          </label>
+          <label className="field login-field">
+            <span>密码</span>
+            <input defaultValue="password" placeholder="请输入密码" type="password" />
+          </label>
+          <label className="field login-field">
+            <span>验证码</span>
+            <div className="captcha-row">
+              <input placeholder="输入右侧字符" />
+              <button aria-label="刷新验证码" className="captcha-box" type="button">A7X2</button>
+            </div>
+          </label>
+          <button className="btn primary login-submit" onClick={() => navigateTo('/account')} type="button">立即登录</button>
+          <div className="login-links">
+            <button onClick={() => navigateTo('/')} type="button">返回首页</button>
+            <button onClick={() => navigateTo('/enterprise/register')} type="button">企业入驻</button>
+          </div>
+        </section>
+        <p className="login-support">本系统仅供已实名认证的企业用户参与矿产资源交易使用<br />遇到问题请联系交易中心技术支持</p>
+      </div>
     </div>
   );
 }
@@ -475,31 +492,41 @@ export function EnterpriseRegisterPage() {
 
   return (
     <PortalLayout active="企业入驻">
-      <PageTitle title="企业入驻" subtitle="填写资料、提交审核、平台审核、认证通过。" />
-      <p className="form-tip">{notice}</p>
-      <LongForm
-        formId="enterprise-register-form"
-        groups={[
-          ['账号信息', [['username', '用户名'], ['password', '设置密码'], ['confirmPassword', '确认密码'], ['avatar', '头像']]],
-          ['企业基础信息', [['name', '企业名'], ['mainCategory', '主营分类'], ['userCategory', '用户类别'], ['userType', '用户类型'], ['registeredCapital', '注册资本'], ['region', '所属区域'], ['address', '详细地址'], ['unifiedSocialCreditCode', '统一社会信用代码']]],
-          ['法人及联系人', [['contactPerson', '联系人'], ['contactPhone', '联系电话'], ['legalRepresentative', '法人代表'], ['legalRepresentativeIdNo', '身份证号'], ['email', '电子邮件']]],
-          ['经营信息', [['companyProfile', '公司简介'], ['businessScope', '经营范围'], ['qualificationFileUrl', '企业资质'], ['businessLicenseFileUrl', '营业执照']]],
-          ['付款银行账户', [['paymentBankAccount', '付款银行账户'], ['paymentAccountName', '付款账户名称'], ['paymentBankName', '付款账户开户行'], ['paymentBankLineNo', '付款人行行号'], ['paymentIsBankOfChina', '付款账户是否中行']]],
-          ['收款银行账户', [['receivingBankAccount', '收款银行账户'], ['receivingAccountName', '收款账户名称'], ['receivingBankName', '收款账户开户行'], ['receivingBankLineNo', '收款人行行号'], ['receivingIsBankOfChina', '收款账户是否中行']]],
-          ['协议确认', [['captcha', '图形验证码'], ['agreementAccepted', '入驻协议确认']]],
-        ]}
-        onSubmit={submitRegister}
-      />
+      <div className="register-page">
+        <header className="register-head">
+          <h1>企业入驻</h1>
+          <RegisterSteps />
+        </header>
+        <p className="register-notice">{notice}</p>
+        <LongForm
+          formId="enterprise-register-form"
+          groups={[
+            ['账号信息', [['username', '用户名'], ['password', '设置密码'], ['confirmPassword', '确认密码']]],
+            ['企业基础信息', [['avatar', '企业头像'], ['name', '企业名'], ['unifiedSocialCreditCode', '统一社会信用代码'], ['registeredCapital', '注册资本'], ['mainCategory', '主营分类'], ['userCategory', '用户类别'], ['userType', '用户类型'], ['region', '所属区域'], ['address', '详细地址']]],
+            ['法人及联系人', [['contactPerson', '联系人'], ['contactPhone', '联系电话'], ['legalRepresentative', '法人代表'], ['legalRepresentativeIdNo', '身份证号'], ['email', '电子邮件']]],
+            ['经营信息', [['companyProfile', '公司简介'], ['businessScope', '经营范围']]],
+            ['附件材料', [['businessLicenseFileUrl', '营业执照'], ['qualificationFileUrl', '企业资质']]],
+            ['付款银行账户', [['paymentBankAccount', '付款银行账户'], ['paymentAccountName', '付款账户名称'], ['paymentBankName', '付款账户开户行'], ['paymentBankLineNo', '付款人行行号'], ['paymentIsBankOfChina', '付款账户是否中行']]],
+            ['收款银行账户', [['receivingBankAccount', '收款银行账户'], ['receivingAccountName', '收款账户名称'], ['receivingBankName', '收款账户开户行'], ['receivingBankLineNo', '收款人行行号'], ['receivingIsBankOfChina', '收款账户是否中行']]],
+            ['协议确认', [['captcha', '图形验证码'], ['agreementAccepted', '入驻协议确认']]],
+          ]}
+          onSubmit={submitRegister}
+        />
+      </div>
     </PortalLayout>
   );
 }
 
-function PageTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+function RegisterSteps() {
   return (
-    <section className="page-title">
-      <h1>{title}</h1>
-      {subtitle ? <p>{subtitle}</p> : null}
-    </section>
+    <ol className="register-steps" aria-label="企业入驻流程">
+      {['填写资料', '提交审核', '平台审核', '认证通过'].map((step, index) => (
+        <li className={index === 0 ? 'active' : ''} key={step}>
+          <span>{index + 1}</span>
+          <strong>{step}</strong>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -886,22 +913,61 @@ function LongForm({
           <legend>{title}</legend>
           <div className="form-grid">
             {fields.map(([name, label]) => (
-              <label className="field" key={name}>
-                <span>{label}</span>
-                <input defaultValue={getEnterpriseDefault(name)} name={name} placeholder={`请输入${label}`} />
-              </label>
+              <RegisterField key={name} label={label} name={name} />
             ))}
           </div>
         </fieldset>
       ))}
       <div className="sticky-actions">
         <div className="button-row">
-          <button className="btn secondary" type="button">保存</button>
+          <button className="btn secondary" type="button">保存草稿</button>
           <button className="btn primary" onClick={onSubmit} type="button">提交审核</button>
           <button className="btn secondary" onClick={() => navigateTo('/login')} type="button">返回登录</button>
         </div>
       </div>
     </form>
+  );
+}
+
+function RegisterField({ label, name }: { label: string; name: string }) {
+  if (name === 'avatar') {
+    return (
+      <label className="field register-upload compact-upload">
+        <span>{label}</span>
+        <input name={name} type="hidden" value={getEnterpriseDefault(name)} />
+        <button type="button">上传头像</button>
+        <small>建议尺寸 200x200px，支持 JPG/PNG</small>
+      </label>
+    );
+  }
+
+  if (name === 'businessLicenseFileUrl' || name === 'qualificationFileUrl') {
+    return (
+      <label className="field register-upload">
+        <span>{label}</span>
+        <input name={name} type="hidden" value={getEnterpriseDefault(name)} />
+        <button type="button">选择文件</button>
+        <small>支持 JPG/PNG/PDF，文件大小不超过 5MB</small>
+      </label>
+    );
+  }
+
+  if (name === 'agreementAccepted') {
+    return (
+      <label className="field register-agreement">
+        <input defaultChecked name={name} type="checkbox" value="是" />
+        <span>我已阅读并同意《华宁矿产竞拍平台企业入驻协议》《隐私政策》及相关交易规则。</span>
+      </label>
+    );
+  }
+
+  const inputType = name.toLowerCase().includes('password') ? 'password' : 'text';
+
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input defaultValue={getEnterpriseDefault(name)} name={name} placeholder={`请输入${label}`} type={inputType} />
+    </label>
   );
 }
 

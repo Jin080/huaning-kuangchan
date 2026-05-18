@@ -256,3 +256,12 @@
 - 真实 API 与 fallback 策略保持不变：列表页继续使用 `fetchLots()`、`fetchResults()`、`fetchContents()`；公告详情无 `?id=` 时先取真实列表中可用公示拍品，避免 mock id 请求真实详情接口产生 console error。
 - Playwright 390px 宽度检查覆盖 `/announcements/upcoming`、`/announcements/upcoming/detail`、`/auctions/live`、`/results`、`/results/detail`、`/news`、`/news/detail`、`/disclosures`，结果均为 `scrollWidth=390`、`innerWidth=390`、`overflow=false`；逐页 `console error` 为 0。
 - Playwright 截图保存到 `docs/qa/t37-artifacts/`，文件名前缀为 `t37b-`。
+
+## 20. T37C 门户登录、企业入驻、资源页决策
+
+- 已基于 `stitch_document_to_webpage_generator/_35/code.html` 与 `_35/screen.png` 复刻 `/login` 企业登录页视觉；本轮仅保留当前开发期按钮导航到 `/account`，不实施登录/JWT 生产化。
+- 已基于 `stitch_document_to_webpage_generator/_29/code.html` 复刻 `/enterprise/register` 企业入驻页视觉：流程步骤、分组表单、附件上传卡与底部操作栏；`POST /api/enterprises/register` 真实提交和 fallback 口径保持不变。
+- 资源页决策：本轮不新增 `/resources`、`/resources/detail`。原因是当前允许修改范围不包含 `frontend/src/App.tsx`，且 Stitch 本地目录只有矿产资源列表/详情提示词、没有对应已生成 HTML；门户“矿产资源”入口继续沿用 T37A/T29 口径映射到 `/announcements/upcoming` 与现有拍品数据。
+- 本轮未修改后端、Prisma schema、登录/JWT、T34 出价口径，未提交 `stitch_document_to_webpage_generator/`、`.playwright-cli/` 或 `frontend/.playwright-cli/`。
+- Playwright 390px 宽度检查覆盖 `/login` 与 `/enterprise/register`，结果均为 `scrollWidth=390`、`innerWidth=390`、`overflow=false`；两页 `console error` 为 0。
+- Playwright 截图保存到 `docs/qa/t37-artifacts/`，文件名前缀为 `t37c-`。
