@@ -1993,3 +1993,28 @@
   - 是否确认保留并提交 5 个 `renzheng/*.png` 删除项。
   - 是否接受当前 LF/CRLF warning。
   - 是否授权执行 git commit 以及 commit message。
+
+## 2026-05-18 09:45 - T28 提交完成归档与推送前确认
+
+- 任务名称：T28 提交完成归档与推送前确认
+- 修改文件：
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 提交结果：
+  - 已确认本地最新提交：`8883c6c feat: complete staged auction workflow release`
+  - 提交范围：136 个文件，包含后端模块/测试、前端接入、文档归档、`frontend/src/index.css` 两行布局修正，以及 5 个 `renzheng/*.png` 删除项。
+  - 提交后状态：`main` 领先 `origin/main` 1 个提交，工作区干净。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short`
+  - `Set-Location E:/kuangchan; git status --branch --short`
+  - `Set-Location E:/kuangchan; git log -1 --oneline --decorate`
+  - `Set-Location E:/kuangchan; git show --stat --summary --oneline --decorate --name-status HEAD`
+- 验证结果：
+  - `git status --short` 无输出，工作区干净。
+  - `git status --branch --short` 输出 `## main...origin/main [ahead 1]`。
+  - `git log -1 --oneline --decorate` 输出 `8883c6c (HEAD -> main) feat: complete staged auction workflow release`。
+  - `git show --stat --summary --oneline --decorate --name-status HEAD` 已确认提交包含后端模块/测试、前端接入、文档归档、`frontend/src/index.css` 两行布局修正，以及 5 个 `renzheng/*.png` 删除项。
+- 未完成事项：
+  - 本记录追加时尚未执行 `git push`。
+  - 下一阶段前端页面导航联通问题待拆分任务。
+- 需要总控确认：
+  - 已收到人工授权：允许追加本记录、提交文档归档并执行 `git push origin main`。
