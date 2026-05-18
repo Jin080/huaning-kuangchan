@@ -27,8 +27,9 @@
 - 当前数据来源：门户与个人中心优先调用真实 API，失败时回退 `frontend/src/data/mock.ts`。
 - 验收模式：设置 `VITE_ACCEPTANCE_MODE=true` 后，`withFallback` 不再回退 mock，真实 API 失败会直接暴露。
 - 接口替换点：`frontend/src/services/api.ts` 同时保留同步 mock 方法和异步真实 API 方法，后台列表页优先调用 `fetchAdmin*` 方法。
-- 企业端开发请求头：个人中心接口会带 `x-user-role: ENTERPRISE`，`x-user-id` 默认取 `localStorage.devEnterpriseUserId`，其次取 `VITE_DEV_ENTERPRISE_USER_ID`，最后回退 `enterprise_demo`。
-- 管理端开发请求头：后台接口会带 `x-user-role: ADMIN`，`x-user-id` 默认取 `localStorage.devAdminUserId`，其次取 `VITE_DEV_ADMIN_USER_ID`，最后回退 `admin_demo`。
+- 开发请求头口径：`x-user-id` 必须使用用户 UUID，不使用 username；`x-user-role` 使用 `ADMIN` 或 `ENTERPRISE`。
+- 企业端开发请求头：个人中心接口会带 `x-user-role: ENTERPRISE`，`x-user-id` 默认取 `localStorage.devEnterpriseUserId`，其次取 `VITE_DEV_ENTERPRISE_USER_ID`，最后回退 ENTERPRISE 用户 UUID `714ac6d2-aa76-4cff-9224-ecae6298c599`。
+- 管理端开发请求头：后台接口会带 `x-user-role: ADMIN`，`x-user-id` 默认取 `localStorage.devAdminUserId`，其次取 `VITE_DEV_ADMIN_USER_ID`，最后回退 ADMIN 用户 UUID `0d3ed994-8ebf-47ec-bf11-2eb86f008ae6`。
 
 ## 2. 页面路由清单
 
@@ -215,10 +216,12 @@
 
 - 后端当前源码可在 `PORT=3100` 启动，`GET /api/health` 返回 200。
 - 前端可在 `VITE_API_BASE_URL=http://127.0.0.1:3100/api`、`VITE_ACCEPTANCE_MODE=true` 下启动。
-- 浏览器真实联调当前被 CORS/OPTIONS 阻塞：后端未返回 `Access-Control-Allow-Origin`，带开发认证头的后台/企业请求会触发预检并失败。
-- `GET /api/lots?pageSize=100` 与 `GET /api/admin/lots?pageSize=100` 当前返回 400；前端列表请求使用该参数格式，真实加载会失败。
-- `npx prisma db seed` 本轮退出码为 0，但未写入用户、企业、拍品、内容等数据；因此没有可用于企业中心验收的企业用户 UUID。
-- T30 当前结论：点击跳转成立，但“点击跳转 + 真实 API 加载”未同时成立；不得把 mock/fallback 页面展示记为通过。
+- T30A 已启用开发 CORS/OPTIONS，允许 `x-user-id` 与 `x-user-role` 通过预检。
+- T30B 已修复 seed 开发数据，并确认 ADMIN/ENTERPRISE 用户 UUID 可用。
+- T30C 已修复 `/api/lots?pageSize=100` 与 `/api/admin/lots?pageSize=100` 查询参数数字转换。
+- T30D 已同步开发认证用户 UUID 口径：前端默认开发请求头不再使用 `admin_demo` 或 `enterprise_demo` username。
+- 2026-05-18 11:37 已重跑 T30 全链路真实运行点击复验：seed 数据存在，`/api/lots?pageSize=100`、`/api/admin/lots?pageSize=100`、`/api/account/profile` 均返回 200；门户、后台、企业中心关键点击路径均触发真实 API 200，Playwright `console error` 为 0。
+- 本轮验收模式未把 mock/fallback 展示记为真实 API 通过；结论以 curl 与 Playwright network requests 为准。
 
 ## 9. T14 收口记录
 

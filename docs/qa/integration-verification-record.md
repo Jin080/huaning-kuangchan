@@ -373,3 +373,70 @@
 - T30-BLOCK-002：seed 开发数据不属于 T30A 修复范围，当前状态以 T30B 或后续复测记录为准。
 - T30-BLOCK-003：`pageSize=100` 查询参数数字转换不属于 T30A 修复范围，当前状态以 T30C 或后续复测记录为准。
 - T30-BLOCK-004：企业中心默认开发用户 ID 不属于 T30A 修复范围，当前状态以 seed/认证联调或后续复测记录为准。
+
+## Retest: 2026-05-18 11:37 - T30 全链路真实运行点击复验
+
+本节为追加记录。T30A/T30B/T30C/T30D 完成后，本轮只做真实服务启动、HTTP 验证和 Playwright 点击复验；未修改业务代码、Prisma schema、登录/JWT、后端 AuthGuard，未实施 T31/T32/T33。
+
+### Engineering Gate
+
+| Command | Result | Evidence |
+|---|---|---|
+| `Set-Location E:/kuangchan/backend; npx prisma db seed` | PASS | 输出 `Prisma seed completed.`；计数 `users=2, enterprises=1, lots=1, contents=4`；输出 ADMIN 与 ENTERPRISE UUID。 |
+| `Set-Location E:/kuangchan/backend; npm run lint` | PASS | `eslint "{src,test}/**/*.ts"` exit 0。 |
+| `Set-Location E:/kuangchan/backend; npm run typecheck` | PASS | `tsc --noEmit` exit 0。 |
+| `Set-Location E:/kuangchan/frontend; npm run lint` | PASS | `eslint .` exit 0。 |
+| `Set-Location E:/kuangchan/frontend; npm run build` | PASS | `tsc -b && vite build` exit 0；Vite 输出 `built in 221ms`。 |
+
+### Runtime Startup
+
+| Area | Result | Evidence |
+|---|---|---|
+| Backend 3100 | PASS | `Set-Location E:/kuangchan/backend; $env:PORT='3100'; npm run start` 启动成功，Nest 日志显示 `Nest application successfully started`。 |
+| Frontend 5173 | PASS | `Set-Location E:/kuangchan/frontend; $env:VITE_API_BASE_URL='http://127.0.0.1:3100/api'; $env:VITE_ACCEPTANCE_MODE='true'; $env:VITE_DEV_ADMIN_USER_ID='0d3ed994-8ebf-47ec-bf11-2eb86f008ae6'; $env:VITE_DEV_ENTERPRISE_USER_ID='714ac6d2-aa76-4cff-9224-ecae6298c599'; npm run dev -- --host 127.0.0.1 --port 5173` 启动成功，Vite ready。 |
+
+### Direct HTTP API
+
+| API | Result | Evidence |
+|---|---|---|
+| `GET /api/health` | PASS | `HTTP/1.1 200 OK`，返回 `{"status":"ok","service":"huaning-mineral-auction-backend"}`。 |
+| `GET /api/lots?pageSize=100` | PASS | `HTTP/1.1 200 OK`，返回 `items` 1 条，`pageSize` 为 `100`。 |
+| `GET /api/admin/lots?pageSize=100` with ADMIN UUID | PASS | `HTTP/1.1 200 OK`，返回 `items` 1 条，`pageSize` 为 `100`。 |
+| `GET /api/account/profile` with ENTERPRISE UUID | PASS | `HTTP/1.1 200 OK`，响应 `id=714ac6d2-aa76-4cff-9224-ecae6298c599`，`username=enterprise_demo`，企业认证状态为 `审核通过`。 |
+| `OPTIONS /api/admin/lots?pageSize=100` from 5173 | PASS | `HTTP/1.1 204 No Content`，包含 `Access-Control-Allow-Origin: http://127.0.0.1:5173` 与 `Access-Control-Allow-Headers: Content-Type,Authorization,x-user-id,x-user-role`。 |
+
+### Browser Acceptance
+
+| Area | Click Coverage | Result | Network Evidence |
+|---|---|---|---|
+| 门户 | `/`、`/announcements/upcoming`、`/auctions/live`、`/results`、`/news`、`/disclosures` | PASS | Playwright requests 显示 `/api/portal/dashboard`、`/api/lots?pageSize=100`、`/api/results?pageSize=100`、`/api/contents?pageSize=100` 均为 200。 |
+| 后台 | `/admin/dashboard`、`/admin/lots`、`/admin/reviews/lots`、`/admin/logs` | PASS | Playwright requests 显示 `/api/admin/lots?pageSize=100`、`/api/admin/reviews/lots?pageSize=100`、`/api/admin/logs?pageSize=100` 均为 200。 |
+| 企业中心 | `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages` | PASS | Playwright requests 显示 `/api/account/profile`、`/api/account/deposit-vouchers?pageSize=100`、`/api/account/bids?pageSize=100`、`/api/account/messages?pageSize=100` 均为 200。 |
+
+### Console / Network Errors
+
+| Item | Result | Evidence |
+|---|---|---|
+| Browser console error | PASS | Playwright `console error` 返回 `Errors: 0, Warnings: 0`。 |
+| CORS / OPTIONS | PASS | curl 预检返回 204；Playwright 浏览器请求无 CORS 阻塞。 |
+| API non-2xx | PASS | 本轮关键点击路径 network requests 未发现关键 API 4xx/5xx。 |
+| Acceptance fallback | PASS | 验收结论只基于 curl 与 Playwright network 200；未把 mock/fallback 可见内容记为真实 API 通过。 |
+| Artifact | INFO | 截图保存至 `docs/qa/t30-artifacts/t30-account-messages-cli.png`。 |
+
+### T30 Judgement
+
+| Area | Result | Reason |
+|---|---|---|
+| seed 数据存在 | PASS | `users=2, enterprises=1, lots=1, contents=4`。 |
+| `/api/lots?pageSize=100` | PASS | 200。 |
+| `/api/admin/lots?pageSize=100` | PASS | 200。 |
+| `/api/account/profile` with ENTERPRISE UUID | PASS | 200。 |
+| 门户关键点击 + 真实 API | PASS | 点击跳转成立，关键 API 200。 |
+| 后台关键点击 + 真实 API | PASS | 点击跳转成立，关键 API 200。 |
+| 企业中心关键点击 + 真实 API | PASS | 点击跳转成立，关键 API 200。 |
+| T30 是否通过 | PASS_NEEDS_BOARD_CONFIRMATION | 本轮复验证据满足 T30 验收标准；因本任务允许修改范围不含 `docs/task-board.md`，任务板状态需总控确认后更新。 |
+
+### Remaining Notes
+
+- 登录/JWT 生产化仍未实施，当前验收继续使用开发请求头模拟登录态。
+- 未实施 T31 后台/企业端列表补原始 `lotId`，本轮不扩大范围。

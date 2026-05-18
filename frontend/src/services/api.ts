@@ -436,14 +436,14 @@ function money(value: string, suffix = '元'): string {
 
 function getEnterpriseHeaders() {
   return {
-    'x-user-id': localStorage.getItem('devEnterpriseUserId') ?? import.meta.env.VITE_DEV_ENTERPRISE_USER_ID ?? 'enterprise_demo',
+    'x-user-id': localStorage.getItem('devEnterpriseUserId') ?? import.meta.env.VITE_DEV_ENTERPRISE_USER_ID ?? '714ac6d2-aa76-4cff-9224-ecae6298c599',
     'x-user-role': 'ENTERPRISE',
   };
 }
 
 function getAdminHeaders() {
   return {
-    'x-user-id': localStorage.getItem('devAdminUserId') ?? import.meta.env.VITE_DEV_ADMIN_USER_ID ?? 'admin_demo',
+    'x-user-id': localStorage.getItem('devAdminUserId') ?? import.meta.env.VITE_DEV_ADMIN_USER_ID ?? '0d3ed994-8ebf-47ec-bf11-2eb86f008ae6',
     'x-user-role': 'ADMIN',
   };
 }

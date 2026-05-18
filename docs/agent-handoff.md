@@ -2378,3 +2378,152 @@
   - T30D 尚未实施。
   - T30 全链路真实运行点击复验尚未重跑。
   - 当前本地 `main` 仍有未推送文档提交，需网络恢复后重试 `git push origin main`。
+
+## 2026-05-18 11:08 - T30D 开发认证用户 UUID 口径同步
+
+- 任务名称：T30D 开发认证用户 UUID 口径同步
+- 修改文件：
+  - `frontend/src/services/api.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 开发请求头口径：
+  - `x-user-id` 使用用户 UUID，不使用 username。
+  - ADMIN：`x-user-id: 0d3ed994-8ebf-47ec-bf11-2eb86f008ae6`，`x-user-role: ADMIN`
+  - ENTERPRISE：`x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599`，`x-user-role: ENTERPRISE`
+  - 前端默认开发用户兜底值已从 `admin_demo` / `enterprise_demo` 改为上述真实 UUID；仍保留 `localStorage.devAdminUserId`、`localStorage.devEnterpriseUserId`、`VITE_DEV_ADMIN_USER_ID`、`VITE_DEV_ENTERPRISE_USER_ID` 覆盖能力。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `curl.exe -H "x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599" -H "x-user-role: ENTERPRISE" http://127.0.0.1:3100/api/account/profile`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 191ms`。
+  - 临时启动后端 3100 后，`/api/account/profile` 使用 ENTERPRISE UUID 返回 HTTP 200；响应体 `id` 为 `714ac6d2-aa76-4cff-9224-ecae6298c599`，`username` 为资料字段 `enterprise_demo`，不再作为请求头口径。
+  - 验证完成后已停止本次临时启动的后端进程。
+- 未完成事项：
+  - 未重跑 T30 全链路真实运行点击复验。
+  - 未实施登录/JWT、未修改后端 AuthGuard、未修改 Prisma schema、未实施 T31 lotId 增强。
+- 需要总控确认：
+  - 是否将 T30D 标记为 DONE，并启动 T30 全链路真实运行点击复验。
+
+## 2026-05-18 11:15 - T30D 总控复核与任务板同步
+
+- 任务名称：T30D 总控复核与任务板同步
+- 复核文件：
+  - `frontend/src/services/api.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 开发请求头口径：
+  - `x-user-id` 使用用户 UUID，不使用 username。
+  - ADMIN：`0d3ed994-8ebf-47ec-bf11-2eb86f008ae6`
+  - ENTERPRISE：`714ac6d2-aa76-4cff-9224-ecae6298c599`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `curl.exe -i -H "x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599" -H "x-user-role: ENTERPRISE" http://127.0.0.1:3100/api/account/profile`
+- 验证结果：
+  - `git status --short --branch` 显示 `main...origin/main`，并有 T30D 相关未提交改动；当前 `HEAD` 为 `04d761f fix: unblock T30 integration prerequisites`。
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 206ms`。
+  - 本轮临时启动后端 3100 后，`/api/account/profile` 使用 ENTERPRISE UUID 返回 `HTTP/1.1 200 OK`；响应体 `id` 为 `714ac6d2-aa76-4cff-9224-ecae6298c599`，`username` 为 `enterprise_demo`。
+  - 验证后已停止本轮临时启动的 3100 后端监听，并清理临时日志文件。
+- 是否更新 task-board：
+  - 是。T30D 已由 TODO 更新为 DONE。
+- 未完成事项：
+  - T30 全链路真实运行点击复验尚未重跑。
+  - T30D 本地改动尚未提交/推送。
+  - 未实施登录/JWT、未修改后端 AuthGuard、未修改 Prisma schema、未实施 T31 lotId 增强。
+- 需要总控确认：
+  - 是否启动 T30 全链路真实运行点击复验。
+  - 是否提交并推送 T30D 与本次总控复核文档改动。
+
+## 2026-05-18 11:37 - T30 全链路真实运行点击复验
+
+- 任务名称：T30 全链路真实运行点击复验
+- 启动命令：
+  - `Set-Location E:/kuangchan/backend; $env:PORT='3100'; npm run start`
+  - `Set-Location E:/kuangchan/frontend; $env:VITE_API_BASE_URL='http://127.0.0.1:3100/api'; $env:VITE_ACCEPTANCE_MODE='true'; $env:VITE_DEV_ADMIN_USER_ID='0d3ed994-8ebf-47ec-bf11-2eb86f008ae6'; $env:VITE_DEV_ENTERPRISE_USER_ID='714ac6d2-aa76-4cff-9224-ecae6298c599'; npm run dev -- --host 127.0.0.1 --port 5173`
+- 点击覆盖范围：
+  - 门户：首页、即将拍卖、正在竞价、成交公示、信息资讯、公开说明。
+  - 后台：后台看板、拍品管理、标的发布复核、操作日志。
+  - 企业中心：中心首页、我的企业认证、我的意向金、我的出价记录、我的通知。
+- 真实 API 验证结果：
+  - CORS/OPTIONS 不再阻塞：`OPTIONS /api/admin/lots?pageSize=100` 返回 204，允许 `http://127.0.0.1:5173` 和 `x-user-id,x-user-role`。
+  - seed 数据存在：`users=2, enterprises=1, lots=1, contents=4`。
+  - `/api/lots?pageSize=100` 返回 200，`items` 1 条，`pageSize=100`。
+  - `/api/admin/lots?pageSize=100` 使用 ADMIN UUID 返回 200，`items` 1 条，`pageSize=100`。
+  - `/api/account/profile` 使用 ENTERPRISE UUID 返回 200，响应 `id=714ac6d2-aa76-4cff-9224-ecae6298c599`、`username=enterprise_demo`、企业认证状态 `审核通过`。
+  - Playwright network 显示门户、后台、企业中心关键页面触发的真实 API 均返回 200；未用 mock/fallback 页面展示判定通过。
+- 控制台/网络错误：
+  - Playwright `console error` 返回 `Errors: 0, Warnings: 0`。
+  - 关键 API 请求未见 4xx/5xx，未见 CORS 阻塞。
+  - 截图产物：`docs/qa/t30-artifacts/t30-account-messages-cli.png`。
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npx prisma db seed`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `curl.exe -i http://127.0.0.1:3100/api/health`
+  - `curl.exe -i "http://127.0.0.1:3100/api/lots?pageSize=100"`
+  - `curl.exe -i -H "x-user-id: 0d3ed994-8ebf-47ec-bf11-2eb86f008ae6" -H "x-user-role: ADMIN" "http://127.0.0.1:3100/api/admin/lots?pageSize=100"`
+  - `curl.exe -i -H "x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599" -H "x-user-role: ENTERPRISE" http://127.0.0.1:3100/api/account/profile`
+  - `curl.exe -i -X OPTIONS "http://127.0.0.1:3100/api/admin/lots?pageSize=100" -H "Origin: http://127.0.0.1:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: x-user-id,x-user-role"`
+  - `npx --yes --package @playwright/cli playwright-cli` 打开 5173、点击门户/后台/企业中心关键路径，并读取 `requests` 与 `console error`。
+- 验证结果：
+  - seed 通过，输出 `Prisma seed completed.` 与开发请求头 UUID。
+  - 后端 lint/typecheck 通过。
+  - 前端 lint/build 通过，Vite 输出 `built in 221ms`。
+  - `GET /api/health`、`GET /api/lots?pageSize=100`、`GET /api/admin/lots?pageSize=100`、`GET /api/account/profile` 均返回 200。
+  - OPTIONS 预检返回 204。
+  - Playwright 覆盖页面跳转均成立，关键真实 API 均为 200，`console error` 为 0。
+- T30 是否通过：通过；本轮证据满足“点击跳转与真实 API 加载同时成立”，且未把 mock/fallback 展示记为真实 API 通过。
+- 未完成事项：
+  - 本轮未修改业务代码、未修改 Prisma schema、未修改登录/JWT、未修改后端 AuthGuard，未实施 T31/T32/T33。
+  - 登录/JWT 生产化仍未实现，当前仍使用开发请求头模拟登录态。
+  - T31 后台/企业端列表补原始 `lotId` 仍未实施。
+- 需要总控确认：
+  - 是否将 `docs/task-board.md` 中 T30 从 `NEEDS_REVIEW` 更新为 `DONE`。
+  - 是否提交并推送 T30D 未提交改动、本轮 T30 复验文档与 `docs/qa/t30-artifacts/t30-account-messages-cli.png`。
+
+## 2026-05-18 12:18 - T30 总控确认与任务板收口
+
+- 任务名称：T30 总控确认与任务板收口
+- 复核文件：
+  - `docs/agent-handoff.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/integration-verification-record.md`
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/task-board.md`
+  - `frontend/src/services/api.ts`
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 截图产物：
+  - `docs/qa/t30-artifacts/t30-account-messages-cli.png`
+- 总控复核结果：
+  - 已核对 T30 复验记录：seed、后端 lint/typecheck、前端 lint/build、health/lots/admin lots/account profile、OPTIONS 预检、Playwright network 与 console error 均有记录。
+  - `docs/qa/t30-artifacts/t30-account-messages-cli.png` 存在，大小 45431 bytes。
+  - 3100/5173 端口检查无监听输出，未发现本轮验收服务残留。
+  - T30 验收结论以 curl 与 Playwright network 证据为准，未把 mock/fallback 页面展示记为真实 API 通过。
+- 是否更新 task-board：
+  - 是。T30 已由 NEEDS_REVIEW 更新为 DONE。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --stat`
+  - `Get-ChildItem -Recurse E:/kuangchan/docs/qa/t30-artifacts`
+  - `Get-NetTCPConnection -LocalPort 3100,5173 -State Listen`
+- 验证结果：
+  - `git status --short --branch` 显示当前仍有 T30D/T30 相关文档、前端请求头和 QA 截图产物待提交。
+  - `git diff --stat` 显示已跟踪 diff 集中在 `docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`docs/qa/integration-verification-record.md`、`docs/qa/main-flow-acceptance.md`、`docs/task-board.md`、`frontend/src/services/api.ts`。
+  - QA 截图产物存在。
+  - 3100/5173 无监听输出。
+- 未完成事项：
+  - T31、T32、T33 仍待排期。
+- 需要总控确认：
+  - 无；本轮按用户要求继续提交并推送 T30D 与 T30 复验收口改动。
