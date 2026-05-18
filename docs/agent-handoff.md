@@ -2042,6 +2042,23 @@
   - 如执行会话具备浏览器验证条件，补充点击验证：首页顶栏、后台侧栏、企业中心菜单、列表详情、返回按钮。
 - 未完成事项：
   - 本轮未修改前端业务代码。
-  - `git push origin main` 已授权但因 GitHub HTTPS 网络连接失败暂未完成；本地 `main` 仍领先 `origin/main` 2 个提交。
+  - `git push origin main` 已授权但因 GitHub HTTPS 网络连接失败暂未完成；本地 `main` 仍领先 `origin/main` 4 个提交。
 - 需要总控确认：
   - 是否按 T29 串行执行会话 Prompt 开始前端导航联通实现。
+
+## 2026-05-18 10:12 - T29 分发提交与推送失败记录
+
+- 任务名称：T29 分发提交与推送失败记录
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 提交结果：
+  - 已提交：`81d9400 docs: plan frontend navigation follow-up`
+  - 当前本地提交序列包含：`8883c6c feat: complete staged auction workflow release`、`8621365 docs: archive release submission status`、`81d9400 docs: plan frontend navigation follow-up`，以及当前 HEAD 的 `docs: record push retry failure` 修正提交；最终 hash 以 `git log --oneline --decorate -5` 输出为准。
+- 推送结果：
+  - `git push origin main` 已重试多次，均失败。
+  - 失败原因来自网络连接：GitHub HTTPS 443 连接超时或连接被 reset。
+  - 当前本地 `main` 领先 `origin/main` 4 个提交。
+- 未完成事项：
+  - 远程推送待网络恢复后重试：`git push origin main`。
+  - T29 前端导航联通实现待执行会话启动。
