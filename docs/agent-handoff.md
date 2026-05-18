@@ -2018,3 +2018,30 @@
   - 下一阶段前端页面导航联通问题待拆分任务。
 - 需要总控确认：
   - 已收到人工授权：允许追加本记录、提交文档归档并执行 `git push origin main`。
+
+## 2026-05-18 10:05 - T29 前端导航联通任务分发
+
+- 任务名称：T29 前端页面导航联通与按钮跳转收口
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 当前核对结论：
+  - `frontend/src/App.tsx` 当前通过 `window.location.pathname` 选择页面组件，没有路由状态或前端导航工具。
+  - `frontend/src/components/Layouts.tsx` 中顶栏、后台侧栏、企业中心菜单均为普通 `button`，未绑定页面跳转。
+  - `frontend/src/components/Button.tsx`、`frontend/src/components/Cards.tsx`、`frontend/src/pages/PortalPages.tsx`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/pages/AccountPages.tsx` 存在多处只展示文字但不跳转的按钮。
+  - 该问题属于前端导航体系缺口，不是后端接口或数据模型问题。
+- 冲突判断：
+  - T29 主要写入范围集中在 `frontend/src/components/**`、`frontend/src/pages/**`、可能新增 `frontend/src/navigation.ts` 或复用 `frontend/src/routes.ts`。
+  - 不建议拆多个并行写代码会话；顶栏、侧栏、按钮组件和页面按钮会交叉修改同一批文件。
+- 分发建议：
+  - 启动 1 个串行执行会话完成 T29 最小改造。
+  - 可另起 1 个只读验收会话，在 T29 完成后用 Playwright 或人工点击清单验收关键页面跳转。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - 如执行会话具备浏览器验证条件，补充点击验证：首页顶栏、后台侧栏、企业中心菜单、列表详情、返回按钮。
+- 未完成事项：
+  - 本轮未修改前端业务代码。
+  - `git push origin main` 已授权但因 GitHub HTTPS 网络连接失败暂未完成；本地 `main` 仍领先 `origin/main` 2 个提交。
+- 需要总控确认：
+  - 是否按 T29 串行执行会话 Prompt 开始前端导航联通实现。
