@@ -7,8 +7,10 @@ import {
   MyCertificationPage,
   MyDepositsPage,
   MyMessagesPage,
+  WinningDetailPage,
 } from './pages/AccountPages';
 import {
+  AdminLoginPage,
   AdminDashboard,
   BidManagementPage,
   BlacklistManagementPage,
@@ -19,6 +21,7 @@ import {
   FileManagementPage,
   LotEditPage,
   LotManagementPage,
+  LotProgressPage,
   LotReviewPage,
   NotificationManagementPage,
   OperationLogPage,
@@ -34,6 +37,8 @@ import {
   NewsDetail,
   NewsList,
   PortalHome,
+  ResourceDetail,
+  ResourceList,
   ResultDetail,
   ResultList,
   UpcomingDetail,
@@ -42,6 +47,8 @@ import {
 
 const routes: Record<string, () => React.ReactNode> = {
   '/': () => <PortalHome />,
+  '/resources': () => <ResourceList />,
+  '/resources/detail': () => <ResourceDetail />,
   '/announcements/upcoming': () => <UpcomingList />,
   '/announcements/upcoming/detail': () => <UpcomingDetail />,
   '/auctions/live': () => <LiveAuctionList />,
@@ -53,9 +60,11 @@ const routes: Record<string, () => React.ReactNode> = {
   '/disclosures': () => <DisclosurePage />,
   '/login': () => <LoginPage />,
   '/enterprise/register': () => <EnterpriseRegisterPage />,
+  '/admin/login': () => <AdminLoginPage />,
   '/admin/dashboard': () => <AdminDashboard />,
   '/admin/lots': () => <LotManagementPage />,
   '/admin/lots/edit': () => <LotEditPage />,
+  '/admin/lots/progress': () => <LotProgressPage />,
   '/admin/reviews/lots': () => <LotReviewPage />,
   '/admin/reviews/enterprises': () => <EnterpriseReviewPage />,
   '/admin/reviews/deposits': () => <DepositReviewPage />,
@@ -72,6 +81,7 @@ const routes: Record<string, () => React.ReactNode> = {
   '/account/certification': () => <MyCertificationPage />,
   '/account/deposits': () => <MyDepositsPage />,
   '/account/bids': () => <MyBidsPage />,
+  '/account/winning-detail': () => <WinningDetailPage />,
   '/account/messages': () => <MyMessagesPage />,
 };
 

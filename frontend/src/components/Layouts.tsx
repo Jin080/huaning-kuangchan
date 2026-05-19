@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { navigateTo } from '../navigation';
 import { api } from '../services/api';
+import { AUTH_SESSION_EVENT, getAuthProfile, getAuthToken, isLoggedInAs, type AuthProfile, type AuthRole } from '../services/auth';
+import { ForbiddenState, LoginRequiredState } from './StatusViews';
 
 const portalNav = ['首页', '矿产资源', '即将拍卖', '正在竞价', '成交公示', '信息资讯', '公开说明'];
 const adminNav = ['首页看板', '拍品管理', '审核管理', '交易管理', '企业管理', '内容运营', '系统审计'];
@@ -25,7 +27,7 @@ const adminIconByNav: Record<string, string> = {
 
 const portalPathByNav: Record<string, string> = {
   首页: '/',
-  矿产资源: '/announcements/upcoming',
+  矿产资源: '/resources',
   即将拍卖: '/announcements/upcoming',
   正在竞价: '/auctions/live',
   成交公示: '/results',
@@ -42,6 +44,11 @@ const adminPathByNav: Record<string, string> = {
   内容运营: '/admin/content',
   系统审计: '/admin/logs',
 };
+const adminReviewLinks = [
+  { label: '拍品发布审核', path: '/admin/reviews/lots', countKey: 'lotReviews' },
+  { label: '企业认证审核', path: '/admin/reviews/enterprises', countKey: 'enterpriseReviews' },
+  { label: '意向金凭证审核', path: '/admin/reviews/deposits', countKey: 'depositReviews' },
+] as const;
 
 const accountPathByNav: Record<string, string> = {
   中心首页: '/account',
@@ -51,13 +58,11 @@ const accountPathByNav: Record<string, string> = {
   我的通知: '/account/messages',
 };
 
-const PORTAL_SESSION_KEY = 'portalEnterpriseLoggedIn';
-const PORTAL_SESSION_EVENT = 'portal-enterprise-session-change';
-
 type PortalSession = {
   loggedIn: boolean;
   enterpriseName: string;
   certificationStatus: string;
+  roleCode?: AuthRole;
 };
 
 const defaultPortalSession: PortalSession = {
@@ -66,34 +71,22 @@ const defaultPortalSession: PortalSession = {
   certificationStatus: '开发认证',
 };
 
-function clearPortalEnterpriseSession() {
-  localStorage.removeItem(PORTAL_SESSION_KEY);
-  window.dispatchEvent(new Event(PORTAL_SESSION_EVENT));
-}
-
-function readPortalSessionFlag() {
-  return localStorage.getItem(PORTAL_SESSION_KEY) === 'true';
-}
-
 export function PortalLayout({ active, children }: { active: string; children: ReactNode }) {
-  const [session, setSession] = useState<PortalSession>(() => ({
-    ...defaultPortalSession,
-    loggedIn: readPortalSessionFlag(),
-  }));
+  const [session, setSession] = useState<PortalSession>(() => getPortalSession());
 
   useEffect(() => {
     let cancelled = false;
 
     const syncSession = () => {
-      const loggedIn = readPortalSessionFlag();
-      setSession((current) => ({ ...current, loggedIn }));
+      const currentSession = getPortalSession();
+      setSession(currentSession);
 
-      if (!loggedIn) {
+      if (!currentSession.loggedIn || currentSession.roleCode !== 'ENTERPRISE') {
         return;
       }
 
       void api.fetchAccountProfile().then((profile) => {
-        if (cancelled || !readPortalSessionFlag()) {
+        if (cancelled || !isLoggedInAs('ENTERPRISE')) {
           return;
         }
 
@@ -110,20 +103,20 @@ export function PortalLayout({ active, children }: { active: string; children: R
     };
 
     syncSession();
-    window.addEventListener(PORTAL_SESSION_EVENT, syncSession);
+    window.addEventListener(AUTH_SESSION_EVENT, syncSession);
     window.addEventListener('focus', syncSession);
     window.addEventListener('storage', syncSession);
 
     return () => {
       cancelled = true;
-      window.removeEventListener(PORTAL_SESSION_EVENT, syncSession);
+      window.removeEventListener(AUTH_SESSION_EVENT, syncSession);
       window.removeEventListener('focus', syncSession);
       window.removeEventListener('storage', syncSession);
     };
   }, []);
 
   const logout = () => {
-    clearPortalEnterpriseSession();
+    void api.logout();
     navigateTo('/');
   };
 
@@ -180,6 +173,47 @@ export function PortalLayout({ active, children }: { active: string; children: R
 }
 
 export function AdminLayout({ active, subActive, children }: { active: string; subActive?: string; children: ReactNode }) {
+  const [profile, setProfile] = useState<AuthProfile | null>(() => getAuthProfile());
+  const [reviewCounts, setReviewCounts] = useState({ lotReviews: 0, enterpriseReviews: 0, depositReviews: 0 });
+  const isAuthenticated = Boolean(getAuthToken() && profile);
+  const isAdmin = isAuthenticated && profile?.roleCode === 'ADMIN';
+
+  useEffect(() => {
+    const syncProfile = () => setProfile(getAuthProfile());
+
+    window.addEventListener(AUTH_SESSION_EVENT, syncProfile);
+    window.addEventListener('storage', syncProfile);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_EVENT, syncProfile);
+      window.removeEventListener('storage', syncProfile);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    void api.fetchAdminTodoCounts().then(setReviewCounts).catch(() => undefined);
+  }, [isAdmin]);
+
+  if (!isAuthenticated || !isAdmin) {
+    return (
+      <RoleGuardLayout
+        message={isAuthenticated ? '当前账号无权访问管理后台，请使用管理员账号登录。' : '请先登录管理员账号后访问管理后台。'}
+        primaryTo="/admin/login"
+        primaryLabel="去登录"
+        secondaryLabel="返回首页"
+        variant={isAuthenticated ? 'forbidden' : 'login'}
+      />
+    );
+  }
+
+  const logout = () => {
+    void api.logout();
+    navigateTo('/login');
+  };
+
   return (
     <div className="admin-shell">
       <aside className="sidebar">
@@ -192,17 +226,33 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
         </div>
         <nav>
           {adminNav.map((item) => (
-            <button className={item === active ? 'active' : ''} key={item} onClick={() => navigateTo(adminPathByNav[item])} type="button">
-              <span className="nav-dot">{adminIconByNav[item]}</span>
-              {item}
-            </button>
+            <div className="sidebar-nav-group" key={item}>
+              <button className={item === active ? 'active' : ''} onClick={() => navigateTo(adminPathByNav[item])} type="button">
+                <span className="nav-dot">{adminIconByNav[item]}</span>
+                {item}
+              </button>
+              {item === '审核管理' ? (
+                <div className="sidebar-subnav" aria-label="审核管理入口">
+                  {adminReviewLinks.map((link) => {
+                    const count = reviewCounts[link.countKey];
+
+                    return (
+                      <button className={link.label === subActive ? 'active' : ''} key={link.label} onClick={() => navigateTo(link.path)} type="button">
+                        <span>{link.label}</span>
+                        {count > 0 ? <em>{count}</em> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           ))}
         </nav>
         <div className="sidebar-user">
           <span>A</span>
           <div>
-            <strong>Admin_01</strong>
-            <small>系统管理员</small>
+            <strong>{profile.username}</strong>
+            <small>{profile.roleName}</small>
           </div>
         </div>
       </aside>
@@ -214,7 +264,7 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
           </div>
           <div>
             <button type="button">通知</button>
-            <button type="button">退出</button>
+            <button onClick={logout} type="button">退出</button>
           </div>
         </header>
         <main>{children}</main>
@@ -224,6 +274,34 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
 }
 
 export function AccountLayout({ active, children }: { active: string; children: ReactNode }) {
+  const [profile, setProfile] = useState<AuthProfile | null>(() => getAuthProfile());
+  const isAuthenticated = Boolean(getAuthToken() && profile);
+  const isEnterprise = isAuthenticated && profile?.roleCode === 'ENTERPRISE';
+
+  useEffect(() => {
+    const syncProfile = () => setProfile(getAuthProfile());
+
+    window.addEventListener(AUTH_SESSION_EVENT, syncProfile);
+    window.addEventListener('storage', syncProfile);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_EVENT, syncProfile);
+      window.removeEventListener('storage', syncProfile);
+    };
+  }, []);
+
+  if (!isAuthenticated || !isEnterprise) {
+    return (
+      <PortalLayout active="企业中心">
+        <RoleGuardContent
+          message={isAuthenticated ? '当前管理员账号不能访问企业中心，请切换企业账号。' : '请先登录企业账号后访问企业中心。'}
+          primaryLabel="去登录"
+          secondaryLabel="返回首页"
+          variant={isAuthenticated ? 'forbidden' : 'login'}
+        />
+      </PortalLayout>
+    );
+  }
+
   return (
     <PortalLayout active="企业中心">
       <div className="account-shell">
@@ -242,12 +320,80 @@ export function AccountLayout({ active, children }: { active: string; children: 
             </button>
           ))}
           <div className="account-menu-foot">
-            <strong>测试企业账号</strong>
-            <small>开发期企业端入口</small>
+            <strong>{profile.enterprise?.name ?? profile.username}</strong>
+            <small>{profile.enterprise?.certificationStatus ?? profile.roleName}</small>
           </div>
         </aside>
         <section className="account-content">{children}</section>
       </div>
     </PortalLayout>
   );
+}
+
+function getPortalSession(): PortalSession {
+  const profile = getAuthProfile();
+
+  if (!getAuthToken() || !profile) {
+    return defaultPortalSession;
+  }
+
+  if (profile.roleCode === 'ENTERPRISE') {
+    return {
+      loggedIn: true,
+      enterpriseName: profile.enterprise?.name ?? profile.username,
+      certificationStatus: profile.enterprise?.certificationStatus ?? '未提交',
+      roleCode: profile.roleCode,
+    };
+  }
+
+  return {
+    loggedIn: true,
+    enterpriseName: profile.username,
+    certificationStatus: profile.roleName || '管理员',
+    roleCode: profile.roleCode,
+  };
+}
+
+function RoleGuardLayout({
+  message,
+  primaryLabel,
+  primaryTo,
+  secondaryLabel,
+  variant,
+}: {
+  message: string;
+  primaryLabel: string;
+  primaryTo?: string;
+  secondaryLabel: string;
+  variant: 'login' | 'forbidden';
+}) {
+  return (
+    <div className="admin-shell auth-guard-shell">
+      <RoleGuardContent message={message} primaryLabel={primaryLabel} primaryTo={primaryTo} secondaryLabel={secondaryLabel} variant={variant} />
+    </div>
+  );
+}
+
+function RoleGuardContent({
+  message,
+  primaryLabel,
+  primaryTo = '/login',
+  secondaryLabel,
+  variant,
+}: {
+  message: string;
+  primaryLabel: string;
+  primaryTo?: string;
+  secondaryLabel: string;
+  variant: 'login' | 'forbidden';
+}) {
+  const stateProps = {
+    description: message,
+    primaryAction: { label: primaryLabel, to: primaryTo },
+    secondaryAction: { label: secondaryLabel, to: '/' },
+  };
+
+  return variant === 'forbidden'
+    ? <ForbiddenState {...stateProps} />
+    : <LoginRequiredState {...stateProps} />;
 }

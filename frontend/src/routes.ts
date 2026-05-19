@@ -1,5 +1,7 @@
 export const routeCatalog = [
   '/',
+  '/resources',
+  '/resources/detail',
   '/announcements/upcoming',
   '/announcements/upcoming/detail',
   '/auctions/live',
@@ -11,9 +13,11 @@ export const routeCatalog = [
   '/disclosures',
   '/login',
   '/enterprise/register',
+  '/admin/login',
   '/admin/dashboard',
   '/admin/lots',
   '/admin/lots/edit',
+  '/admin/lots/progress',
   '/admin/reviews/lots',
   '/admin/reviews/enterprises',
   '/admin/reviews/deposits',
@@ -30,5 +34,6 @@ export const routeCatalog = [
   '/account/certification',
   '/account/deposits',
   '/account/bids',
+  '/account/winning-detail',
   '/account/messages',
 ];

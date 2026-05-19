@@ -1,13 +1,16 @@
 import type { TableColumn } from '../types';
+import { EmptyState } from './StatusViews';
 
 export function DataTable<T extends object>({
   columns,
   rows,
   emptyText = '暂无数据',
+  emptyDescription,
 }: {
   columns: TableColumn<T>[];
   rows: T[];
   emptyText?: string;
+  emptyDescription?: string;
 }) {
   return (
     <div className="table-card">
@@ -32,7 +35,7 @@ export function DataTable<T extends object>({
           ))}
         </tbody>
       </table>
-      {rows.length === 0 ? <div className="empty-state">{emptyText}</div> : null}
+      {rows.length === 0 ? <EmptyState compact description={emptyDescription} title={emptyText} /> : null}
       <div className="table-footer">
         <span>共 {rows.length || 0} 条记录</span>
         <div className="pagination">
