@@ -6,15 +6,17 @@ export function DataTable<T extends object>({
   rows,
   emptyText = '暂无数据',
   emptyDescription,
+  tableClassName,
 }: {
   columns: TableColumn<T>[];
   rows: T[];
   emptyText?: string;
   emptyDescription?: string;
+  tableClassName?: string;
 }) {
   return (
     <div className="table-card">
-      <table className="data-table">
+      <table className={tableClassName ? `data-table ${tableClassName}` : 'data-table'}>
         <thead>
           <tr>
             {columns.map((column) => (

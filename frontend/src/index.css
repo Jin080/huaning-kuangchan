@@ -1535,6 +1535,52 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.lot-management-table th,
+.lot-management-table td {
+  padding-right: 12px;
+  padding-left: 12px;
+  overflow: hidden;
+}
+
+.lot-management-table th:nth-child(2),
+.lot-management-table th:nth-child(3),
+.lot-management-table th:nth-child(5),
+.lot-management-table td:nth-child(2),
+.lot-management-table td:nth-child(3),
+.lot-management-table td:nth-child(5) {
+  text-align: center;
+}
+
+.lot-management-table td:nth-child(6),
+.lot-management-table td:nth-child(7) {
+  color: #475569;
+  line-height: 1.35;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+.lot-management-table td:nth-child(8) {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.lot-management-table .inline-actions {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.lot-management-table .inline-actions button {
+  width: 74px;
+  min-height: 24px;
+  padding: 0 6px;
+  line-height: 1.25;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 .data-table tbody tr:nth-child(even) {
   background: #fbfcfe;
 }
@@ -3826,6 +3872,10 @@ legend {
   min-width: 0;
 }
 
+.admin-object-copy {
+  min-width: 0;
+}
+
 .admin-object-cell > span {
   width: 42px;
   height: 42px;
@@ -3848,6 +3898,14 @@ legend {
   white-space: nowrap;
 }
 
+.lot-management-table .admin-object-cell strong {
+  display: -webkit-box;
+  line-height: 1.35;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .admin-object-cell small,
 .admin-title-cell small {
   display: block;
@@ -3855,6 +3913,12 @@ legend {
   color: var(--muted);
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
+}
+
+.lot-management-table .admin-object-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-title-cell {

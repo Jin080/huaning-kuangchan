@@ -31,12 +31,14 @@ type AdminListConfig = {
   fallbackRows: Record<string, unknown>[];
   loadRows?: () => Promise<Record<string, unknown>[]>;
   columns: TableColumn<Record<string, unknown>>[];
+  tableClassName?: string;
   topActions?: Action[];
   drawerTitle: string;
   drawerSections: string[];
   detailItems?: (row: Record<string, unknown>) => AdminDetailItem[];
   drawerContent?: (row: Record<string, unknown>) => ReactNode;
   confirmPanel?: AdminConfirmPanel;
+  batchReview?: AdminBatchReviewConfig;
 };
 
 type RowActionHandler = (label: string, row: Record<string, unknown>) => Promise<void>;
@@ -44,6 +46,19 @@ type RowNavigationHandler = (label: string, row: Record<string, unknown>) => str
 type AdminActionFeedback = {
   message: string;
   actions: Action[];
+  details?: string[];
+};
+type AdminBatchReviewConfig = {
+  approve: (id: string) => Promise<unknown>;
+  reject: (id: string, rejectReason: string) => Promise<unknown>;
+  itemLabel: string;
+  isSelectable?: (row: Record<string, unknown>) => boolean;
+};
+type BatchReviewResult = {
+  id: string;
+  title: string;
+  ok: boolean;
+  message?: string;
 };
 type AdminSummaryCard = {
   label: string;
@@ -278,7 +293,7 @@ function renderLotCell(row: Record<string, unknown>) {
   return (
     <div className="admin-object-cell">
       <span aria-hidden="true">矿</span>
-      <div>
+      <div className="admin-object-copy">
         <strong>{title}</strong>
         <small>No. {id}</small>
       </div>
@@ -505,15 +520,16 @@ export function LotManagementPage() {
     filters: ['关键词', '拍品状态', '竞拍时间', '供应商'],
     fallbackRows: api.getLots() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLots() as Promise<unknown> as Promise<Record<string, unknown>[]>,
+    tableClassName: 'lot-management-table',
     columns: [
-      { key: 'title', label: '拍品信息', width: '28%', render: renderLotCell },
-      { key: 'startPrice', label: '起拍价' },
-      { key: 'quantity', label: '数量' },
-      { key: 'supplier', label: '供应商' },
-      { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
-      { key: 'auctionTime', label: '竞拍期' },
-      { key: 'updatedAt', label: '更新时间' },
-      rowActions(handleAction, ['查看', '编辑', '提交复核', '进入竞拍', '关闭/取消'], getLotManagementTarget),
+      { key: 'title', label: '拍品信息', width: '30%', render: renderLotCell },
+      { key: 'startPrice', label: '起拍价', width: '8%' },
+      { key: 'quantity', label: '数量', width: '8%' },
+      { key: 'supplier', label: '供应商', width: '12%' },
+      { key: 'status', label: '状态', width: '9%', render: (row) => <StatusTag value={String(row.status)} /> },
+      { key: 'auctionTime', label: '竞拍期', width: '12%' },
+      { key: 'updatedAt', label: '更新时间', width: '10%' },
+      { ...rowActions(handleAction, ['查看', '编辑', '提交复核', '进入竞拍', '关闭/取消'], getLotManagementTarget), width: '11%' },
     ],
     topActions: [
       { label: '全流程进度', to: '/admin/lots/progress' },
@@ -726,6 +742,12 @@ export function LotReviewPage() {
       { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
       rowActions(handleAction, ['查看', '审核通过', '审核驳回'], getLotReviewTarget),
     ],
+    batchReview: {
+      approve: (id) => api.approveLotReview(id),
+      reject: (id, rejectReason) => api.rejectLotReview(id, rejectReason),
+      itemLabel: '拍品发布审核',
+      isSelectable: (row) => getStringValue(row, 'status') === '待发布复核',
+    },
     drawerTitle: '标的复核详情',
     drawerSections: ['商品基础信息', '竞价规则', '保证金规则', '客户须知', '附件与检测报告', '驳回原因'],
   }} />;
@@ -754,6 +776,12 @@ export function EnterpriseReviewPage() {
       { key: 'submittedAt', label: '提交时间' },
       rowActions(handleAction, ['查看', '审核通过', '审核驳回']),
     ],
+    batchReview: {
+      approve: (id) => api.approveEnterpriseReview(id),
+      reject: (id, rejectReason) => api.rejectEnterpriseReview(id, rejectReason),
+      itemLabel: '企业认证审核',
+      isSelectable: (row) => getStringValue(row, 'status') === '待审核',
+    },
     drawerTitle: '企业资料详情',
     drawerSections: ['企业基础信息', '法人及联系人', '经营信息', '付款银行账户', '收款银行账户', '企业资质与营业执照', '重新提交记录'],
   }} />;
@@ -782,7 +810,15 @@ export function DepositReviewPage() {
     }),
   });
 
-  return <DepositReviewWorkspace handleAction={handleAction} />;
+  return <DepositReviewWorkspace
+    batchReview={{
+      approve: (id) => api.approveDepositReview(id),
+      reject: (id, rejectReason) => api.rejectDepositReview(id, rejectReason),
+      itemLabel: '意向金凭证审核',
+      isSelectable: (row) => getStringValue(row, 'status') === '待审核',
+    }}
+    handleAction={handleAction}
+  />;
 }
 
 export function BidManagementPage() {
@@ -1496,6 +1532,12 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
       setListState('ready');
     }
   }, [config]);
+  const batchReview = useBatchReview({
+    config: config.batchReview,
+    rows,
+    onComplete: loadRows,
+    setFeedback,
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1537,7 +1579,31 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
               secondaryAction={{ label: '返回后台首页', to: '/admin/dashboard' }}
             />
           ) : null}
-          {listState === 'ready' ? <DataTable columns={config.columns} rows={rows} /> : null}
+          {listState === 'ready' && config.batchReview ? (
+            <BatchReviewToolbar
+              disabled={!batchReview.selectableRows.length}
+              itemLabel={config.batchReview.itemLabel}
+              onApprove={() => void batchReview.run('approve')}
+              onReject={() => void batchReview.run('reject')}
+              onSelectAll={batchReview.selectAll}
+              onSelectNone={batchReview.clearSelection}
+              processing={batchReview.processing}
+              rejectReason={batchReview.rejectReason}
+              selectedCount={batchReview.selectedRows.length}
+              selectableCount={batchReview.selectableRows.length}
+              setRejectReason={batchReview.setRejectReason}
+            />
+          ) : null}
+          {listState === 'ready' ? (
+            <DataTable
+              columns={config.batchReview ? [
+                createBatchSelectionColumn(batchReview),
+                ...config.columns,
+              ] : config.columns}
+              rows={rows}
+              tableClassName={config.tableClassName}
+            />
+          ) : null}
         </div>
         <AdminDetailDrawer
           confirmPanel={config.confirmPanel}
@@ -1552,7 +1618,7 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
   );
 }
 
-function DepositReviewWorkspace({ handleAction }: { handleAction: RowActionHandler }) {
+function DepositReviewWorkspace({ batchReview: batchReviewConfig, handleAction }: { batchReview: AdminBatchReviewConfig; handleAction: RowActionHandler }) {
   const [rows, setRows] = useState<Record<string, unknown>[]>(api.getDeposits() as unknown as Record<string, unknown>[]);
   const [notice, setNotice] = useState('正在加载意向金凭证审核列表。');
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -1590,7 +1656,6 @@ function DepositReviewWorkspace({ handleAction }: { handleAction: RowActionHandl
       setListState('ready');
     }
   }, []);
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadRows();
@@ -1638,6 +1703,12 @@ function DepositReviewWorkspace({ handleAction }: { handleAction: RowActionHandl
         return leftPending - rightPending;
       });
   }, [keyword, rows, status]);
+  const batchReview = useBatchReview({
+    config: batchReviewConfig,
+    rows: filteredRows,
+    onComplete: loadRows,
+    setFeedback,
+  });
 
   return (
     <AdminLayout active="审核管理" subActive="意向金凭证审核">
@@ -1675,8 +1746,24 @@ function DepositReviewWorkspace({ handleAction }: { handleAction: RowActionHandl
             />
           ) : null}
           {listState === 'ready' ? (
+            <BatchReviewToolbar
+              disabled={!batchReview.selectableRows.length}
+              itemLabel={batchReviewConfig.itemLabel}
+              onApprove={() => void batchReview.run('approve')}
+              onReject={() => void batchReview.run('reject')}
+              onSelectAll={batchReview.selectAll}
+              onSelectNone={batchReview.clearSelection}
+              processing={batchReview.processing}
+              rejectReason={batchReview.rejectReason}
+              selectedCount={batchReview.selectedRows.length}
+              selectableCount={batchReview.selectableRows.length}
+              setRejectReason={batchReview.setRejectReason}
+            />
+          ) : null}
+          {listState === 'ready' ? (
             <DataTable
               columns={[
+                createBatchSelectionColumn(batchReview),
                 { key: 'enterprise', label: '企业名称', width: '20%', render: renderEnterpriseNameCell },
                 { key: 'lotTitle', label: '拍品名称', width: '24%', render: renderLotTitleCell },
                 { key: 'amount', label: '应缴/实缴金额', render: renderDepositAmountCell },
@@ -1709,6 +1796,11 @@ function AdminActionFeedbackPanel({ feedback, onClose }: { feedback: AdminAction
         <span>请选择下一步操作。</span>
       </div>
       <ButtonRow actions={feedback.actions} />
+      {feedback.details?.length ? (
+        <ul>
+          {feedback.details.map((detail) => <li key={detail}>{detail}</li>)}
+        </ul>
+      ) : null}
       <button className="link-btn" onClick={onClose} type="button">关闭</button>
     </section>
   );
@@ -1783,6 +1875,59 @@ function AdminConfirmPreview({ panel }: { panel: AdminConfirmPanel }) {
         <button className={panel.tone === 'red' ? 'btn danger' : 'btn primary'} type="button">确认</button>
       </div>
     </div>
+  );
+}
+
+function BatchReviewToolbar({
+  disabled,
+  itemLabel,
+  onApprove,
+  onReject,
+  onSelectAll,
+  onSelectNone,
+  processing,
+  rejectReason,
+  selectedCount,
+  selectableCount,
+  setRejectReason,
+}: {
+  disabled: boolean;
+  itemLabel: string;
+  onApprove: () => void;
+  onReject: () => void;
+  onSelectAll: () => void;
+  onSelectNone: () => void;
+  processing: boolean;
+  rejectReason: string;
+  selectedCount: number;
+  selectableCount: number;
+  setRejectReason: (value: string) => void;
+}) {
+  return (
+    <section className="admin-action-feedback" aria-label={`${itemLabel}批量操作`}>
+      <div>
+        <strong>{itemLabel}批量处理</strong>
+        <span>已选 {selectedCount} 条，可选 {selectableCount} 条。</span>
+      </div>
+      <label className="field">
+        <span>统一驳回原因</span>
+        <input
+          disabled={processing}
+          onChange={(event) => setRejectReason(event.currentTarget.value)}
+          value={rejectReason}
+        />
+      </label>
+      <div className="button-row">
+        <button disabled={disabled || processing} onClick={onSelectAll} type="button">全选当前页</button>
+        <button disabled={!selectedCount || processing} onClick={onSelectNone} type="button">清空选择</button>
+        <button className="btn primary" disabled={!selectedCount || processing} onClick={onApprove} type="button">
+          {processing ? '操作中...' : '批量通过'}
+        </button>
+        <button className="btn danger" disabled={!selectedCount || processing || !rejectReason.trim()} onClick={onReject} type="button">
+          {processing ? '操作中...' : '批量驳回'}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -1936,6 +2081,134 @@ function useAdminRowAction(
       window.alert(`${label}调用后台接口失败：${getErrorMessage(error)}。页面数据已保持不变。`);
     }
   }, [handlers, feedbackByLabel]);
+}
+
+function useBatchReview({
+  config,
+  rows,
+  onComplete,
+  setFeedback,
+}: {
+  config?: AdminBatchReviewConfig;
+  rows: Record<string, unknown>[];
+  onComplete: () => Promise<void>;
+  setFeedback: (feedback: AdminActionFeedback | null) => void;
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [rejectReason, setRejectReason] = useState(REVIEW_REJECT_REASON);
+  const [processing, setProcessing] = useState(false);
+  const selectableRows = useMemo(() => {
+    if (!config) {
+      return [];
+    }
+
+    return rows.filter((row) => {
+      const id = getRowId(row);
+      return Boolean(id) && (config.isSelectable?.(row) ?? true);
+    });
+  }, [config, rows]);
+  const selectedRows = useMemo(() => {
+    const selected = new Set(selectedIds);
+    return selectableRows.filter((row) => selected.has(getRowId(row)));
+  }, [selectableRows, selectedIds]);
+
+  const toggle = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((current) => {
+      if (checked) {
+        return current.includes(id) ? current : [...current, id];
+      }
+
+      return current.filter((item) => item !== id);
+    });
+  }, []);
+  const selectAll = useCallback(() => setSelectedIds(selectableRows.map(getRowId)), [selectableRows]);
+  const clearSelection = useCallback(() => setSelectedIds([]), []);
+  const run = useCallback(async (action: 'approve' | 'reject') => {
+    if (!config || processing || !selectedRows.length) {
+      return;
+    }
+
+    const reason = rejectReason.trim();
+    if (action === 'reject' && !reason) {
+      window.alert('请填写统一驳回原因。');
+      return;
+    }
+
+    const ok = window.confirm(`确认${action === 'approve' ? '批量通过' : '批量驳回'} ${selectedRows.length} 条${config.itemLabel}？`);
+    if (!ok) {
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const results: BatchReviewResult[] = [];
+
+      for (const row of selectedRows) {
+        const id = getRowId(row);
+        try {
+          if (action === 'approve') {
+            await config.approve(id);
+          } else {
+            await config.reject(id, reason);
+          }
+          results.push({ id, title: getBatchReviewTitle(row), ok: true });
+        } catch (error) {
+          results.push({ id, title: getBatchReviewTitle(row), ok: false, message: getErrorMessage(error) });
+        }
+      }
+
+      const failed = results.filter((result) => !result.ok);
+      const succeededCount = results.length - failed.length;
+      setFeedback({
+        message: `${config.itemLabel}${action === 'approve' ? '批量通过' : '批量驳回'}完成：成功 ${succeededCount} 条，失败 ${failed.length} 条。`,
+        actions: [{ label: '刷新列表', tone: 'primary', onClick: () => window.dispatchEvent(new Event(ADMIN_LIST_REFRESH_EVENT)) }],
+        details: failed.map((result) => `${result.title || result.id}：${result.message ?? '未知错误'}`),
+      });
+      setSelectedIds(failed.map((result) => result.id));
+      await onComplete();
+    } finally {
+      setProcessing(false);
+    }
+  }, [config, onComplete, processing, rejectReason, selectedRows, setFeedback]);
+
+  return {
+    clearSelection,
+    isSelected: (id: string) => selectedRows.some((row) => getRowId(row) === id),
+    processing,
+    rejectReason,
+    run,
+    selectAll,
+    selectableRows,
+    selectedRows,
+    setRejectReason,
+    toggle,
+  };
+}
+
+function createBatchSelectionColumn(batchReview: ReturnType<typeof useBatchReview>): TableColumn<Record<string, unknown>> {
+  return {
+    key: 'batchSelect',
+    label: '选择',
+    width: '64px',
+    render: (row) => {
+      const id = getRowId(row);
+      const selectable = batchReview.selectableRows.some((item) => getRowId(item) === id);
+
+      return (
+        <input
+          aria-label={`选择${getBatchReviewTitle(row) || id}`}
+          checked={batchReview.isSelected(id)}
+          disabled={!selectable || batchReview.processing}
+          onChange={(event) => batchReview.toggle(id, event.currentTarget.checked)}
+          type="checkbox"
+        />
+      );
+    },
+  };
+}
+
+function getBatchReviewTitle(row: Record<string, unknown>) {
+  return getStringValue(row, 'title') || getStringValue(row, 'name') || getStringValue(row, 'enterprise') || getStringValue(row, 'lotTitle') || getRowId(row);
 }
 
 function getDepositReviewDetailItems(row: Record<string, unknown>): AdminDetailItem[] {
