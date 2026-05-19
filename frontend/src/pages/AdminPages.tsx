@@ -15,16 +15,35 @@ type AdminListConfig = {
   active: string;
   subActive: string;
   filters: string[];
+  summaryCards?: AdminSummaryCard[];
   fallbackRows: Record<string, unknown>[];
   loadRows?: () => Promise<Record<string, unknown>[]>;
   columns: TableColumn<Record<string, unknown>>[];
   topActions?: Action[];
   drawerTitle: string;
   drawerSections: string[];
+  detailItems?: (row: Record<string, unknown>) => AdminDetailItem[];
+  confirmPanel?: AdminConfirmPanel;
 };
 
 type RowActionHandler = (label: string, row: Record<string, unknown>) => Promise<void>;
 type RowNavigationHandler = (label: string, row: Record<string, unknown>) => string | undefined;
+type AdminSummaryCard = {
+  label: string;
+  value: string;
+  helper: string;
+  tone?: 'blue' | 'orange' | 'green' | 'red';
+};
+type AdminDetailItem = {
+  label: string;
+  value: string;
+};
+type AdminConfirmPanel = {
+  title: string;
+  body: string;
+  note?: string;
+  tone?: 'blue' | 'orange' | 'red';
+};
 type LotUploadTarget = {
   label: string;
   fieldName: keyof Pick<LotMutationPayload, 'imageOneUrl' | 'imageTwoUrl' | 'inspectionReportUrl'>;
@@ -72,6 +91,10 @@ const CONTENT_CATEGORY_OPTIONS = [
   ['DEPOSIT_RULES', '保证金缴纳与退还说明'],
 ];
 const CONTENT_CATEGORY_BY_LABEL = Object.fromEntries(CONTENT_CATEGORY_OPTIONS.map(([code, label]) => [label, code]));
+const CONTENT_TREE_GROUPS = [
+  ['信息资讯', ['政策法规', '交易公告', '矿能动态']],
+  ['公开说明', ['用户黑名单管理说明', '信息发布审核机制', '竞拍规则说明', '保证金缴纳与退还说明']],
+];
 
 const rowActions = (onAction?: RowActionHandler, labels: string[] = [], getTarget?: RowNavigationHandler): TableColumn<Record<string, unknown>> => ({
   key: 'actions',
@@ -147,6 +170,68 @@ function renderEnterpriseNameCell(row: Record<string, unknown>) {
     <div className="admin-title-cell">
       <strong>{name}</strong>
       <small>意向金提交企业</small>
+    </div>
+  );
+}
+
+function renderBidSequenceCell(row: Record<string, unknown>) {
+  const isHighest = Boolean(row.isHighest);
+
+  return (
+    <div className="admin-sequence-cell">
+      <strong>{getStringValue(row, 'id') || '-'}</strong>
+      <span className={isHighest ? 'current' : ''}>{isHighest ? '当前最高价' : '历史出价'}</span>
+    </div>
+  );
+}
+
+function renderBusinessTitleCell(row: Record<string, unknown>) {
+  const title = getStringValue(row, 'lotTitle') || getStringValue(row, 'title') || getStringValue(row, 'objectName') || '-';
+  const id = getStringValue(row, 'lotId') || getStringValue(row, 'id');
+
+  return (
+    <div className="admin-title-cell">
+      <strong>{title}</strong>
+      {id ? <small>No. {id}</small> : null}
+    </div>
+  );
+}
+
+function renderContentTitleCell(row: Record<string, unknown>) {
+  const title = getStringValue(row, 'title') || '-';
+  const summary = getStringValue(row, 'summary');
+
+  return (
+    <div className="admin-title-cell">
+      <strong>{title}</strong>
+      {summary ? <small>{summary}</small> : null}
+    </div>
+  );
+}
+
+function renderNotificationContentCell(row: Record<string, unknown>) {
+  const lotTitle = getStringValue(row, 'lotTitle') || '-';
+  const content = getStringValue(row, 'content');
+
+  return (
+    <div className="admin-title-cell">
+      <strong>{lotTitle}</strong>
+      {content ? <small>{content}</small> : null}
+    </div>
+  );
+}
+
+function renderFileNameCell(row: Record<string, unknown>) {
+  const name = getStringValue(row, 'name') || '-';
+  const type = getStringValue(row, 'type') || '平台文件';
+
+  return (
+    <div className="admin-file-cell">
+      <span aria-hidden="true">{type.includes('图') || type.includes('照') ? '图' : '文'}</span>
+      <div>
+        <strong>{name}</strong>
+        <small>{type}</small>
+      </div>
     </div>
   );
 }
@@ -451,11 +536,16 @@ export function BidManagementPage() {
     active: '交易管理',
     subActive: '竞价记录管理',
     filters: ['拍品名称', '企业名称', '出价时间', '是否当前最高价'],
+    summaryCards: [
+      { label: '出价记录', value: String(api.getBids().length), helper: '保留完整竞价留痕', tone: 'blue' },
+      { label: '当前最高价', value: String(api.getBids().filter((row) => row.isHighest).length), helper: '按拍品最高价标记', tone: 'orange' },
+      { label: '删除操作', value: '0', helper: '页面不提供删除入口', tone: 'green' },
+    ],
     fallbackRows: api.getBids() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminBids() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'id', label: '出价序号' },
-      { key: 'lotTitle', label: '拍品名称', width: '26%' },
+      { key: 'id', label: '出价序号', width: '12%', render: renderBidSequenceCell },
+      { key: 'lotTitle', label: '拍品名称', width: '26%', render: renderBusinessTitleCell },
       { key: 'enterprise', label: '企业名称' },
       { key: 'maskedEnterprise', label: '脱敏企业名称' },
       { key: 'amount', label: '出价金额' },
@@ -465,6 +555,16 @@ export function BidManagementPage() {
     ],
     drawerTitle: '出价详情',
     drawerSections: ['拍品信息', '企业信息', '出价金额', '服务器接收时间'],
+    detailItems: (row) => [
+      { label: '出价序号', value: getStringValue(row, 'id') },
+      { label: '拍品名称', value: getStringValue(row, 'lotTitle') },
+      { label: '企业名称', value: getStringValue(row, 'enterprise') },
+      { label: '脱敏企业', value: getStringValue(row, 'maskedEnterprise') },
+      { label: '出价金额', value: getStringValue(row, 'amount') },
+      { label: '加价次数', value: getStringValue(row, 'incrementTimes') },
+      { label: '出价时间', value: getStringValue(row, 'bidTime') },
+      { label: '最高价标记', value: row.isHighest ? '当前最高价' : '历史出价' },
+    ],
   }} />;
 }
 
@@ -478,10 +578,15 @@ export function ResultManagementPage() {
     active: '交易管理',
     subActive: '成交结果管理',
     filters: ['拍品名称', '中标企业', '成交时间', '公示状态'],
+    summaryCards: [
+      { label: '成交结果', value: String(api.getResults().length), helper: '竞拍结束自动生成', tone: 'blue' },
+      { label: '已公示', value: String(api.getResults().filter((row) => row.status === '已公示').length), helper: '已展示至前台成交公示', tone: 'green' },
+      { label: '待发布', value: String(api.getResults().filter((row) => row.status === '已生成').length), helper: '需核对后发布公示', tone: 'orange' },
+    ],
     fallbackRows: api.getResults() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminResults() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'lotTitle', label: '成交拍品', width: '34%' },
+      { key: 'lotTitle', label: '成交拍品', width: '34%', render: renderBusinessTitleCell },
       { key: 'winner', label: '中标企业名称' },
       { key: 'finalPrice', label: '最终成交价' },
       { key: 'publicTime', label: '生成时间' },
@@ -490,6 +595,19 @@ export function ResultManagementPage() {
     ],
     drawerTitle: '成交详情',
     drawerSections: ['拍品摘要', '中标企业', '最终成交价', '竞拍结束时间', '公示状态'],
+    detailItems: (row) => [
+      { label: '成交拍品', value: getStringValue(row, 'lotTitle') },
+      { label: '中标企业', value: getStringValue(row, 'winner') },
+      { label: '最终成交价', value: getStringValue(row, 'finalPrice') },
+      { label: '生成/公示时间', value: getStringValue(row, 'publicTime') },
+      { label: '公示状态', value: getStringValue(row, 'status') },
+    ],
+    confirmPanel: {
+      title: '发布成交公示确认',
+      body: '发布后成交拍品、中标企业名称、最终成交价将在前台公示。',
+      note: '请核对成交信息无误后再点击行内“发布公示”。',
+      tone: 'orange',
+    },
   }} />;
 }
 
@@ -505,10 +623,15 @@ export function ContractManagementPage() {
     active: '交易管理',
     subActive: '合同状态管理',
     filters: ['拍品名称', '企业名称', '合同状态'],
+    summaryCards: [
+      { label: '待签约', value: String(api.getContracts().filter((row) => row.status === '待签约').length), helper: '需跟进线下合同', tone: 'orange' },
+      { label: '已签约', value: String(api.getContracts().filter((row) => row.status === '已签约').length), helper: '等待履约完成', tone: 'blue' },
+      { label: '已完成', value: String(api.getContracts().filter((row) => row.status === '已完成').length), helper: '计入成交额看板', tone: 'green' },
+    ],
     fallbackRows: api.getContracts() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminContracts() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'lotTitle', label: '拍品名称', width: '32%' },
+      { key: 'lotTitle', label: '拍品名称', width: '32%', render: renderBusinessTitleCell },
       { key: 'enterprise', label: '中标企业' },
       { key: 'amount', label: '成交价' },
       { key: 'status', label: '合同状态', render: (row) => <StatusTag value={String(row.status)} /> },
@@ -518,6 +641,20 @@ export function ContractManagementPage() {
     ],
     drawerTitle: '合同状态详情',
     drawerSections: ['成交信息', '合同状态流转', '备注', '违约原因'],
+    detailItems: (row) => [
+      { label: '拍品名称', value: getStringValue(row, 'lotTitle') },
+      { label: '中标企业', value: getStringValue(row, 'enterprise') },
+      { label: '成交价', value: getStringValue(row, 'amount') },
+      { label: '合同状态', value: getStringValue(row, 'status') },
+      { label: '更新时间', value: getStringValue(row, 'updatedAt') },
+      { label: '操作人', value: getStringValue(row, 'operator') },
+    ],
+    confirmPanel: {
+      title: '状态变更确认',
+      body: '标记已完成后成交额将计入数据看板；标记违约后拍品将关闭且前台隐藏。',
+      note: '违约场景需在线下确认原因，再使用行内“标记违约”。',
+      tone: 'red',
+    },
   }} />;
 }
 
@@ -532,11 +669,16 @@ export function RefundManagementPage() {
     active: '交易管理',
     subActive: '退款状态管理',
     filters: ['拍品名称', '企业名称', '退款状态'],
+    summaryCards: [
+      { label: '未退款', value: String(api.getRefunds().filter((row) => row.status === '未退款').length), helper: '待线下处理', tone: 'orange' },
+      { label: '审核中', value: String(api.getRefunds().filter((row) => row.status === '审核中').length), helper: '财务复核中', tone: 'blue' },
+      { label: '已退款', value: String(api.getRefunds().filter((row) => row.status === '已退款').length), helper: '仅记录状态', tone: 'green' },
+    ],
     fallbackRows: api.getRefunds() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminRefunds() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'enterprise', label: '企业名称' },
-      { key: 'lotTitle', label: '拍品名称', width: '34%' },
+      { key: 'lotTitle', label: '拍品名称', width: '34%', render: renderBusinessTitleCell },
       { key: 'amount', label: '保证金金额' },
       { key: 'status', label: '退款状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'updatedAt', label: '更新时间' },
@@ -545,6 +687,20 @@ export function RefundManagementPage() {
     ],
     drawerTitle: '退款状态详情',
     drawerSections: ['企业信息', '拍品信息', '保证金金额', '状态备注'],
+    detailItems: (row) => [
+      { label: '企业名称', value: getStringValue(row, 'enterprise') },
+      { label: '拍品名称', value: getStringValue(row, 'lotTitle') },
+      { label: '保证金金额', value: getStringValue(row, 'amount') },
+      { label: '退款状态', value: getStringValue(row, 'status') },
+      { label: '更新时间', value: getStringValue(row, 'updatedAt') },
+      { label: '操作人', value: getStringValue(row, 'operator') },
+    ],
+    confirmPanel: {
+      title: '线下退款状态确认',
+      body: '请确认线下退款已完成，系统仅记录状态，不产生实际资金转移。',
+      note: '本页不设计退款凭证上传，按 T36/T38B 口径只维护状态。',
+      tone: 'orange',
+    },
   }} />;
 }
 
@@ -560,6 +716,11 @@ export function BlacklistManagementPage() {
         active: '企业管理',
         subActive: '黑名单管理',
         filters: ['企业名称', '黑名单状态', '操作时间'],
+        summaryCards: [
+          { label: '已拉黑企业', value: String(api.getBlacklist().filter((row) => row.status === '已拉黑').length), helper: '禁止继续参与竞拍', tone: 'red' },
+          { label: '解除入口', value: '行内', helper: '保留既有解除拉黑操作', tone: 'blue' },
+          { label: '人工拉黑', value: '真实接口', helper: '提交企业 ID、拍品 ID 与原因', tone: 'orange' },
+        ],
         fallbackRows: api.getBlacklist() as unknown as Record<string, unknown>[],
         loadRows: () => api.fetchAdminBlacklist() as Promise<unknown> as Promise<Record<string, unknown>[]>,
         columns: [
@@ -574,6 +735,21 @@ export function BlacklistManagementPage() {
         ],
         drawerTitle: '黑名单企业详情',
         drawerSections: ['企业信息', '违约记录', '拉黑原因', '解除原因'],
+        detailItems: (row) => [
+          { label: '企业名称', value: getStringValue(row, 'enterprise') },
+          { label: '联系人', value: getStringValue(row, 'contact') },
+          { label: '联系电话', value: getStringValue(row, 'phone') },
+          { label: '黑名单状态', value: getStringValue(row, 'status') },
+          { label: '拉黑原因', value: getStringValue(row, 'reason') },
+          { label: '操作人', value: getStringValue(row, 'operator') },
+          { label: '操作时间', value: getStringValue(row, 'operatedAt') },
+        ],
+        confirmPanel: {
+          title: '黑名单高风险操作',
+          body: '拉黑后账号将被封禁，不允许继续参与竞拍；解除后企业账号恢复正常操作权限。',
+          note: '请先核对违约记录和线下处置结论。',
+          tone: 'red',
+        },
       }}
       extraContent={<BlacklistForm />}
     />
@@ -656,51 +832,78 @@ export function ContentManagementPage() {
       <PageHead
         subtitle="真实接口优先加载；保存失败会显性提示，发布/下架沿用既有接口。"
         title="内容管理页"
+        actions={[{ label: '新建内容', tone: 'primary', onClick: () => setEditingRow(undefined) }]}
       />
       <p className="admin-api-notice">{notice}</p>
-      <FilterBar fields={['分类', '状态', '关键词']} />
-      <DataTable
-        columns={[
-          { key: 'title', label: '标题', width: '34%' },
-          { key: 'category', label: '分类' },
-          { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
-          { key: 'publishedAt', label: '发布时间' },
-          { key: 'updatedBy', label: '更新人' },
-          rowActions(handleContentAction, ['编辑', '发布', '下架']),
-        ]}
-        rows={rows}
-      />
-      <aside className="drawer-preview">
-        <h3>{editingRow ? '编辑内容' : '新建内容草稿'}</h3>
-        <form className="long-form admin-form" id="admin-content-form" key={String(editingRow?.id ?? 'new')}>
-          <div className="form-grid">
-            <label className="field">
-              <span>标题</span>
-              <input defaultValue={String(editingRow?.title ?? 'T21A-内容草稿')} name="title" placeholder="请输入标题" />
-            </label>
-            <label className="field">
-              <span>分类</span>
-              <select defaultValue={getContentCategoryCode(editingRow)} name="category">
-                {CONTENT_CATEGORY_OPTIONS.map(([code, label]) => (
-                  <option key={code} value={code}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>摘要</span>
-              <input defaultValue={String(editingRow?.summary ?? '后台内容真实接口验收摘要')} name="summary" placeholder="请输入摘要" />
-            </label>
+      <section className="admin-content-workspace">
+        <aside className="content-category-panel">
+          <div>
+            <strong>内容分类</strong>
+            <small>信息资讯与公开说明</small>
           </div>
-          <label className="field">
-            <span>正文</span>
-            <textarea defaultValue={String(editingRow?.body ?? editingRow?.summary ?? '后台内容真实接口验收正文')} name="body" placeholder="请输入正文" rows={8} />
-          </label>
-          <div className="button-row">
-            <button className="btn primary" onClick={() => void submitContent()} type="button">保存内容</button>
-            <button className="btn secondary" onClick={() => setEditingRow(undefined)} type="button">新建内容</button>
+          {CONTENT_TREE_GROUPS.map(([group, items]) => (
+            <div className="content-tree-group" key={group as string}>
+              <span>{group as string}</span>
+              {(items as string[]).map((item) => (
+                <button className={rows.some((row) => row.category === item) ? 'active' : ''} key={item} type="button">
+                  {item}
+                </button>
+              ))}
+            </div>
+          ))}
+        </aside>
+        <div className="admin-workspace-main">
+          <FilterBar fields={['分类', '状态', '关键词']} />
+          <DataTable
+            columns={[
+              { key: 'title', label: '标题', width: '34%', render: renderContentTitleCell },
+              { key: 'category', label: '分类' },
+              { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
+              { key: 'publishedAt', label: '发布时间' },
+              { key: 'updatedBy', label: '更新人' },
+              rowActions(handleContentAction, ['编辑', '发布', '下架']),
+            ]}
+            rows={rows}
+          />
+        </div>
+        <aside className="drawer-preview content-editor-drawer">
+          <div className="drawer-preview-head">
+            <span aria-hidden="true">编</span>
+            <div>
+              <h3>{editingRow ? '编辑内容' : '新建内容草稿'}</h3>
+              <p>发布后将在前台信息资讯或公开说明中展示；下架后前台不可见。</p>
+            </div>
           </div>
-        </form>
-      </aside>
+          <form className="long-form admin-form" id="admin-content-form" key={String(editingRow?.id ?? 'new')}>
+            <div className="form-grid">
+              <label className="field">
+                <span>标题</span>
+                <input defaultValue={String(editingRow?.title ?? 'T21A-内容草稿')} name="title" placeholder="请输入标题" />
+              </label>
+              <label className="field">
+                <span>分类</span>
+                <select defaultValue={getContentCategoryCode(editingRow)} name="category">
+                  {CONTENT_CATEGORY_OPTIONS.map(([code, label]) => (
+                    <option key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>摘要</span>
+                <input defaultValue={String(editingRow?.summary ?? '后台内容真实接口验收摘要')} name="summary" placeholder="请输入摘要" />
+              </label>
+            </div>
+            <label className="field">
+              <span>正文</span>
+              <textarea defaultValue={String(editingRow?.body ?? editingRow?.summary ?? '后台内容真实接口验收正文')} name="body" placeholder="请输入正文" rows={8} />
+            </label>
+            <div className="button-row">
+              <button className="btn primary" onClick={() => void submitContent()} type="button">保存内容</button>
+              <button className="btn secondary" onClick={() => setEditingRow(undefined)} type="button">新建内容</button>
+            </div>
+          </form>
+        </aside>
+      </section>
     </AdminLayout>
   );
 }
@@ -711,19 +914,33 @@ export function NotificationManagementPage() {
     active: '内容运营',
     subActive: '通知管理',
     filters: ['通知类型', '通知渠道', '接收企业', '发送状态', '发送时间'],
+    summaryCards: [
+      { label: '发送成功', value: String(api.getNotifications().filter((row) => row.status === '发送成功').length), helper: '网关/站内投递成功', tone: 'green' },
+      { label: '发送失败', value: String(api.getNotifications().filter((row) => row.status === '发送失败').length), helper: '需人工关注业务结果', tone: 'red' },
+      { label: '通知类型', value: '2', helper: '成交通知与失败通知', tone: 'blue' },
+    ],
     fallbackRows: api.getNotifications() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminNotifications() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'type', label: '通知类型' },
       { key: 'channel', label: '通知渠道' },
       { key: 'enterprise', label: '接收企业' },
-      { key: 'lotTitle', label: '拍品名称', width: '24%' },
+      { key: 'lotTitle', label: '通知内容摘要', width: '30%', render: renderNotificationContentCell },
       { key: 'status', label: '发送状态', render: (row) => <StatusTag value={String(row.status)} /> },
       { key: 'sentAt', label: '发送时间' },
       rowActions(undefined, ['查看内容']),
     ],
     drawerTitle: '通知内容详情',
     drawerSections: ['通知类型', '通知渠道', '接收企业', '通知内容', '发送状态'],
+    detailItems: (row) => [
+      { label: '通知类型', value: getStringValue(row, 'type') },
+      { label: '通知渠道', value: getStringValue(row, 'channel') },
+      { label: '接收企业', value: getStringValue(row, 'enterprise') },
+      { label: '关联拍品', value: getStringValue(row, 'lotTitle') },
+      { label: '通知正文', value: getStringValue(row, 'content') },
+      { label: '发送状态', value: getStringValue(row, 'status') },
+      { label: '发送时间', value: getStringValue(row, 'sentAt') },
+    ],
   }} />;
 }
 
@@ -733,10 +950,15 @@ export function FileManagementPage() {
     active: '内容运营',
     subActive: '文件管理',
     filters: ['文件类型', '来源业务', '上传人', '上传时间'],
+    summaryCards: [
+      { label: '文件记录', value: String(api.getFiles().length), helper: '平台上传文件引用', tone: 'blue' },
+      { label: '权限控制', value: '敏感附件', helper: '检测报告/凭证按权限查看', tone: 'orange' },
+      { label: '只读盘点', value: '无删除', helper: '本页仅查看与引用追踪', tone: 'green' },
+    ],
     fallbackRows: api.getFiles() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminFiles() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
-      { key: 'name', label: '文件名', width: '28%' },
+      { key: 'name', label: '文件名', width: '28%', render: renderFileNameCell },
       { key: 'type', label: '文件类型' },
       { key: 'source', label: '来源业务' },
       { key: 'uploader', label: '上传人' },
@@ -746,6 +968,15 @@ export function FileManagementPage() {
     ],
     drawerTitle: '文件预览',
     drawerSections: ['文件预览', '关联业务', '权限控制提示'],
+    detailItems: (row) => [
+      { label: '文件名', value: getStringValue(row, 'name') },
+      { label: '文件类型', value: getStringValue(row, 'type') },
+      { label: '来源业务', value: getStringValue(row, 'source') },
+      { label: '上传人', value: getStringValue(row, 'uploader') },
+      { label: '上传时间', value: getStringValue(row, 'uploadedAt') },
+      { label: '关联对象', value: getStringValue(row, 'ref') },
+      { label: '查看状态', value: '敏感附件需通过后端权限校验' },
+    ],
   }} />;
 }
 
@@ -755,6 +986,11 @@ export function OperationLogPage() {
     active: '系统审计',
     subActive: '操作日志',
     filters: ['操作人', '操作动作', '对象类型', '操作时间'],
+    summaryCards: [
+      { label: '审计记录', value: String(api.getLogs().length), helper: '关键操作留痕', tone: 'blue' },
+      { label: '成功操作', value: String(api.getLogs().filter((row) => row.result === '成功').length), helper: '按后端日志结果展示', tone: 'green' },
+      { label: '删除按钮', value: '0', helper: '操作日志不可删除', tone: 'red' },
+    ],
     fallbackRows: api.getLogs() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLogs() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
@@ -768,6 +1004,15 @@ export function OperationLogPage() {
     ],
     drawerTitle: '日志详情',
     drawerSections: ['操作人', '操作时间', '操作动作', '对象信息', '操作结果', '备注'],
+    detailItems: (row) => [
+      { label: '操作人', value: getStringValue(row, 'operator') },
+      { label: '操作动作', value: getStringValue(row, 'action') },
+      { label: '对象类型', value: getStringValue(row, 'objectType') },
+      { label: '对象名称', value: getStringValue(row, 'objectName') },
+      { label: '操作结果', value: getStringValue(row, 'result') },
+      { label: '操作时间', value: getStringValue(row, 'operatedAt') },
+      { label: '前后摘要', value: '由后端审计摘要字段返回后展示' },
+    ],
   }} />;
 }
 
@@ -814,28 +1059,89 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
       <PageHead title={config.title} subtitle="真实接口优先加载；接口不可用时保留 mock 数据，状态操作失败不改变当前页面。" actions={config.topActions} />
       <p className="admin-api-notice">{notice}</p>
       {extraContent}
+      {config.summaryCards ? <AdminSummaryStrip cards={config.summaryCards} /> : null}
       <section className="admin-workspace">
         <div className="admin-workspace-main">
           <FilterBar fields={config.filters} />
           <DataTable columns={config.columns} rows={rows} />
         </div>
-        <aside className="drawer-preview">
+        <AdminDetailDrawer
+          confirmPanel={config.confirmPanel}
+          detailItems={config.detailItems?.(rows[0] ?? {})}
+          sections={config.drawerSections}
+          title={config.drawerTitle}
+        />
+      </section>
+    </AdminLayout>
+  );
+}
+
+function AdminSummaryStrip({ cards }: { cards: AdminSummaryCard[] }) {
+  return (
+    <section className="admin-summary-strip" aria-label="页面业务摘要">
+      {cards.map((card) => (
+        <article className={`admin-summary-card ${card.tone ?? 'blue'}`} key={card.label}>
+          <span>{card.label}</span>
+          <strong>{card.value}</strong>
+          <small>{card.helper}</small>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function AdminDetailDrawer({
+  confirmPanel,
+  detailItems,
+  sections,
+  title,
+}: {
+  confirmPanel?: AdminConfirmPanel;
+  detailItems?: AdminDetailItem[];
+  sections: string[];
+  title: string;
+}) {
+  return (
+    <aside className="drawer-preview">
           <div className="drawer-preview-head">
             <span aria-hidden="true">详</span>
             <div>
-              <h3>{config.drawerTitle}</h3>
+              <h3>{title}</h3>
               <p>右侧详情抽屉视觉位，行操作与真实接口保持原逻辑。</p>
             </div>
           </div>
-          {config.drawerSections.map((section, index) => (
+          {detailItems?.length ? (
+            <dl className="drawer-detail-list">
+              {detailItems.map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value || '-'}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          {sections.map((section, index) => (
             <div className="drawer-section" key={section}>
               <strong>{index + 1}. {section}</strong>
               <p>展示 {section} 信息，后续由后端接口返回。</p>
             </div>
           ))}
+          {confirmPanel ? <AdminConfirmPreview panel={confirmPanel} /> : null}
         </aside>
-      </section>
-    </AdminLayout>
+  );
+}
+
+function AdminConfirmPreview({ panel }: { panel: AdminConfirmPanel }) {
+  return (
+    <div className={`admin-confirm-preview ${panel.tone ?? 'blue'}`}>
+      <strong>{panel.title}</strong>
+      <p>{panel.body}</p>
+      {panel.note ? <small>{panel.note}</small> : null}
+      <div className="button-row">
+        <button className="btn secondary" type="button">取消</button>
+        <button className={panel.tone === 'red' ? 'btn danger' : 'btn primary'} type="button">确认</button>
+      </div>
+    </div>
   );
 }
 

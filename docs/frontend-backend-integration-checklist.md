@@ -295,3 +295,39 @@
 - 上传成功后将后端响应 `fileUrl` 解析为后端绝对 URL，回填 `imageOneUrl`、`imageTwoUrl`、`inspectionReportUrl`，现有 `createLot`/`updateLot` payload 和保存/提交复核流程保持不变。
 - Playwright 验证中三次上传请求均返回 201；保存草稿 `POST /api/admin/lots` 返回 201，保存并提交复核链路 `POST /api/admin/lots` 与 `POST /api/admin/lots/{id}/submit-review` 均返回 201。
 - Playwright 390px 宽度检查 `/admin/lots/edit` 返回 `scrollWidth=390`、`innerWidth=390`、`overflow=false`；`console error` 为 0。
+
+## 24. T37D PC 首页最新 Stitch 智能交互版替换收口
+
+- 已优先读取 Stitch MCP 项目 `16913530871577335378` 中 screen `6de9c056dd3c45c291a22c0c53293642`，标题为“华宁矿产 - 智能交互门户首页”，并以该屏幕作为本轮首页收口来源。
+- `/` 首页当前替换为最新智能交互门户结构：深色首屏、搜索入口、四个数据看板、正在竞价主卡、服务入口、即将拍卖/政策资讯/成交公示侧栏列表。
+- 真实 API 接入保持不变：`fetchStats()`、`fetchLots()`、`fetchResults()`、`fetchContents()` 继续优先读取真实接口；本轮未改后端、Prisma schema、登录/JWT、T32 上传或 T38 后台视觉。
+- 首页导航行为保持不变：搜索与公示、竞价、企业中心、资讯、成交公示入口继续调用既有 `navigateTo` 路径，不新增路由。
+- 截图留存目录：`docs/qa/stitch-latest-home/`；必提交截图为 `latest-home-reference.png`、`latest-home-react-desktop-pw.png`、`latest-home-react-mobile-pw.png`。
+
+## 25. T38C 企业中心页面 Stitch 复刻
+
+- 已基于本地 Stitch 源 `stitch_document_to_webpage_generator/_8`、`_32`、`_2`、`_19`、`_12`、`_24` 复刻企业中心首页、我的企业认证、我的意向金、我的出价记录、我的通知。
+- 企业中心布局改为 Stitch 风格：白底政务顶栏下的 240px 企业侧栏、企业状态卡、待办摘要、浅灰内容区、筛选卡片、高密度表格和通知阅读态卡片。
+- 真实 API 接入保持不变：`fetchAccountProfile()`、`fetchAccountDeposits()`、`fetchAccountBids()`、`fetchAccountMessages()`、`markMessageRead()` 继续由页面调用。
+- 企业端开发请求头口径保持不变：`x-user-role: ENTERPRISE`，默认企业 UUID 仍为 `714ac6d2-aa76-4cff-9224-ecae6298c599`。
+- 本轮未修改后端、Prisma schema、登录/JWT、T32 上传接口/上传口径，也未修改 `stitch_document_to_webpage_generator/`、`.playwright-cli/` 或 `frontend/.playwright-cli/`。
+- Playwright 覆盖 `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages`：逐页 `console error` 为 0；390px 检查均为 `innerWidth=390`、`documentElement.scrollWidth=390`、`body.scrollWidth=390`、`overflow=false`。
+- Playwright 截图保存到 `docs/qa/t38-artifacts/`，文件名前缀为 `t38c-`。
+
+## 26. T38B 后台交易、企业管理、内容运营、系统审计页面 Stitch 复刻
+
+- 已基于本地 Stitch 源 `_25`、`_28`、`_33`、`_15`、`_11`、`_10`、`_36`、`_1` 和提示词 4.8，复刻 `/admin/bids`、`/admin/results`、`/admin/contracts`、`/admin/refunds`、`/admin/blacklist`、`/admin/content`、`/admin/notifications`、`/admin/files`、`/admin/logs`。
+- T38B 页面延续 T38A 深色后台侧栏、顶部面包屑、筛选区、高密度表格和右侧详情抽屉，并补充交易摘要卡、内容分类树、文件/通知/日志详情列表、成交/合同/退款/黑名单高风险确认视觉。
+- 真实 API 接入保持不变：`fetchAdminBids()`、`fetchAdminResults()`、`fetchAdminContracts()`、`fetchAdminRefunds()`、`fetchAdminBlacklist()`、`fetchAdminContents()`、`fetchAdminNotifications()`、`fetchAdminFiles()`、`fetchAdminLogs()` 继续由页面调用。
+- 状态操作保持不变：发布成交结果、合同签约/完成/违约、退款审核中/已退款、黑名单拉黑/解除、内容发布/下架/保存仍调用既有 `api.ts` 方法；失败时沿用页面现有提示与不改本地状态口径。
+- 本轮未修改后端、Prisma schema、登录/JWT、T32 上传接口/上传口径，也未修改 T38C `AccountPages.tsx`、T37D `PortalPages.tsx` 或 `stitch_document_to_webpage_generator/`。
+- Playwright 覆盖 9 个 T38B 路由：逐页 `console error` 为 0；390px 检查均为 `innerWidth=390`、`documentElement.scrollWidth=390`、`body.scrollWidth=390`、`overflow=false`。
+- Playwright 截图保存到 `docs/qa/t38-artifacts/`，文件名前缀为 `t38b-`，包含黑名单高风险确认视觉截图 `t38b-admin-blacklist-modal-desktop.png`。
+
+## 27. T40 门户登录状态与竞价报价体验修复
+
+- `/login` 的“立即登录”在 T33 前写入前端开发态会话标记 `localStorage.portalEnterpriseLoggedIn=true`，并触发页面内会话刷新；这不是生产 JWT 登录。
+- 门户头部在会话标记存在时显示企业入口、认证状态与“退出”，企业入口跳转 `/account`，退出会清除前端会话标记并回到 `/`。
+- 竞价详情页会识别当前展示拍品是否为真实 API 拍品；URL id 命中本地 mock 或 API fallback 时，报价区提示“当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。”并禁用刷新/确认出价。
+- 本轮未修改 `frontend/src/services/api.ts`，真实拍品仍沿用 `fetchLot()`、`fetchBidRecords()`、`submitBid()` 和既有开发认证请求头。
+- 加价次数输入框已支持手动输入正整数；空值、0、负数、小数、非数字不作为有效次数，blur 时归一为 1；`+` / `-` 保留且最低为 1。

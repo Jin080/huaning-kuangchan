@@ -51,19 +51,24 @@
 | T34 | DONE | 竞价修复 | 出价按加价次数计算 | T30,T31 | T34 执行会话 / 总控复核 | 竞价详情页已改为出价加价次数步进器并提交计算金额；后端测试锁定合法倍数与非法金额兜底 |
 | T35 | DONE | 前端视觉 | 拍卖详情页按 Stitch 效果复刻 | T30,T31,T34 | T35 执行会话 / 总控复核 | 已基于 Stitch 竞价详情页参考源复刻拍卖详情布局，并保留 T34 次数报价交互；桌面/移动截图已留档 |
 | T36 | DONE | 前端视觉 | 全站 Stitch 页面效果复刻盘点与分批计划 | T35 | T36 执行会话 / 总控复核 | 已产出 `docs/qa/stitch-full-replication-plan.md`，完成 Stitch 页面映射、差异清单、优先级和 T37/T38 分批计划 |
-| T37 | DONE | 前端视觉 | 门户与详情页 Stitch 全面复刻 | T36 | T37A/T37B/T37C 执行会话 / 总控复核 | T37A 门户通用组件与首页、T37B 门户列表与普通详情、T37C 登录/企业入驻已完成；资源页本轮不新增路由，沿用拍品公告入口 |
+| T37 | DONE | 前端视觉 | 门户与详情页 Stitch 全面复刻 | T36 | T37A/T37B/T37C/T37D 执行会话 / 总控复核 | T37A 门户通用组件与首页、T37B 门户列表与普通详情、T37C 登录/企业入驻、T37D 首页最新智能交互版收口已完成；资源页本轮不新增路由，沿用拍品公告入口 |
 | T37A | DONE | 前端视觉 | 门户通用组件与首页 Stitch 复刻 | T36 | T37A 执行会话 / 总控复核 | 已复刻门户头部、首页与页脚，保留真实 API 与导航行为；总控复跑前端 lint/build、Playwright 首页与竞价详情轻量复核通过 |
 | T37B | DONE | 前端视觉 | 门户列表与普通详情页 Stitch 复刻 | T37A | T37B 执行会话 / 总控复核 | 已复刻公告/竞价/成交/资讯/公开说明列表与普通详情页；总控复跑前端 lint/build、diff check 与 8 条门户路径 Playwright 宽度/console 复核通过 |
 | T37C | DONE | 前端视觉 | 门户登录、企业入驻、资源页决策 | T37B | T37C 执行会话 / 总控复核 | 已复刻 `/login` 与 `/enterprise/register`，保留现有导航与企业入驻真实提交；总控复跑前端 lint/build、diff check 与两页 Playwright 宽度/console 复核通过 |
-| T38 | IN_PROGRESS | 前端视觉 | 后台与企业中心 Stitch 全面复刻 | T36 | T38A 执行会话 / 总控复核 | T38A 后台核心页面已完成；T38B 后台其余管理页面、T38C 企业中心待后续分批 |
+| T37D | DONE | 前端视觉 | PC 首页最新 Stitch 智能交互版替换收口 | T37A,T37B,T37C | T37D 执行会话 | 已复核 Stitch MCP screen `6de9c056dd3c45c291a22c0c53293642`，首页替换为最新“智能交互门户首页”结构；保留真实 API 与导航行为，截图留档 |
+| T38 | DONE | 前端视觉 | 后台与企业中心 Stitch 全面复刻 | T36 | T38A/T38B/T38C 执行会话 / 总控复核 | T38A 后台核心页面、T38B 后台交易/企业管理/内容运营/系统审计、T38C 企业中心均已完成；真实 API 与既有操作口径保持不变 |
 | T38A | DONE | 前端视觉 | 后台通用组件与核心拍品/审核页面 Stitch 复刻 | T36,T37 | T38A 执行会话 / 总控复核 | 已复刻后台首页、拍品管理、新建/编辑拍品、三类审核页；保留真实 API、mock fallback、navigateTo 和既有行操作；上传卡仅视觉占位 |
+| T38B | DONE | 前端视觉 | 后台交易、企业管理、内容运营、系统审计页面 Stitch 复刻 | T38A | T38B 执行会话 / 总控复核 | 已复刻 `/admin/bids`、`/admin/results`、`/admin/contracts`、`/admin/refunds`、`/admin/blacklist`、`/admin/content`、`/admin/notifications`、`/admin/files`、`/admin/logs`；截图留档 |
+| T38C | DONE | 前端视觉 | 企业中心页面 Stitch 复刻 | T38A | T38C 执行会话 / 总控复核 | 已复刻 `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages`；企业端开发请求头 UUID 口径保持不变 |
+| T39 | DONE | 联调数据 | 竞价功能真实验证数据准备 | T30,T32,T38 | 总控调度 / 验证会话 | 已准备审核通过企业、竞价中拍品、已审核意向金并完成真实报价验证；后续报价需按页面当前价继续计算 |
+| T40 | DONE | 竞价体验 | 门户登录状态与竞价报价体验修复 | T33 前开发态,T39 | T40 执行会话 / 总控复核 | 登录后门户头部显示企业名/认证状态/退出；mock 拍品禁止真实报价；加价次数支持手动输入；仍使用开发认证头，未实施 JWT |
 
 ## 当前可并行任务
 
-- T38B/T38C 可启动：后台其余管理页面与企业中心 Stitch 复刻，需基于 `docs/qa/stitch-full-replication-plan.md` 分批推进，并避免与 T33 混做。
-- T33 属于上线必做能力；T32 已完成，T33 完成后仍需重跑主流程、敏感附件权限和企业数据隔离验收。
+- T33 可启动：登录/JWT 与角色权限生产化，建议拆为后端认证、前端登录态接入、权限回归验收三批。
+- 提交收口可启动：当前 T37D/T38B/T38C/T40 均已完成但尚未提交，需要按批次 stage，避免混入本地 Stitch 源和未确认截图。
 
 ## 当前必须串行任务
 
-- T38B/T38C 如继续大范围修改后台/企业中心样式，应先确认 T38A 已提交推送，避免同一批次混入 T32/T33 功能改动。
 - T33 上线必做能力仍需排期，完成后必须重跑主流程、敏感附件权限和企业数据隔离验收。
+- T37D/T38B/T38C/T40 提交前需先确认提交批次；`docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md` 当前同时包含多批追加记录，不宜用 `git add .`。

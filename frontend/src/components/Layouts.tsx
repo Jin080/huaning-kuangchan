@@ -1,10 +1,18 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { navigateTo } from '../navigation';
+import { api } from '../services/api';
 
 const portalNav = ['首页', '矿产资源', '即将拍卖', '正在竞价', '成交公示', '信息资讯', '公开说明'];
 const adminNav = ['首页看板', '拍品管理', '审核管理', '交易管理', '企业管理', '内容运营', '系统审计'];
 const accountNav = ['中心首页', '我的企业认证', '我的意向金', '我的出价记录', '我的通知'];
+const accountIconByNav: Record<string, string> = {
+  中心首页: '▦',
+  我的企业认证: '✓',
+  我的意向金: '￥',
+  我的出价记录: '槌',
+  我的通知: '信',
+};
 const adminIconByNav: Record<string, string> = {
   首页看板: '▦',
   拍品管理: '◆',
@@ -43,7 +51,82 @@ const accountPathByNav: Record<string, string> = {
   我的通知: '/account/messages',
 };
 
+const PORTAL_SESSION_KEY = 'portalEnterpriseLoggedIn';
+const PORTAL_SESSION_EVENT = 'portal-enterprise-session-change';
+
+type PortalSession = {
+  loggedIn: boolean;
+  enterpriseName: string;
+  certificationStatus: string;
+};
+
+const defaultPortalSession: PortalSession = {
+  loggedIn: false,
+  enterpriseName: '企业中心',
+  certificationStatus: '开发认证',
+};
+
+function clearPortalEnterpriseSession() {
+  localStorage.removeItem(PORTAL_SESSION_KEY);
+  window.dispatchEvent(new Event(PORTAL_SESSION_EVENT));
+}
+
+function readPortalSessionFlag() {
+  return localStorage.getItem(PORTAL_SESSION_KEY) === 'true';
+}
+
 export function PortalLayout({ active, children }: { active: string; children: ReactNode }) {
+  const [session, setSession] = useState<PortalSession>(() => ({
+    ...defaultPortalSession,
+    loggedIn: readPortalSessionFlag(),
+  }));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncSession = () => {
+      const loggedIn = readPortalSessionFlag();
+      setSession((current) => ({ ...current, loggedIn }));
+
+      if (!loggedIn) {
+        return;
+      }
+
+      void api.fetchAccountProfile().then((profile) => {
+        if (cancelled || !readPortalSessionFlag()) {
+          return;
+        }
+
+        setSession({
+          loggedIn: true,
+          enterpriseName: profile.enterpriseName || '企业中心',
+          certificationStatus: profile.certificationStatus || '开发认证',
+        });
+      }).catch(() => {
+        if (!cancelled) {
+          setSession((current) => ({ ...current, loggedIn: true }));
+        }
+      });
+    };
+
+    syncSession();
+    window.addEventListener(PORTAL_SESSION_EVENT, syncSession);
+    window.addEventListener('focus', syncSession);
+    window.addEventListener('storage', syncSession);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(PORTAL_SESSION_EVENT, syncSession);
+      window.removeEventListener('focus', syncSession);
+      window.removeEventListener('storage', syncSession);
+    };
+  }, []);
+
+  const logout = () => {
+    clearPortalEnterpriseSession();
+    navigateTo('/');
+  };
+
   return (
     <div className="app-shell portal-shell">
       <header className="portal-header">
@@ -63,8 +146,20 @@ export function PortalLayout({ active, children }: { active: string; children: R
               <span aria-hidden="true">⌕</span>
               <input placeholder="搜索资源/公告..." />
             </label>
-            <button onClick={() => navigateTo('/login')} type="button">登录</button>
-            <button className="solid" onClick={() => navigateTo('/enterprise/register')} type="button">企业入驻</button>
+            {session.loggedIn ? (
+              <div className="portal-session">
+                <button className="portal-session-entry" onClick={() => navigateTo('/account')} type="button">
+                  <strong>{session.enterpriseName}</strong>
+                  <span>{session.certificationStatus}</span>
+                </button>
+                <button className="portal-session-logout" onClick={logout} type="button">退出</button>
+              </div>
+            ) : (
+              <>
+                <button onClick={() => navigateTo('/login')} type="button">登录</button>
+                <button className="solid" onClick={() => navigateTo('/enterprise/register')} type="button">企业入驻</button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -133,12 +228,23 @@ export function AccountLayout({ active, children }: { active: string; children: 
     <PortalLayout active="企业中心">
       <div className="account-shell">
         <aside className="account-menu">
-          <h3>企业用户中心</h3>
+          <div className="account-menu-head">
+            <span>企</span>
+            <div>
+              <h3>企业中心</h3>
+              <small>华宁矿产竞拍</small>
+            </div>
+          </div>
           {accountNav.map((item) => (
             <button className={item === active ? 'active' : ''} key={item} onClick={() => navigateTo(accountPathByNav[item])} type="button">
+              <span>{accountIconByNav[item]}</span>
               {item}
             </button>
           ))}
+          <div className="account-menu-foot">
+            <strong>测试企业账号</strong>
+            <small>开发期企业端入口</small>
+          </div>
         </aside>
         <section className="account-content">{children}</section>
       </div>

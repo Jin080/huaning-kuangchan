@@ -3518,3 +3518,321 @@
 - 需要总控确认：
   - 是否提交并推送 T32A/T32B 与本次总控复核记录。
   - 下一批优先启动 T33，还是继续 T38B/T38C。
+
+## 2026-05-18 22:04 - T37D 首页最新 Stitch 智能交互版替换收口
+
+- 任务名称：T37D：PC 首页最新 Stitch 智能交互版替换收口、总控文档更新与提交准备
+- 负责模块：PC 门户首页 / Stitch 最新首页收口
+- 修改文件：
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/task-board.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/stitch-latest-home/latest-home-reference.png`
+  - `docs/qa/stitch-latest-home/latest-home-react-desktop-pw.png`
+  - `docs/qa/stitch-latest-home/latest-home-react-mobile-pw.png`
+- 删除文件：无
+- 接口变更：无；首页仍使用既有 `fetchStats()`、`fetchLots()`、`fetchResults()`、`fetchContents()` 真实 API/fallback 口径。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-only`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/`
+  - `npx --yes playwright screenshot --channel chrome --viewport-size=390,900 --full-page http://127.0.0.1:5173/ E:/kuangchan/docs/qa/stitch-latest-home/latest-home-react-mobile-pw.png`
+  - `npx --yes playwright screenshot --channel chrome --viewport-size=1440,1200 --full-page http://127.0.0.1:5173/ E:/kuangchan/docs/qa/stitch-latest-home/latest-home-react-desktop-pw.png`
+  - `Set-Location E:/kuangchan/.playwright-cli; npx playwright test t37d-home-check.spec.js --browser=chromium --reporter=line`
+- 验证结果：
+  - Stitch MCP 可读取项目 `16913530871577335378`、screen `6de9c056dd3c45c291a22c0c53293642`，标题为“华宁矿产 - 智能交互门户首页”。
+  - `git status --short --branch` 显示 `main...origin/main [ahead 1]`，本轮首页/文档文件未提交，另有未跟踪 `docs/qa/stitch-latest-home/` 与本地参考 `stitch_document_to_webpage_generator/`。
+  - 初始 `git diff --name-only` 仅显示 `frontend/src/index.css`、`frontend/src/pages/PortalPages.tsx`；更新总控文档后新增 `docs/frontend-backend-integration-checklist.md`、`docs/task-board.md`。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 313ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/` 返回 HTTP 200。
+  - 两条 Playwright screenshot 命令均完成，已覆盖刷新 `latest-home-react-mobile-pw.png` 与 `latest-home-react-desktop-pw.png`。
+  - Playwright 补充检查通过：`documentTitle` 与 H1 均为 `华宁矿产资源公共交易与数字服务平台`；390px 下 `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`；首页统计卡数量为 4；正在竞价区域卡片数量为 3；`consoleErrorCount=0`。
+  - 验证过程中发现并处理：`document.title` 初始为 `frontend`，已在首页组件中最小修复；后端首次启动因 PostgreSQL `127.0.0.1:55432` 未运行报 Prisma `P1001`，启动既有本地 PostgreSQL 后重启后端，`GET /api/health` 返回 200；随后以 `VITE_API_BASE_URL=http://127.0.0.1:3100/api` 重启 5173 前端完成 console=0 验证。
+- 截图产物：
+  - `docs/qa/stitch-latest-home/latest-home-reference.png`（71231 bytes）
+  - `docs/qa/stitch-latest-home/latest-home-react-desktop-pw.png`（371122 bytes）
+  - `docs/qa/stitch-latest-home/latest-home-react-mobile-pw.png`（241134 bytes）
+  - 未纳入默认提交范围、待总控确认：`docs/qa/stitch-latest-home/latest-home-react-desktop.png`（297257 bytes）、`docs/qa/stitch-latest-home/latest-home-react-mobile.png`（98233 bytes）
+- 未完成事项：
+  - 未提交、未推送。
+  - `docs/qa/stitch-latest-home/latest-home-react-desktop.png` 与 `latest-home-react-mobile.png` 是否 stage 需总控确认。
+- 阻塞问题：无
+- 需要总控确认：
+  - 是否提交并推送 T37D。
+  - 是否将 `docs/qa/stitch-latest-home/latest-home-react-desktop.png` 与 `docs/qa/stitch-latest-home/latest-home-react-mobile.png` 一并纳入提交。
+
+## 2026-05-18 22:34 - T38C 企业中心页面 Stitch 复刻
+
+- 任务名称：T38C：企业中心页面 Stitch 复刻
+- 负责模块：企业中心页面视觉复刻（/account、/account/certification、/account/deposits、/account/bids、/account/messages）
+- 修改文件：
+  - `frontend/src/pages/AccountPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/t38-artifacts/t38c-account-home-desktop.png`
+  - `docs/qa/t38-artifacts/t38c-account-certification-desktop.png`
+  - `docs/qa/t38-artifacts/t38c-account-deposits-desktop.png`
+  - `docs/qa/t38-artifacts/t38c-account-bids-desktop.png`
+  - `docs/qa/t38-artifacts/t38c-account-messages-desktop.png`
+  - `docs/qa/t38-artifacts/t38c-account-home-mobile.png`
+- 删除文件：无
+- 接口变更：无；保留 `fetchAccountProfile`、`fetchAccountDeposits`、`fetchAccountBids`、`fetchAccountMessages`、`markMessageRead` 真实 API 调用和 mock fallback。
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-only`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -i http://127.0.0.1:3100/api/account/profile -H "x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599" -H "x-user-role: ENTERPRISE"`
+  - Playwright `chromium.launch({ channel: "chrome" })` 逐页打开 `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages`，检查 console error 与 390px 溢出并截图。
+- 验证结果：
+  - `git status --short --branch` 通过，当前分支 `main...origin/main [ahead 1]`；存在既有 T37D 未提交文件、本轮 T38C 文件和未跟踪本地 Stitch 源。
+  - `git diff --name-only` 通过，显示包含本轮 `frontend/src/components/Layouts.tsx`、`frontend/src/index.css`、`frontend/src/pages/AccountPages.tsx`、`docs/frontend-backend-integration-checklist.md`、`docs/agent-handoff.md`、`docs/qa/t38-artifacts/*`；另有既有 T37D/T38B 相关差异如 `frontend/src/pages/AdminPages.tsx` 与 `docs/qa/stitch-latest-home/*`。
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 231ms`。
+  - `git diff --check` 通过，无 whitespace error；仅输出既有 LF/CRLF warning。
+  - `curl.exe` 企业 profile 返回 HTTP 200，响应企业用户 UUID 为 `714ac6d2-aa76-4cff-9224-ecae6298c599`，`roleCode` 为 `ENTERPRISE`，企业认证状态为 `待审核`。
+  - Playwright `/account`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/account/certification`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/account/deposits`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/account/bids`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/account/messages`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright 初次脚本尝试因 Node 22 管道脚本混用 `require()` 与 top-level await 失败；第二次 ESM 尝试因 `npx --package playwright` 未暴露包给 import 失败；最终复用既有 `.playwright-cli/node_modules/playwright` 并指定 Chrome channel 完成验证。
+- 截图产物：
+  - `docs/qa/t38-artifacts/t38c-account-home-desktop.png`（94443 bytes）
+  - `docs/qa/t38-artifacts/t38c-account-certification-desktop.png`（132313 bytes）
+  - `docs/qa/t38-artifacts/t38c-account-deposits-desktop.png`（70272 bytes）
+  - `docs/qa/t38-artifacts/t38c-account-bids-desktop.png`（69799 bytes）
+  - `docs/qa/t38-artifacts/t38c-account-messages-desktop.png`（64991 bytes）
+  - `docs/qa/t38-artifacts/t38c-account-home-mobile.png`（82758 bytes）
+- 未完成事项：未提交、未推送；未处理既有 T37D/T38B 未提交差异。
+- 阻塞问题：无
+- 需要总控确认：是否将 T38C 与当前既有 T37D/T38B 差异分批提交，避免混入非本轮范围。
+
+## 2026-05-18 22:41 - T38B 后台交易、企业管理、内容运营、系统审计页面 Stitch 复刻
+
+- 任务名称：T38B：后台交易、企业管理、内容运营、系统审计页面 Stitch 复刻
+- 负责模块：后台交易管理、企业管理、内容运营、系统审计页面视觉复刻（/admin/bids、/admin/results、/admin/contracts、/admin/refunds、/admin/blacklist、/admin/content、/admin/notifications、/admin/files、/admin/logs）
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/t38-artifacts/t38b-admin-bids-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-results-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-contracts-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-refunds-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-blacklist-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-content-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-notifications-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-files-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-logs-desktop.png`
+  - `docs/qa/t38-artifacts/t38b-admin-bids-mobile.png`
+  - `docs/qa/t38-artifacts/t38b-admin-logs-mobile.png`
+  - `docs/qa/t38-artifacts/t38b-admin-blacklist-modal-desktop.png`
+- 删除文件：无
+- 接口变更：无；保留 `fetchAdminBids`、`fetchAdminResults`、`fetchAdminContracts`、`fetchAdminRefunds`、`fetchAdminBlacklist`、`fetchAdminContents`、`fetchAdminNotifications`、`fetchAdminFiles`、`fetchAdminLogs` 真实 API 调用和 mock fallback。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-only`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/admin/bids`
+  - Playwright `chromium.launch({ channel: "chrome" })` 逐页打开 T38B 9 个后台路由，检查 console error 与 390px 溢出，并保存截图。
+- 验证结果：
+  - `git status --short --branch` 通过，当前分支 `main...origin/main [ahead 1]`；存在既有 T37D/T38C 未提交文件、本轮 T38B 文件、T38C 截图和未跟踪本地 Stitch 源。
+  - `git diff --name-only` 通过，输出：`docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`frontend/src/components/Layouts.tsx`、`frontend/src/index.css`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx`；其中 `Layouts.tsx`、`AccountPages.tsx` 为既有 T38C 差异，非本轮 T38B 修改。
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 330ms`。
+  - `git diff --check` 通过，无 whitespace error；仅输出 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/admin/bids` 返回 HTTP 200。
+  - Playwright `/admin/bids`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/results`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/contracts`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/refunds`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/blacklist`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/content`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/notifications`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/files`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright `/admin/logs`：`consoleErrorCount=0`；390px `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright 黑名单高风险确认视觉截图：`/admin/blacklist#confirm-preview`，`consoleErrorCount=0`。
+- 截图产物：
+  - `docs/qa/t38-artifacts/t38b-admin-bids-desktop.png`（110197 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-bids-mobile.png`（96786 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-blacklist-desktop.png`（133876 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-blacklist-modal-desktop.png`（12923 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-content-desktop.png`（125716 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-contracts-desktop.png`（115761 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-files-desktop.png`（191864 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-logs-desktop.png`（711847 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-logs-mobile.png`（384402 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-notifications-desktop.png`（114684 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-refunds-desktop.png`（118495 bytes）
+  - `docs/qa/t38-artifacts/t38b-admin-results-desktop.png`（120222 bytes）
+- 未完成事项：未提交、未推送；未处理既有 T37D/T38C 未提交差异。
+- 阻塞问题：无
+- 需要总控确认：当前工作树已有 T37D/T38C 差异与截图，提交时需按任务批次选择范围，避免 T38B 混入 T38C 或 T37D。
+
+## 2026-05-18 22:46 - T38B 后台页面 Stitch 复刻重试验证补充
+
+- 任务名称：T38B：后台交易、企业管理、内容运营、系统审计页面 Stitch 复刻重试验证
+- 负责模块：T38B 验证补充
+- 修改文件：
+  - `docs/agent-handoff.md`（仅追加本补充记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-only`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -I http://127.0.0.1:5173/admin/bids`
+  - Playwright `chromium.launch({ channel: "chrome" })` 重试逐页打开 T38B 9 个后台路由，检查 console error 与 390px 溢出，并刷新截图。
+- 验证结果：
+  - `git status --short --branch` 通过，当前分支 `main...origin/main [ahead 1]`；仍存在既有 T37D/T38C 未提交文件、本轮 T38B 文件、T38C 截图和未跟踪本地 Stitch 源。
+  - `git diff --name-only` 通过，输出：`docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`frontend/src/components/Layouts.tsx`、`frontend/src/index.css`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx`。
+  - `npm run lint` 通过。
+  - `npm run build` 通过，Vite 输出 `built in 235ms`。
+  - `git diff --check` 通过，无 whitespace error；仅输出 LF/CRLF warning。
+  - `curl.exe -I http://127.0.0.1:5173/admin/bids` 返回 HTTP 200。
+  - Playwright 重试 `/admin/bids`、`/admin/results`、`/admin/contracts`、`/admin/refunds`、`/admin/blacklist`、`/admin/content`、`/admin/notifications`、`/admin/files`、`/admin/logs`：逐页 `consoleErrorCount=0`；390px 均为 `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - Playwright 重试黑名单确认视觉 `/admin/blacklist#confirm-preview`：`consoleErrorCount=0`。
+- 截图产物：沿用并刷新 `docs/qa/t38-artifacts/t38b-admin-*.png`，大小见上一条 T38B 交付记录。
+- 未完成事项：未提交、未推送；未处理既有 T37D/T38C 未提交差异。
+- 阻塞问题：无
+- 需要总控确认：提交时仍需按任务批次选择范围，避免 T38B 混入 T38C 或 T37D。
+
+## 2026-05-18 23:11 - 总控复核 T38B/T38C 并更新任务板
+
+- 任务名称：总控复核 T38B/T38C 后台与企业中心 Stitch 复刻交付，并更新任务总表
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-only`
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`
+  - `Set-Location E:/kuangchan; git diff -- backend/src/app.module.ts`
+  - `Set-Location E:/kuangchan; git diff -- frontend/src/services/api.ts`
+  - `Get-ChildItem E:/kuangchan/docs/qa/t38-artifacts -Filter 't38b-*.png'`
+  - `Get-ChildItem E:/kuangchan/docs/qa/t38-artifacts -Filter 't38c-*.png'`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+- 验证结果：
+  - `git status --short --branch` 显示当前 `main...origin/main [ahead 1]`；T37D 已 stage，T38B/T38C 仍为未 stage 差异；未跟踪项包含 T38B/T38C 截图、两个未确认首页截图和本地 Stitch 参考目录。
+  - `git diff --name-only` 显示未 stage 跟踪差异为 `docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`frontend/src/components/Layouts.tsx`、`frontend/src/index.css`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx`。
+  - `backend/prisma/schema.prisma`、`backend/src/app.module.ts`、`frontend/src/services/api.ts` 无 diff。
+  - T38B 截图 12 张存在且非空，T38C 截图 6 张存在且非空。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 223ms`。
+  - `git diff --check` 通过，无 whitespace error；仅有 LF/CRLF warning。
+  - `docs/task-board.md` 已将 T38 父任务标记 DONE，并新增 T38B/T38C DONE 记录；当前可并行任务调整为 T33 与提交收口。
+- 未完成事项：
+  - T37D/T38B/T38C 尚未提交、尚未推送。
+  - T33 登录/JWT 与角色权限生产化仍为 TODO。
+  - 当前系统仍依赖开发认证请求头，生产登录态尚未落地。
+- 阻塞问题：无代码阻塞；提交前需按任务批次选择 stage 范围，避免混入 `stitch_document_to_webpage_generator/` 和未确认首页截图。
+- 需要总控确认：
+  - T37D/T38B/T38C 是否分批提交，或合并为一次前端视觉收口提交。
+  - 是否启动 T33A 后端认证/JWT 实施。
+
+## 2026-05-19 09:01 - T40 门户登录状态与竞价报价体验修复
+
+- 任务名称：T40：门户登录状态展示、竞价详情真实拍品防 mock 报价、加价次数手动输入
+- 负责模块：PC 门户头部、登录页、竞价详情页报价区
+- 修改文件：
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无；未修改 `frontend/src/services/api.ts`，真实报价仍调用 `POST /api/lots/{id}/bids`
+- 状态枚举变更：无
+- 数据模型变更：无；未修改后端与 Prisma schema
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -s http://127.0.0.1:3100/api/health`
+  - `curl.exe -s -H "x-user-id: 714ac6d2-aa76-4cff-9224-ecae6298c599" -H "x-user-role: ENTERPRISE" http://127.0.0.1:3100/api/account/profile`
+  - Playwright `chromium.launch({ channel: "chrome" })` 覆盖 `/login`、`/`、真实 `/auctions/live/detail?id=0c4467ea-eb0a-4f62-9c66-de30826e088d`、mock `/auctions/live/detail?id=HN-2026-0517-01` 与 390px 宽度检查
+- 验证结果：
+  - `git status --short --branch` 通过；当前工作树仍包含既有 T37D/T38B/T38C 未提交差异和未跟踪截图/本地 Stitch 源。
+  - `npm run lint` 通过。
+  - `npm run build` 通过。
+  - `git diff --check` 通过，无 whitespace error；仅输出既有 LF/CRLF warning。
+  - `GET /api/health` 返回 `{"status":"ok","service":"huaning-mineral-auction-backend"}`。
+  - 企业 profile 返回 HTTP 200，企业名 `T14华宁验收企业`，认证状态 `审核通过`，仍使用开发认证请求头。
+  - Playwright 登录：点击“立即登录”后跳转 `/account`；回到 `/` 后头部显示 `T14华宁验收企业 / 审核通过 / 退出`，不再显示“登录 / 企业入驻”；点击“退出”后恢复“登录 / 企业入驻”。
+  - Playwright 真实竞价：T39 拍品输入加价次数 2 后按当前价 + 2 × 加价幅度计算；确认出价 `POST /api/lots/0c4467ea-eb0a-4f62-9c66-de30826e088d/bids` 返回 201；刷新后输入 3 继续按新的当前价计算。
+  - 说明：真实报价验收会落库，T39 当前最高价已从任务给定的 110 随验证出价更新到 150；复验以页面当前价为准。
+  - Playwright mock/fallback：`/auctions/live/detail?id=HN-2026-0517-01` 显示本地演示数据提示，确认出价 disabled，未出现 mock id 的报价 POST。
+  - Playwright 移动端：390px 下首页登录状态与竞价详情均为 `documentElement.scrollWidth=390`、`body.scrollWidth=390`、`innerWidth=390`，`consoleErrorCount=0`。
+- 截图产物：无新增截图产物。
+- 未完成事项：未提交、未推送；T33 生产登录/JWT 仍未实施，本轮仅为开发态会话展示。
+- 阻塞问题：无
+- 需要总控确认：
+  - T40 是否与既有 T37D/T38B/T38C 分批提交，避免混入本地 Stitch 源和未确认截图。
+  - 后续是否启动 T33 生产认证/JWT 替换开发认证头。
+
+## 2026-05-19 09:22 - 总控复核 T40 并更新任务板
+
+- 任务名称：总控复核 T40 门户登录状态与竞价报价体验修复，并同步总任务表
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 复核依据：
+  - 已读取 T40 交接记录与当前 `frontend/src/components/Layouts.tsx`、`frontend/src/pages/PortalPages.tsx` 相关实现片段。
+  - 已确认 T40 记录中声明仍为 T33 前开发态会话展示，继续依赖 `x-user-id` / `x-user-role`，未实施 JWT。
+  - 已确认当前任务板在本记录前仅登记到 T38C，缺少 T39/T40 总控状态。
+- 本轮总控文档更新：
+  - `docs/task-board.md` 新增 T39 DONE：竞价功能真实验证数据准备。
+  - `docs/task-board.md` 新增 T40 DONE：门户登录状态与竞价报价体验修复。
+  - 当前可并行/串行任务说明已补入 T40 未提交收口风险。
+- 未完成事项：
+  - T37D/T38B/T38C/T40 尚未提交、尚未推送。
+  - T33 登录/JWT 与角色权限生产化仍为 TODO。
+  - 当前系统仍依赖开发认证请求头；生产登录态尚未落地。
+- 阻塞问题：无代码阻塞；提交前需按任务批次选择 stage 范围，避免混入 `stitch_document_to_webpage_generator/`、`.playwright-cli/`、`frontend/.playwright-cli/` 和未确认首页截图。
+- 需要总控确认：
+  - T37D/T38B/T38C/T40 是否分批提交，或合并为一次前端视觉与体验收口提交。
+  - 是否启动 T33A 后端认证/JWT 实施。

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { ButtonRow } from '../components/Button';
-import { LotCard, SectionHeader, StatCards } from '../components/Cards';
+import { SectionHeader } from '../components/Cards';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { PortalLayout } from '../components/Layouts';
@@ -37,10 +37,12 @@ export function PortalHome() {
   const [contents, setContents] = useState<ContentRecord[]>(api.getContents());
   const liveLots = lots.filter((lot) => lot.status === '竞拍中');
   const upcomingLots = lots.filter((lot) => lot.status === '公示中');
-  const displayLiveLots = liveLots.length > 0 ? liveLots.slice(0, 2) : lots.slice(0, 2);
+  const featuredLot = (liveLots[0] ?? lots[0]) as Lot | undefined;
   const displayUpcomingLots = upcomingLots.length > 0 ? upcomingLots.slice(0, 3) : lots.slice(0, 3);
+  const visibleStats = stats.slice(0, 4);
 
   useEffect(() => {
+    document.title = '华宁矿产资源公共交易与数字服务平台';
     void api.fetchStats().then(setStats);
     void api.fetchLots().then(setLots);
     void api.fetchResults().then(setResults);
@@ -49,84 +51,125 @@ export function PortalHome() {
 
   return (
     <PortalLayout active="首页">
-      <StatCards stats={stats} />
-      <div className="portal-home-grid">
-        <div className="portal-home-main">
-          <section>
-            <SectionHeader icon="⚖" title="正在竞价" action="查看全部 >" actionTo="/auctions/live" />
-            <div className="live-card-grid">
-              {displayLiveLots.map((lot, index) => <LotCard action="进入竞价" key={lot.id} lot={lot} progress={index === 0 ? 85 : 60} />)}
-            </div>
-          </section>
-          <section>
-            <SectionHeader icon="◆" title="矿产资源" action="查看全部 >" actionTo="/announcements/upcoming" />
-            <PortalResourceTable lots={lots.slice(0, 4)} />
-          </section>
+      <section className="latest-home-hero">
+        <div className="latest-home-hero-inner">
+          <span className="latest-home-kicker">智能交互门户</span>
+          <h1>华宁矿产资源公共交易与数字服务平台</h1>
+          <p>整合拍品公示、在线竞价、成交公示与企业服务，帮助竞买企业快速定位可参与资源。</p>
+          <form className="latest-home-search" onSubmit={(event) => event.preventDefault()}>
+            <span aria-hidden="true" />
+            <input aria-label="搜索矿产资源、拍卖公告或政策资讯" placeholder="输入矿种、地区、公告编号或企业服务事项..." />
+            <button type="button" onClick={() => navigateTo('/announcements/upcoming')}>搜索</button>
+          </form>
+          <div className="latest-home-stats" aria-label="平台数据概览">
+            {visibleStats.map((stat) => (
+              <article className={`latest-home-stat ${stat.tone ?? 'blue'}`} key={stat.label}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+              </article>
+            ))}
+          </div>
         </div>
-        <aside className="portal-home-aside">
-          <section>
-            <SectionHeader icon="▣" title="即将拍卖公告" />
-            <div className="home-list-card">
+      </section>
+
+      <section className="latest-home-auctions">
+        <div className="latest-home-section-head">
+          <div>
+            <span />
+            <h2>正在竞价</h2>
+          </div>
+          <button className="text-link" onClick={() => navigateTo('/auctions/live')} type="button">查看全部</button>
+        </div>
+        <div className="latest-home-auction-grid">
+          {featuredLot ? (
+            <article className="latest-home-lot-card">
+              <button className="latest-home-lot-media" onClick={() => navigateTo(`/auctions/live/detail?id=${featuredLot.id}`)} type="button">
+                <span>{featuredLot.status}</span>
+                <strong>{featuredLot.category}</strong>
+              </button>
+              <div className="latest-home-lot-body">
+                <div>
+                  <h3>{featuredLot.title}</h3>
+                  <p>{featuredLot.productInfo || featuredLot.origin}</p>
+                </div>
+                <dl>
+                  <div><dt>当前价</dt><dd>{featuredLot.currentPrice}</dd></div>
+                  <div><dt>资源量</dt><dd>{featuredLot.quantity}</dd></div>
+                </dl>
+                <button className="btn primary" onClick={() => navigateTo(`/auctions/live/detail?id=${featuredLot.id}`)} type="button">参与竞价</button>
+              </div>
+            </article>
+          ) : null}
+          {[0, 1].map((item) => (
+            <article className="latest-home-skeleton-card" key={item}>
+              <div />
+              <span />
+              <span />
+              <strong />
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="latest-home-services">
+        <div className="latest-home-section-head compact">
+          <div>
+            <span />
+            <h2>服务与公示</h2>
+          </div>
+        </div>
+        <div className="latest-home-service-grid">
+          <article className="latest-home-service-card">
+            <span className="latest-home-kicker">公共交易服务</span>
+            <h2>华宁矿产数字交易服务平台</h2>
+            <p>集中办理企业入驻、保证金资格、竞价报名和成交后续事项，关键流程保留审核记录。</p>
+            <div className="latest-home-service-actions">
+              <button onClick={() => navigateTo('/announcements/upcoming')} type="button"><span>01</span><strong>拍品公告</strong></button>
+              <button onClick={() => navigateTo('/auctions/live')} type="button"><span>02</span><strong>在线竞价</strong></button>
+              <button onClick={() => navigateTo('/account')} type="button"><span>03</span><strong>企业中心</strong></button>
+            </div>
+          </article>
+          <div className="latest-home-side-lists">
+            <article className="latest-home-news-panel">
+              <header>
+                <h3>即将拍卖</h3>
+                <button onClick={() => navigateTo('/announcements/upcoming')} type="button">更多</button>
+              </header>
               {displayUpcomingLots.map((lot) => (
-                <button className="home-notice-item" key={lot.id} onClick={() => navigateTo(`/announcements/upcoming/detail?id=${lot.id}`)} type="button">
-                  <span>公示期：{getPublicityEnd(lot.publicityPeriod)}</span>
+                <button className="latest-home-list-row" key={lot.id} onClick={() => navigateTo(`/announcements/upcoming/detail?id=${lot.id}`)} type="button">
+                  <span>{getPublicityEnd(lot.publicityPeriod)}</span>
                   <strong>{lot.title}</strong>
                 </button>
               ))}
-            </div>
-          </section>
-          <section>
-            <SectionHeader icon="✓" title="成交公示" />
-            <div className="home-list-card compact">
-              {results.slice(0, 3).map((result) => (
-                <button className="home-result-item" key={result.id} onClick={() => navigateTo(`/results/detail?id=${result.id}`)} type="button">
-                  <span><em>{result.winner}</em><strong>{result.finalPrice}</strong></span>
-                  <b>{result.lotTitle}</b>
-                </button>
-              ))}
-            </div>
-          </section>
-          <section>
-            <SectionHeader icon="◎" title="信息资讯" action="更多 >" actionTo="/news" />
-            <div className="home-list-card compact">
+            </article>
+            <article className="latest-home-news-panel">
+              <header>
+                <h3>政策资讯</h3>
+                <button onClick={() => navigateTo('/news')} type="button">更多</button>
+              </header>
               {contents.slice(0, 3).map((content) => (
-                <button className="home-news-item" key={content.id} onClick={() => navigateTo(`/news/detail?id=${content.id}`)} type="button">
-                  <span>{content.category} · {content.publishedAt}</span>
+                <button className="latest-home-list-row news" key={content.id} onClick={() => navigateTo(`/news/detail?id=${content.id}`)} type="button">
+                  <span>{content.category}</span>
                   <strong>{content.title}</strong>
                 </button>
               ))}
-            </div>
-          </section>
-        </aside>
-      </div>
+            </article>
+            <article className="latest-home-news-panel">
+              <header>
+                <h3>成交公示</h3>
+                <button onClick={() => navigateTo('/results')} type="button">更多</button>
+              </header>
+              {results.slice(0, 2).map((result) => (
+                <button className="latest-home-list-row result" key={result.id} onClick={() => navigateTo(`/results/detail?id=${result.id}`)} type="button">
+                  <span>{result.finalPrice}</span>
+                  <strong>{result.lotTitle}</strong>
+                </button>
+              ))}
+            </article>
+          </div>
+        </div>
+      </section>
     </PortalLayout>
-  );
-}
-
-function PortalResourceTable({ lots }: { lots: Lot[] }) {
-  return (
-    <div className="resource-table-card">
-      <table>
-        <thead>
-          <tr>
-            <th>资源名称</th>
-            <th>产地</th>
-            <th>资源量</th>
-            <th>起拍价</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lots.map((lot) => (
-            <tr key={lot.id} onClick={() => navigateTo(`/announcements/upcoming/detail?id=${lot.id}`)}>
-              <td>{lot.title}</td>
-              <td>{lot.origin}</td>
-              <td>{lot.quantity}</td>
-              <td>{lot.startPrice}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
@@ -212,17 +255,31 @@ export function AuctionDetail() {
   const [bidRecords, setBidRecords] = useState<BidRecord[]>(api.getBids());
   const [notice, setNotice] = useState('请选择出价加价次数，系统将自动计算报价金额。');
   const [incrementTimes, setIncrementTimes] = useState(1);
+  const [isRealLot, setIsRealLot] = useState(false);
   const estimatedAmount = calculateBidAmount(lot, incrementTimes);
 
   useEffect(() => {
     const queryId = getQueryId();
-    const loadLot = queryId
+    const localMockLot = queryId ? api.getLots().find((mockLot) => mockLot.id === queryId) : undefined;
+    const loadLot = localMockLot
+      ? Promise.resolve(localMockLot)
+      : queryId
       ? api.fetchLot(queryId)
       : api.fetchLots().then((items) => items.find((item) => item.status === '竞拍中') ?? items[0] ?? api.getLot());
 
     void loadLot.then((nextLot) => {
       setLot(nextLot);
-      void api.fetchBidRecords(nextLot.id, nextLot.title).then(setBidRecords);
+      const loadedRealLot = Boolean(nextLot.id)
+        && !isLocalMockLot(nextLot)
+        && (!queryId || nextLot.id === queryId);
+      setIsRealLot(loadedRealLot);
+
+      if (loadedRealLot) {
+        void api.fetchBidRecords(nextLot.id, nextLot.title).then(setBidRecords);
+      } else {
+        setBidRecords(api.getBids());
+        setNotice('当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。');
+      }
     });
   }, []);
 
@@ -234,7 +291,13 @@ export function AuctionDetail() {
         incrementTimes={incrementTimes}
         lot={lot}
         notice={notice}
+        isRealLot={isRealLot}
         onBidSubmit={async () => {
+          if (!isRealLot) {
+            setNotice('当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。');
+            return;
+          }
+
           try {
             await api.submitBid(lot.id, estimatedAmount);
             const nextRecords = await api.fetchBidRecords(lot.id, lot.title);
@@ -247,6 +310,11 @@ export function AuctionDetail() {
         }}
         onIncrementTimesChange={setIncrementTimes}
         onRefresh={() => {
+          if (!isRealLot) {
+            setNotice('当前为本地演示数据，不能刷新真实报价，请从正在竞价列表进入真实拍品。');
+            return;
+          }
+
           void api.fetchLot(lot.id).then(setLot).catch((error: unknown) => {
             setNotice(`刷新当前价失败：${getErrorMessage(error)}`);
           });
@@ -436,6 +504,12 @@ export function DisclosurePage() {
 }
 
 export function LoginPage() {
+  const login = () => {
+    localStorage.setItem('portalEnterpriseLoggedIn', 'true');
+    window.dispatchEvent(new Event('portal-enterprise-session-change'));
+    navigateTo('/account');
+  };
+
   return (
     <div className="login-page">
       <div className="login-shell">
@@ -461,7 +535,7 @@ export function LoginPage() {
               <button aria-label="刷新验证码" className="captcha-box" type="button">A7X2</button>
             </div>
           </label>
-          <button className="btn primary login-submit" onClick={() => navigateTo('/account')} type="button">立即登录</button>
+          <button className="btn primary login-submit" onClick={login} type="button">立即登录</button>
           <div className="login-links">
             <button onClick={() => navigateTo('/')} type="button">返回首页</button>
             <button onClick={() => navigateTo('/enterprise/register')} type="button">企业入驻</button>
@@ -661,6 +735,7 @@ function AuctionDetailView({
   bidRecords,
   estimatedAmount,
   incrementTimes,
+  isRealLot,
   lot,
   notice,
   onBidSubmit,
@@ -670,6 +745,7 @@ function AuctionDetailView({
   bidRecords: BidRecord[];
   estimatedAmount: string;
   incrementTimes: number;
+  isRealLot: boolean;
   lot: Lot;
   notice: string;
   onBidSubmit: () => void;
@@ -710,6 +786,7 @@ function AuctionDetailView({
             bidRecordCount={bidRecords.length}
             estimatedAmount={estimatedAmount}
             incrementTimes={incrementTimes}
+            isRealLot={isRealLot}
             lot={lot}
             notice={notice}
             onBidSubmit={onBidSubmit}
@@ -800,6 +877,7 @@ function BiddingPanel({
   bidRecordCount,
   estimatedAmount,
   incrementTimes,
+  isRealLot,
   lot,
   notice,
   onBidSubmit,
@@ -810,12 +888,20 @@ function BiddingPanel({
   bidRecordCount: number;
   estimatedAmount: string;
   incrementTimes: number;
+  isRealLot: boolean;
   lot: Lot;
   notice: string;
   onBidSubmit: () => void;
   onIncrementTimesChange: (value: number) => void;
   onRefresh: () => void;
 }) {
+  const [draftIncrementTimes, setDraftIncrementTimes] = useState(String(incrementTimes));
+  const changeIncrementTimes = (value: number) => {
+    const normalizedValue = Math.max(1, value);
+    setDraftIncrementTimes(String(normalizedValue));
+    onIncrementTimesChange(normalizedValue);
+  };
+
   return (
     <section className="bid-panel">
       <div className="bid-panel-head">
@@ -837,19 +923,51 @@ function BiddingPanel({
       </dl>
       <div className="bid-control">
         <label>出价加价次数</label>
-        <div className="increment-control" aria-label="出价加价次数">
-          <button disabled={incrementTimes <= 1} onClick={() => onIncrementTimesChange(incrementTimes - 1)} type="button">−</button>
-          <input aria-label="出价加价次数" readOnly value={`+${incrementTimes} 次`} />
-          <button onClick={() => onIncrementTimesChange(incrementTimes + 1)} type="button">+</button>
+        <div className="increment-control">
+          <button disabled={incrementTimes <= 1} onClick={() => changeIncrementTimes(incrementTimes - 1)} type="button">−</button>
+          <input
+            aria-label="出价加价次数"
+            inputMode="numeric"
+            min={1}
+            onBlur={(event) => {
+              const nextValue = event.currentTarget.value;
+
+              if (!isPositiveInteger(nextValue)) {
+                changeIncrementTimes(1);
+                setDraftIncrementTimes('1');
+                return;
+              }
+
+              const normalizedValue = String(Number.parseInt(nextValue, 10));
+              setDraftIncrementTimes(normalizedValue);
+              onIncrementTimesChange(Number.parseInt(normalizedValue, 10));
+            }}
+            onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+
+              if (/^\d*$/.test(nextValue)) {
+                setDraftIncrementTimes(nextValue);
+
+                if (isPositiveInteger(nextValue)) {
+                  onIncrementTimesChange(Number.parseInt(nextValue, 10));
+                }
+              }
+            }}
+            pattern="[1-9][0-9]*"
+            type="text"
+            value={draftIncrementTimes}
+          />
+          <button onClick={() => changeIncrementTimes(incrementTimes + 1)} type="button">+</button>
         </div>
+        <small className="increment-unit">次</small>
         <div className="bid-estimate">
           <span>按加价幅度倍数出价</span>
           <strong>预计总价：{formatMoney(estimatedAmount)}</strong>
         </div>
       </div>
       <div className="bid-actions">
-        <button className="btn secondary" onClick={onRefresh} type="button">刷新当前价</button>
-        <button className="btn primary" onClick={onBidSubmit} type="button">确认出价</button>
+        <button className="btn secondary" disabled={!isRealLot} onClick={onRefresh} type="button">刷新当前价</button>
+        <button className="btn primary" disabled={!isRealLot} onClick={onBidSubmit} type="button">确认出价</button>
       </div>
       <p className="bid-notice">{notice} 提交后不可撤销。</p>
     </section>
@@ -1050,6 +1168,14 @@ function getFormValue(formData: FormData, key: string): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '未知错误';
+}
+
+function isLocalMockLot(lot: Lot): boolean {
+  return api.getLots().some((mockLot) => mockLot.id === lot.id);
+}
+
+function isPositiveInteger(value: string): boolean {
+  return /^[1-9]\d*$/.test(value);
 }
 
 function parseMoney(value: string): string {
