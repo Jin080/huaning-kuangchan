@@ -10,6 +10,7 @@ import {
 
 import { AppModule } from '../../src/app.module';
 import { AppExceptionFilter } from '../../src/common/errors/app-exception.filter';
+import { hashE2ePassword, loginAs } from './auth-test-helpers';
 
 type FileResponse = {
   id: string;
@@ -25,9 +26,10 @@ type ErrorResponse = {
 };
 
 const prisma = new PrismaClient();
-const adminHeaders = { 'x-user-id': '', 'x-user-role': 'ADMIN' };
-const ownerHeaders = { 'x-user-id': '', 'x-user-role': 'ENTERPRISE' };
-const strangerHeaders = { 'x-user-id': '', 'x-user-role': 'ENTERPRISE' };
+let adminHeaders: Record<string, string>;
+let ownerHeaders: Record<string, string>;
+let strangerHeaders: Record<string, string>;
+let ownerUserId: string;
 let app: INestApplication;
 let baseUrl: string;
 
@@ -35,9 +37,7 @@ describe('T18 sensitive file HTTP permission acceptance', () => {
   beforeAll(async () => {
     await cleanup();
     const users = await seedUsers();
-    adminHeaders['x-user-id'] = users.adminId;
-    ownerHeaders['x-user-id'] = users.ownerUserId;
-    strangerHeaders['x-user-id'] = users.strangerUserId;
+    ownerUserId = users.ownerUserId;
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -56,6 +56,9 @@ describe('T18 sensitive file HTTP permission acceptance', () => {
     await app.listen(0);
     const address = app.getHttpServer().address() as { port: number };
     baseUrl = `http://127.0.0.1:${address.port}`;
+    adminHeaders = await loginAs(baseUrl, 't18_e2e_admin');
+    ownerHeaders = await loginAs(baseUrl, 't18_e2e_owner');
+    strangerHeaders = await loginAs(baseUrl, 't18_e2e_stranger');
   });
 
   afterAll(async () => {
@@ -96,74 +99,14 @@ describe('T18 sensitive file HTTP permission acceptance', () => {
 });
 
 async function seedSensitiveAttachments() {
-  const owner = await prisma.enterprise.create({
-    data: {
-      name: 'T18-E2E-附件权限企业',
-      contactPerson: '张三',
-      contactPhone: '13800000000',
-      mainCategory: '矿产品贸易',
-      legalRepresentative: '李四',
-      legalRepresentativeIdNo: '530424199001010001',
-      email: 't18-owner@example.com',
-      userCategory: '企业',
-      userType: '采购企业',
-      region: '云南省玉溪市华宁县',
-      address: 'T18 E2E 地址',
-      unifiedSocialCreditCode: 'T18E2EOWNER',
-      companyProfile: 'T18 企业简介',
-      businessScope: '矿产品采购',
-      paymentBankAccount: '6217000000000000001',
-      paymentAccountName: 'T18-E2E-附件权限企业',
-      paymentBankName: '中国银行华宁支行',
-      paymentBankLineNo: '104731000001',
-      paymentIsBankOfChina: true,
-      receivingBankAccount: '6217000000000001001',
-      receivingAccountName: 'T18-E2E-附件权限企业',
-      receivingBankName: '中国银行华宁支行',
-      receivingBankLineNo: '104731000001',
-      receivingIsBankOfChina: true,
-      agreementAccepted: true,
-      certificationStatus: EnterpriseCertificationStatus.APPROVED,
-    },
-  });
-  const stranger = await prisma.enterprise.create({
-    data: {
-      name: 'T18-E2E-无权访问企业',
-      contactPerson: '王五',
-      contactPhone: '13900000000',
-      mainCategory: '矿产品贸易',
-      legalRepresentative: '赵六',
-      legalRepresentativeIdNo: '530424199001010002',
-      email: 't18-stranger@example.com',
-      userCategory: '企业',
-      userType: '采购企业',
-      region: '云南省玉溪市华宁县',
-      address: 'T18 E2E 无权访问地址',
-      unifiedSocialCreditCode: 'T18E2ESTRANGER',
-      companyProfile: 'T18 无权访问企业简介',
-      businessScope: '矿产品采购',
-      paymentBankAccount: '6217000000000000002',
-      paymentAccountName: 'T18-E2E-无权访问企业',
-      paymentBankName: '中国银行华宁支行',
-      paymentBankLineNo: '104731000001',
-      paymentIsBankOfChina: true,
-      receivingBankAccount: '6217000000000001002',
-      receivingAccountName: 'T18-E2E-无权访问企业',
-      receivingBankName: '中国银行华宁支行',
-      receivingBankLineNo: '104731000001',
-      receivingIsBankOfChina: true,
-      agreementAccepted: true,
-      certificationStatus: EnterpriseCertificationStatus.APPROVED,
-    },
-  });
-  await prisma.user.update({
+  const ownerUser = await prisma.user.findUnique({
     where: { username: 't18_e2e_owner' },
-    data: { enterpriseId: owner.id },
+    include: { enterprise: true },
   });
-  await prisma.user.update({
-    where: { username: 't18_e2e_stranger' },
-    data: { enterpriseId: stranger.id },
-  });
+  const owner = ownerUser?.enterprise;
+  if (!owner) {
+    throw new Error('Expected seeded owner enterprise');
+  }
 
   const lot = await prisma.lot.create({
     data: {
@@ -238,12 +181,25 @@ async function createAttachment(
       isSensitive: true,
       enterpriseId,
       lotId,
-      uploadedById: ownerHeaders['x-user-id'],
+      uploadedById: ownerUserId,
     },
   });
 }
 
 async function seedUsers() {
+  const passwordHash = await hashE2ePassword();
+  const ownerEnterprise = await createEnterprise(
+    '附件权限企业',
+    'OWNER',
+    '张三',
+    '13800000000',
+  );
+  const strangerEnterprise = await createEnterprise(
+    '无权访问企业',
+    'STRANGER',
+    '王五',
+    '13900000000',
+  );
   const adminRole = await prisma.role.upsert({
     where: { code: RoleCode.ADMIN },
     update: {},
@@ -256,29 +212,39 @@ async function seedUsers() {
   });
   const admin = await prisma.user.upsert({
     where: { username: 't18_e2e_admin' },
-    update: { roleId: adminRole.id, enterpriseId: null },
+    update: { roleId: adminRole.id, enterpriseId: null, passwordHash },
     create: {
       username: 't18_e2e_admin',
-      passwordHash: 'test',
+      passwordHash,
       roleId: adminRole.id,
     },
   });
   const owner = await prisma.user.upsert({
     where: { username: 't18_e2e_owner' },
-    update: { roleId: enterpriseRole.id, enterpriseId: null },
+    update: {
+      roleId: enterpriseRole.id,
+      enterpriseId: ownerEnterprise.id,
+      passwordHash,
+    },
     create: {
       username: 't18_e2e_owner',
-      passwordHash: 'test',
+      passwordHash,
       roleId: enterpriseRole.id,
+      enterpriseId: ownerEnterprise.id,
     },
   });
   const stranger = await prisma.user.upsert({
     where: { username: 't18_e2e_stranger' },
-    update: { roleId: enterpriseRole.id, enterpriseId: null },
+    update: {
+      roleId: enterpriseRole.id,
+      enterpriseId: strangerEnterprise.id,
+      passwordHash,
+    },
     create: {
       username: 't18_e2e_stranger',
-      passwordHash: 'test',
+      passwordHash,
       roleId: enterpriseRole.id,
+      enterpriseId: strangerEnterprise.id,
     },
   });
 
@@ -287,6 +253,44 @@ async function seedUsers() {
     ownerUserId: owner.id,
     strangerUserId: stranger.id,
   };
+}
+
+async function createEnterprise(
+  nameSuffix: string,
+  codeSuffix: string,
+  contactPerson: string,
+  contactPhone: string,
+) {
+  return prisma.enterprise.create({
+    data: {
+      name: `T18-E2E-${nameSuffix}`,
+      contactPerson,
+      contactPhone,
+      mainCategory: '矿产品贸易',
+      legalRepresentative: '李四',
+      legalRepresentativeIdNo: `53042419900101${codeSuffix}`,
+      email: `t18-${codeSuffix.toLowerCase()}@example.com`,
+      userCategory: '企业',
+      userType: '采购企业',
+      region: '云南省玉溪市华宁县',
+      address: `T18 E2E ${nameSuffix}地址`,
+      unifiedSocialCreditCode: `T18E2E${codeSuffix}`,
+      companyProfile: `T18 ${nameSuffix}简介`,
+      businessScope: '矿产品采购',
+      paymentBankAccount: `621700000000000-${codeSuffix}`,
+      paymentAccountName: `T18-E2E-${nameSuffix}`,
+      paymentBankName: '中国银行华宁支行',
+      paymentBankLineNo: '104731000001',
+      paymentIsBankOfChina: true,
+      receivingBankAccount: `621700000000100-${codeSuffix}`,
+      receivingAccountName: `T18-E2E-${nameSuffix}`,
+      receivingBankName: '中国银行华宁支行',
+      receivingBankLineNo: '104731000001',
+      receivingIsBankOfChina: true,
+      agreementAccepted: true,
+      certificationStatus: EnterpriseCertificationStatus.APPROVED,
+    },
+  });
 }
 
 async function cleanup() {

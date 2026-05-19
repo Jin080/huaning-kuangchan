@@ -40,6 +40,12 @@ function createPrismaMock() {
       reviewedAt: null,
       reviewerId: null,
       rejectReason: null,
+      attachmentId: 'attachment-1',
+      attachment: {
+        id: 'attachment-1',
+        fileName: '付款凭证.pdf',
+        fileUrl: '/api/files/content/attachment-1',
+      },
       lot: { id: 'lot-1', title: '铜精矿竞拍' },
     },
     {
@@ -237,6 +243,7 @@ describe('AccountService', () => {
     expect(prisma.depositVoucher.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { enterpriseId: 'enterprise-1' },
+        include: { lot: true, attachment: true },
       }),
     );
     expect(result.items.map((item: { id: string }) => item.id)).toEqual([
@@ -246,6 +253,9 @@ describe('AccountService', () => {
       expect.objectContaining({
         lotTitle: '铜精矿竞拍',
         status: '审核通过',
+        attachmentId: 'attachment-1',
+        voucherFileName: '付款凭证.pdf',
+        voucherFileUrl: '/api/files/content/attachment-1',
       }),
     );
   });

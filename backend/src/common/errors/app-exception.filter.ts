@@ -91,5 +91,9 @@ function statusToCode(status: number): string {
     return ERROR_CODES.UNAUTHORIZED;
   }
 
+  if (status === HttpStatus.FORBIDDEN) {
+    return ERROR_CODES.FORBIDDEN;
+  }
+
   return ERROR_CODES.INTERNAL_ERROR;
 }

@@ -28,6 +28,9 @@ export interface AccountDepositVoucherResponse {
   lotId: string;
   lotTitle: string | null;
   enterpriseId: string;
+  attachmentId: string;
+  voucherFileName: string;
+  voucherFileUrl: string;
   requiredAmount: string;
   paidAmount: string | null;
   status: string;

@@ -13,6 +13,7 @@ import { ROLES_KEY } from './roles.decorator';
 interface RequestWithUser {
   user?: {
     role: string;
+    authType?: 'bearer' | 'development-header';
   };
 }
 
@@ -35,6 +36,14 @@ export class RolesGuard implements CanActivate {
 
     if (request.user && roles.includes(request.user.role)) {
       return true;
+    }
+
+    if (request.user?.authType === 'bearer') {
+      throw new AppError(
+        ERROR_CODES.FORBIDDEN,
+        '无权访问',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     throw new AppError(

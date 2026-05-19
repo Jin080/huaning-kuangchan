@@ -4,6 +4,7 @@ import { AttachmentCategory, PrismaClient, RoleCode } from '@prisma/client';
 
 import { AppModule } from '../../src/app.module';
 import { AppExceptionFilter } from '../../src/common/errors/app-exception.filter';
+import { hashE2ePassword, loginAs } from './auth-test-helpers';
 
 type UploadResponse = {
   id: string;
@@ -17,18 +18,19 @@ type UploadResponse = {
 
 type AdminFilesResponse = {
   items: Array<{ id: string; name: string; type: string }>;
+  total: number;
+  pageSize: number;
 };
 
 const prisma = new PrismaClient();
-const adminHeaders = { 'x-user-id': '', 'x-user-role': 'ADMIN' };
+let adminHeaders: Record<string, string>;
 let app: INestApplication;
 let baseUrl: string;
 
 describe('T32A real file upload HTTP acceptance', () => {
   beforeAll(async () => {
     await cleanup();
-    const admin = await seedAdmin();
-    adminHeaders['x-user-id'] = admin.id;
+    await seedAdmin();
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -47,6 +49,7 @@ describe('T32A real file upload HTTP acceptance', () => {
     await app.listen(0);
     const address = app.getHttpServer().address() as { port: number };
     baseUrl = `http://127.0.0.1:${address.port}`;
+    adminHeaders = await loginAs(baseUrl, 't32a_e2e_admin');
   });
 
   afterAll(async () => {
@@ -92,21 +95,7 @@ describe('T32A real file upload HTTP acceptance', () => {
     expect(body.category).toBe(AttachmentCategory.INSPECTION_REPORT);
     expect(body.isSensitive).toBe(true);
 
-    const listResponse = await fetch(`${baseUrl}/api/admin/files?pageSize=100`, {
-      headers: adminHeaders,
-    });
-    expect(listResponse.status).toBe(200);
-    const list = (await listResponse.json()) as AdminFilesResponse;
-
-    expect(list.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: body.id,
-          name: 't32a-report.pdf',
-          type: '检测报告',
-        }),
-      ]),
-    );
+    await expectAdminFileListed(body.id, 't32a-report.pdf', '检测报告');
   });
 });
 
@@ -135,6 +124,7 @@ async function upload(
 }
 
 async function seedAdmin() {
+  const passwordHash = await hashE2ePassword();
   const adminRole = await prisma.role.upsert({
     where: { code: RoleCode.ADMIN },
     update: {},
@@ -143,13 +133,44 @@ async function seedAdmin() {
 
   return prisma.user.upsert({
     where: { username: 't32a_e2e_admin' },
-    update: { roleId: adminRole.id, enterpriseId: null },
+    update: { roleId: adminRole.id, enterpriseId: null, passwordHash },
     create: {
       username: 't32a_e2e_admin',
-      passwordHash: 'test',
+      passwordHash,
       roleId: adminRole.id,
     },
   });
+}
+
+async function expectAdminFileListed(
+  id: string,
+  name: string,
+  type: string,
+): Promise<void> {
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const listResponse = await fetch(
+      `${baseUrl}/api/admin/files?page=${page}&pageSize=100`,
+      { headers: adminHeaders },
+    );
+    expect(listResponse.status).toBe(200);
+    const list = (await listResponse.json()) as AdminFilesResponse;
+
+    if (
+      list.items.some(
+        (item) => item.id === id && item.name === name && item.type === type,
+      )
+    ) {
+      return;
+    }
+
+    pageCount = Math.ceil(list.total / list.pageSize);
+    page += 1;
+  }
+
+  throw new Error(`Expected admin files list to contain ${id}`);
 }
 
 async function cleanup() {

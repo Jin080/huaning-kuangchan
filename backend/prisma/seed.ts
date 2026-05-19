@@ -1,6 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+const adminPasswordHash =
+  'scrypt:16384:8:1:dev-admin-salt:19EepkcDGtHdb7mTprg41OFsp3EtzjOmtVcBCLbVZoZIm8sRYNxvvs/pwff7S9zCAT89zsqe5W+m/z7rzWba6A==';
+const enterprisePasswordHash =
+  'scrypt:16384:8:1:dev-enterprise-salt:rzEZe7BPW8hYH1QDcd4BiUZdkDvitwQQIq+ASRa/itKdrZBk9gb7efqJwtKc1PiRh3rXwIigm8Oz0RUU6pZBcQ==';
 
 async function main() {
   const adminRole = await prisma.role.upsert({
@@ -25,10 +29,10 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: { roleId: adminRole.id },
+    update: { roleId: adminRole.id, passwordHash: adminPasswordHash },
     create: {
       username: 'admin',
-      passwordHash: 'CHANGE_ME_HASH',
+      passwordHash: adminPasswordHash,
       roleId: adminRole.id,
     },
   });
@@ -75,10 +79,11 @@ async function main() {
     update: {
       roleId: enterpriseRole.id,
       enterpriseId: enterprise.id,
+      passwordHash: enterprisePasswordHash,
     },
     create: {
       username: 'enterprise_demo',
-      passwordHash: 'CHANGE_ME_HASH',
+      passwordHash: enterprisePasswordHash,
       roleId: enterpriseRole.id,
       enterpriseId: enterprise.id,
     },

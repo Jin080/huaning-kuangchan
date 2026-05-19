@@ -53,14 +53,14 @@ export class FilesController {
   }
 
   @Post('files/upload')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'ENTERPRISE')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   upload(
     @Body() body: FileUploadDto,
     @UploadedFile() file: UploadedFilePayload | undefined,
     @CurrentUser() user: CurrentUser,
   ): Promise<FileUploadResponse> {
-    return this.filesService.upload(body, file, user.id);
+    return this.filesService.upload(body, file, user.id, user.role);
   }
 
   @Get('files/content/:id')

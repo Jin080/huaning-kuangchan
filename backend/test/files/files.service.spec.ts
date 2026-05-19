@@ -144,4 +144,58 @@ describe('FilesService', () => {
       }),
     });
   });
+
+  it('allows enterprise deposit voucher uploads and marks them as sensitive', async () => {
+    const prisma = createPrismaMock();
+    const service = new FilesService(prisma as never);
+
+    const result = await service.upload(
+      { category: AttachmentCategory.DEPOSIT_VOUCHER },
+      {
+        originalname: 'deposit-voucher.pdf',
+        mimetype: 'application/pdf',
+        size: 10,
+        buffer: Buffer.from('%PDF-1.4\n'),
+      },
+      'enterprise-user-1',
+      'ENTERPRISE',
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        fileName: 'deposit-voucher.pdf',
+        mimeType: 'application/pdf',
+        category: AttachmentCategory.DEPOSIT_VOUCHER,
+        isSensitive: true,
+      }),
+    );
+    expect(prisma.attachment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        category: AttachmentCategory.DEPOSIT_VOUCHER,
+        isSensitive: true,
+        uploadedById: 'enterprise-user-1',
+      }),
+    });
+  });
+
+  it('rejects enterprise uploads outside deposit vouchers', async () => {
+    const prisma = createPrismaMock();
+    const service = new FilesService(prisma as never);
+
+    await expect(
+      service.upload(
+        { category: AttachmentCategory.LOT_IMAGE },
+        {
+          originalname: 'lot-image.png',
+          mimetype: 'image/png',
+          size: 8,
+          buffer: Buffer.from([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+          ]),
+        },
+        'enterprise-user-1',
+        'ENTERPRISE',
+      ),
+    ).rejects.toThrow('企业账号仅支持上传意向金付款凭证');
+  });
 });

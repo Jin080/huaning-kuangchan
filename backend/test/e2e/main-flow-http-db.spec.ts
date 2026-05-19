@@ -13,6 +13,7 @@ import {
 import { AppModule } from '../../src/app.module';
 import { AppExceptionFilter } from '../../src/common/errors/app-exception.filter';
 import { AuctionClosingService } from '../../src/modules/auction-closing/auction-closing.service';
+import { hashE2ePassword, loginAs } from './auth-test-helpers';
 
 type ListResponse<T> = {
   items: T[];
@@ -55,19 +56,16 @@ type DashboardResponse = {
 };
 
 const prisma = new PrismaClient();
-const adminHeaders = { 'x-user-id': '', 'x-user-role': 'ADMIN' };
-const enterpriseAHeaders = { 'x-user-id': '', 'x-user-role': 'ENTERPRISE' };
-const enterpriseBHeaders = { 'x-user-id': '', 'x-user-role': 'ENTERPRISE' };
+let adminHeaders: Record<string, string>;
+let enterpriseAHeaders: Record<string, string>;
+let enterpriseBHeaders: Record<string, string>;
 let app: INestApplication;
 let baseUrl: string;
 
 describe('T14 main flow HTTP/DB acceptance', () => {
   beforeAll(async () => {
     await cleanup();
-    const users = await seedUsers();
-    adminHeaders['x-user-id'] = users.adminId;
-    enterpriseAHeaders['x-user-id'] = users.enterpriseAUserId;
-    enterpriseBHeaders['x-user-id'] = users.enterpriseBUserId;
+    await seedUsers();
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -86,6 +84,9 @@ describe('T14 main flow HTTP/DB acceptance', () => {
     await app.listen(0);
     const address = app.getHttpServer().address() as { port: number };
     baseUrl = `http://127.0.0.1:${address.port}`;
+    adminHeaders = await loginAs(baseUrl, 't14_e2e_admin');
+    enterpriseAHeaders = await loginAs(baseUrl, 't14_e2e_enterprise_a');
+    enterpriseBHeaders = await loginAs(baseUrl, 't14_e2e_enterprise_b');
   });
 
   afterAll(async () => {
@@ -232,6 +233,9 @@ async function submitDeposit(
 }
 
 async function seedUsers() {
+  const passwordHash = await hashE2ePassword();
+  const placeholderEnterpriseA = await createPlaceholderEnterprise('A');
+  const placeholderEnterpriseB = await createPlaceholderEnterprise('B');
   const adminRole = await prisma.role.upsert({
     where: { code: RoleCode.ADMIN },
     update: {},
@@ -244,18 +248,40 @@ async function seedUsers() {
   });
   const admin = await prisma.user.upsert({
     where: { username: 't14_e2e_admin' },
-    update: { roleId: adminRole.id },
-    create: { username: 't14_e2e_admin', passwordHash: 'test', roleId: adminRole.id },
+    update: { roleId: adminRole.id, passwordHash },
+    create: {
+      username: 't14_e2e_admin',
+      passwordHash,
+      roleId: adminRole.id,
+    },
   });
   const enterpriseA = await prisma.user.upsert({
     where: { username: 't14_e2e_enterprise_a' },
-    update: { roleId: enterpriseRole.id, enterpriseId: null },
-    create: { username: 't14_e2e_enterprise_a', passwordHash: 'test', roleId: enterpriseRole.id },
+    update: {
+      roleId: enterpriseRole.id,
+      enterpriseId: placeholderEnterpriseA.id,
+      passwordHash,
+    },
+    create: {
+      username: 't14_e2e_enterprise_a',
+      passwordHash,
+      roleId: enterpriseRole.id,
+      enterpriseId: placeholderEnterpriseA.id,
+    },
   });
   const enterpriseB = await prisma.user.upsert({
     where: { username: 't14_e2e_enterprise_b' },
-    update: { roleId: enterpriseRole.id, enterpriseId: null },
-    create: { username: 't14_e2e_enterprise_b', passwordHash: 'test', roleId: enterpriseRole.id },
+    update: {
+      roleId: enterpriseRole.id,
+      enterpriseId: placeholderEnterpriseB.id,
+      passwordHash,
+    },
+    create: {
+      username: 't14_e2e_enterprise_b',
+      passwordHash,
+      roleId: enterpriseRole.id,
+      enterpriseId: placeholderEnterpriseB.id,
+    },
   });
 
   return {
@@ -263,6 +289,40 @@ async function seedUsers() {
     enterpriseAUserId: enterpriseA.id,
     enterpriseBUserId: enterpriseB.id,
   };
+}
+
+async function createPlaceholderEnterprise(suffix: string) {
+  return prisma.enterprise.create({
+    data: {
+      name: `T14-E2E-登录占位企业${suffix}`,
+      contactPerson: '张三',
+      contactPhone: '13800000000',
+      mainCategory: '矿产品贸易',
+      legalRepresentative: '李四',
+      legalRepresentativeIdNo: `53042419900101999${suffix}`,
+      email: `placeholder-${suffix}@example.com`,
+      userCategory: '企业',
+      userType: '采购企业',
+      registeredCapital: '10000000',
+      region: '云南省玉溪市华宁县',
+      address: `T14 E2E 登录占位地址 ${suffix}`,
+      unifiedSocialCreditCode: `T14E2ELOGIN${suffix}`,
+      companyProfile: 'T14 E2E 登录占位企业简介',
+      businessScope: '矿产品采购、销售与相关服务',
+      paymentBankAccount: `621700000000009900${suffix}`,
+      paymentAccountName: `T14-E2E-登录占位企业${suffix}`,
+      paymentBankName: '中国银行华宁支行',
+      paymentBankLineNo: '104731000001',
+      paymentIsBankOfChina: true,
+      receivingBankAccount: `621700000000009910${suffix}`,
+      receivingAccountName: `T14-E2E-登录占位企业${suffix}`,
+      receivingBankName: '中国银行华宁支行',
+      receivingBankLineNo: '104731000001',
+      receivingIsBankOfChina: true,
+      agreementAccepted: true,
+      certificationStatus: EnterpriseCertificationStatus.APPROVED,
+    },
+  });
 }
 
 async function cleanup() {

@@ -5,6 +5,7 @@ import {
   DepositVoucherStatus,
   Enterprise,
   EnterpriseCertificationStatus,
+  Attachment,
   Lot,
   Notification,
   NotificationChannel,
@@ -68,6 +69,7 @@ type UserWithRelations = User & {
 
 type DepositVoucherWithLot = DepositVoucher & {
   lot: Pick<Lot, 'id' | 'title'>;
+  attachment: Pick<Attachment, 'id' | 'fileName' | 'fileUrl'>;
 };
 
 type BidRecordWithLot = BidRecord & {
@@ -144,7 +146,7 @@ export class AccountService {
     const [items, total] = await Promise.all([
       this.prisma.depositVoucher.findMany({
         where,
-        include: { lot: true },
+        include: { lot: true, attachment: true },
         orderBy: [{ submittedAt: 'desc' }, { updatedAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -296,6 +298,9 @@ export class AccountService {
       lotId: voucher.lotId,
       lotTitle: voucher.lot?.title ?? null,
       enterpriseId: voucher.enterpriseId,
+      attachmentId: voucher.attachmentId,
+      voucherFileName: voucher.attachment.fileName,
+      voucherFileUrl: voucher.attachment.fileUrl,
       requiredAmount: voucher.requiredAmount.toString(),
       paidAmount: voucher.paidAmount?.toString() ?? null,
       status: DEPOSIT_STATUS_LABELS[voucher.status],

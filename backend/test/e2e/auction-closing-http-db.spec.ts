@@ -10,6 +10,7 @@ import {
 
 import { AppModule } from '../../src/app.module';
 import { AppExceptionFilter } from '../../src/common/errors/app-exception.filter';
+import { hashE2ePassword, loginAs } from './auth-test-helpers';
 
 type ClosingSummaryResponse = {
   checkedLots: number;
@@ -19,17 +20,15 @@ type ClosingSummaryResponse = {
 };
 
 const prisma = new PrismaClient();
-const adminHeaders = { 'x-user-id': '', 'x-user-role': 'ADMIN' };
-const enterpriseHeaders = { 'x-user-id': '', 'x-user-role': 'ENTERPRISE' };
+let adminHeaders: Record<string, string>;
+let enterpriseHeaders: Record<string, string>;
 let app: INestApplication;
 let baseUrl: string;
 
 describe('T18 auction closing HTTP operations entry', () => {
   beforeAll(async () => {
     await cleanup();
-    const users = await seedUsers();
-    adminHeaders['x-user-id'] = users.adminId;
-    enterpriseHeaders['x-user-id'] = users.enterpriseUserId;
+    await seedUsers();
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -48,6 +47,8 @@ describe('T18 auction closing HTTP operations entry', () => {
     await app.listen(0);
     const address = app.getHttpServer().address() as { port: number };
     baseUrl = `http://127.0.0.1:${address.port}`;
+    adminHeaders = await loginAs(baseUrl, 't18_e2e_closing_admin');
+    enterpriseHeaders = await loginAs(baseUrl, 't18_e2e_closing_enterprise');
   });
 
   afterAll(async () => {
@@ -59,7 +60,7 @@ describe('T18 auction closing HTTP operations entry', () => {
   it('lets an admin trigger ended auction closing over HTTP', async () => {
     const lotId = await seedEndedBiddingLot();
 
-    await post('/api/admin/auction-closing/run', enterpriseHeaders, 401);
+    await post('/api/admin/auction-closing/run', enterpriseHeaders, 403);
     const summary = await post<ClosingSummaryResponse>(
       '/api/admin/auction-closing/run',
       adminHeaders,
@@ -79,40 +80,14 @@ describe('T18 auction closing HTTP operations entry', () => {
 });
 
 async function seedEndedBiddingLot(): Promise<string> {
-  const enterprise = await prisma.enterprise.create({
-    data: {
-      name: 'T18-E2E-竞拍结束企业',
-      contactPerson: '张三',
-      contactPhone: '13800000000',
-      mainCategory: '矿产品贸易',
-      legalRepresentative: '李四',
-      legalRepresentativeIdNo: '530424199001010003',
-      email: 't18-closing@example.com',
-      userCategory: '企业',
-      userType: '采购企业',
-      region: '云南省玉溪市华宁县',
-      address: 'T18 E2E 竞拍结束地址',
-      unifiedSocialCreditCode: 'T18E2ECLOSING',
-      companyProfile: 'T18 竞拍结束企业简介',
-      businessScope: '矿产品采购',
-      paymentBankAccount: '6217000000000000003',
-      paymentAccountName: 'T18-E2E-竞拍结束企业',
-      paymentBankName: '中国银行华宁支行',
-      paymentBankLineNo: '104731000001',
-      paymentIsBankOfChina: true,
-      receivingBankAccount: '6217000000000001003',
-      receivingAccountName: 'T18-E2E-竞拍结束企业',
-      receivingBankName: '中国银行华宁支行',
-      receivingBankLineNo: '104731000001',
-      receivingIsBankOfChina: true,
-      agreementAccepted: true,
-      certificationStatus: EnterpriseCertificationStatus.APPROVED,
-    },
-  });
-  await prisma.user.update({
+  const enterpriseUser = await prisma.user.findUnique({
     where: { username: 't18_e2e_closing_enterprise' },
-    data: { enterpriseId: enterprise.id },
+    include: { enterprise: true },
   });
+  const enterprise = enterpriseUser?.enterprise;
+  if (!enterprise) {
+    throw new Error('Expected seeded closing enterprise');
+  }
 
   const lot = await prisma.lot.create({
     data: {
@@ -163,6 +138,37 @@ async function seedEndedBiddingLot(): Promise<string> {
 }
 
 async function seedUsers() {
+  const passwordHash = await hashE2ePassword();
+  const enterprise = await prisma.enterprise.create({
+    data: {
+      name: 'T18-E2E-竞拍结束企业',
+      contactPerson: '张三',
+      contactPhone: '13800000000',
+      mainCategory: '矿产品贸易',
+      legalRepresentative: '李四',
+      legalRepresentativeIdNo: '530424199001010003',
+      email: 't18-closing@example.com',
+      userCategory: '企业',
+      userType: '采购企业',
+      region: '云南省玉溪市华宁县',
+      address: 'T18 E2E 竞拍结束地址',
+      unifiedSocialCreditCode: 'T18E2ECLOSING',
+      companyProfile: 'T18 竞拍结束企业简介',
+      businessScope: '矿产品采购',
+      paymentBankAccount: '6217000000000000003',
+      paymentAccountName: 'T18-E2E-竞拍结束企业',
+      paymentBankName: '中国银行华宁支行',
+      paymentBankLineNo: '104731000001',
+      paymentIsBankOfChina: true,
+      receivingBankAccount: '6217000000000001003',
+      receivingAccountName: 'T18-E2E-竞拍结束企业',
+      receivingBankName: '中国银行华宁支行',
+      receivingBankLineNo: '104731000001',
+      receivingIsBankOfChina: true,
+      agreementAccepted: true,
+      certificationStatus: EnterpriseCertificationStatus.APPROVED,
+    },
+  });
   const adminRole = await prisma.role.upsert({
     where: { code: RoleCode.ADMIN },
     update: {},
@@ -175,26 +181,31 @@ async function seedUsers() {
   });
   const admin = await prisma.user.upsert({
     where: { username: 't18_e2e_closing_admin' },
-    update: { roleId: adminRole.id, enterpriseId: null },
+    update: { roleId: adminRole.id, enterpriseId: null, passwordHash },
     create: {
       username: 't18_e2e_closing_admin',
-      passwordHash: 'test',
+      passwordHash,
       roleId: adminRole.id,
     },
   });
-  const enterprise = await prisma.user.upsert({
+  const enterpriseUser = await prisma.user.upsert({
     where: { username: 't18_e2e_closing_enterprise' },
-    update: { roleId: enterpriseRole.id, enterpriseId: null },
+    update: {
+      roleId: enterpriseRole.id,
+      enterpriseId: enterprise.id,
+      passwordHash,
+    },
     create: {
       username: 't18_e2e_closing_enterprise',
-      passwordHash: 'test',
+      passwordHash,
       roleId: enterpriseRole.id,
+      enterpriseId: enterprise.id,
     },
   });
 
   return {
     adminId: admin.id,
-    enterpriseUserId: enterprise.id,
+    enterpriseUserId: enterpriseUser.id,
   };
 }
 

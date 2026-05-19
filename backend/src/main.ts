@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   configureApp(app);
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 3101);
   await app.listen(port);
 }
 

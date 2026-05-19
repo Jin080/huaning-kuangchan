@@ -65,6 +65,7 @@ const uploadPathPrefix = '/api/files/content/';
 const allowedUploadCategories: AttachmentCategory[] = [
   AttachmentCategory.LOT_IMAGE,
   AttachmentCategory.INSPECTION_REPORT,
+  AttachmentCategory.DEPOSIT_VOUCHER,
 ];
 const sensitiveCategories = new Set<AttachmentCategory>([
   AttachmentCategory.INSPECTION_REPORT,
@@ -116,8 +117,9 @@ export class FilesService {
     dto: FileUploadDto,
     file: UploadedFilePayload | undefined,
     uploadedById: string,
+    uploadedByRole = 'ADMIN',
   ): Promise<FileUploadResponse> {
-    this.assertCanUpload(dto.category);
+    this.assertCanUpload(dto.category, uploadedByRole);
     this.assertValidFile(file);
 
     const id = randomUUID();
@@ -203,11 +205,19 @@ export class FilesService {
     return '文件管理';
   }
 
-  private assertCanUpload(category: AttachmentCategory): void {
+  private assertCanUpload(category: AttachmentCategory, uploadedByRole: string): void {
     if (!allowedUploadCategories.includes(category)) {
       throw new AppError(
         ERROR_CODES.INTERNAL_ERROR,
         '暂不支持该附件类型上传',
+      );
+    }
+
+    if (uploadedByRole === 'ENTERPRISE' && category !== AttachmentCategory.DEPOSIT_VOUCHER) {
+      throw new AppError(
+        ERROR_CODES.FORBIDDEN,
+        '企业账号仅支持上传意向金付款凭证',
+        403,
       );
     }
   }
