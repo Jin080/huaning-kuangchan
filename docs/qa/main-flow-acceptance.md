@@ -293,3 +293,50 @@ T30A/T30B/T30C/T30D 完成后，本轮重新启动后端 3100 与前端 5173 验
 | Account click paths | PASS | 覆盖企业中心首页、我的企业认证、我的意向金、我的出价记录、我的通知；Playwright network 中企业端关键 API 均为 200。 |
 | Console / network errors | PASS | Playwright `console error` 为 0；关键 API 未见 4xx/5xx 或 CORS 阻塞。 |
 | Mock/fallback 判定 | PASS | 验收模式下未用页面可见 mock/fallback 内容作为通过依据，结论来自真实 HTTP 与 Playwright requests。 |
+
+## T48 Final Manual Flow Acceptance - 2026-05-19 17:19
+
+本轮只做最终验收和证据归档，不新增功能，不修改 Prisma schema，不修改业务代码。使用 T47 固定入口：后端 `http://127.0.0.1:3101`，前端 `http://127.0.0.1:5173`。
+
+### Engineering Gate
+
+| Command | Result | Evidence |
+|---|---|---|
+| `git status --short --branch` | PASS_WITH_DIRTY_WORKTREE | `main...origin/main [ahead 2]`；工作区包含 T45/T46/T47/T47B 等前序未提交改动，本轮只追加 T48 文档和证据。 |
+| `Set-Location E:/kuangchan/backend; npm run lint` | PASS | ESLint completed without errors. |
+| `Set-Location E:/kuangchan/backend; npm run typecheck` | PASS | `tsc --noEmit` completed without errors. |
+| `Set-Location E:/kuangchan/backend; npm test` | PASS | 26 test suites / 91 tests passed. |
+| `Set-Location E:/kuangchan/frontend; npm run lint` | PASS | ESLint completed without errors. |
+| `Set-Location E:/kuangchan/frontend; npm run build` | PASS | TypeScript build and Vite production build completed. |
+| `git diff -- backend/prisma/schema.prisma` | PASS | No output. |
+| `git diff --check` | PASS_WITH_WARNINGS | No whitespace errors; only existing LF/CRLF warnings. |
+
+### Browser Acceptance
+
+| Area | Result | Evidence |
+|---|---|---|
+| Fixed entrypoints | PASS | Browser/API acceptance used backend `3101` and frontend `5173`; no temporary proxy. |
+| Manual main flow | PASS | Primary evidence: `docs/qa/t48-artifacts/t48-manual-browser-report.json`; lot `6a60c2d4-364b-42d4-811b-c1f264da475d`, title `T48-MANUAL-20260519091748-人工口径验收标的`. |
+| Admin lot publish | PASS | Admin browser login, lot edit page, real file inputs for images/report, submit review, lot review approval; screenshots `manual-01` through `manual-05`. |
+| Public visibility | PASS | Portal home, `/resources`, `/announcements/upcoming`, and announcement detail showed the lot; screenshots `manual-06` through `manual-09`. |
+| Deposit voucher flow | PASS | Enterprise uploaded deposit voucher from announcement detail; admin reviewed and approved it from `/admin/reviews/deposits`; screenshots `manual-10` and `manual-11`. |
+| Bidding flow | PASS | Admin advanced lot to bidding from `/admin/lots`; enterprise entered `/auctions/live/detail`, saw countdown and submitted bid; screenshots `manual-12` through `manual-15`. |
+| Closing and result | PASS | Admin-triggered HTTP entry `POST /api/admin/auction-closing/run` returned `closedLots=1`; admin results page published generated result; screenshot `manual-16`. |
+| Winning notice and signing | PASS | Enterprise saw winning message and `/account/winning-detail`; admin contract page marked signed; screenshots `manual-17` through `manual-21`. |
+| Tail payment and completion | PASS | Enterprise page showed tail payment instructions after signed state; admin confirmed offline tail payment/completed through contract page; enterprise saw `已完成确认`; screenshots `manual-21` through `manual-24`. |
+| Dashboard / result / contract consistency | PASS | Final API consistency: result `已公示`, contract `已完成`, lot `已完成`, dashboard totals `3` / `330`; screenshots `manual-25` through `manual-27`. |
+| Console and network | PASS | `consoleErrorCount=0`, failed requests `0` in `t48-manual-browser-report.json`. |
+| 390px coverage | PASS | Covered home, login, announcement detail, auction detail, admin dashboard, admin contracts, enterprise winning detail; all `documentScrollWidth=390`, `bodyScrollWidth=390`. |
+| Additional API-assisted evidence | PASS | `docs/qa/t48-artifacts/t48-browser-report.json` also records a second full pass for lot `fae3b802-07b5-43b2-ade8-58a1728570d1`, console error `0`, failed requests `0`, width failures `0`. |
+
+### Release Gap List
+
+| ID | Severity | Status | Detail |
+|---|---|---|---|
+| T48-GAP-001 | Non-blocking | OPEN | 竞拍结拍没有前端页面按钮；本轮按既有正式入口以管理员 Bearer 调用 `POST /api/admin/auction-closing/run`，符合“管理员触发结拍或等待结束”的验收口径。 |
+| T48-GAP-002 | Non-blocking | OPEN | 本地 `backend/.env` 仍包含 `PORT=3000`；T48 使用已运行的固定 `3101` 服务并在记录中保留 T47 建议，后续启动需显式设置/确认 `PORT=3101`。 |
+| T48-GAP-003 | Non-blocking | OPEN | 当前工作树仍混有前序未提交差异；发布提交时需精确 stage，避免混入 `.tmp/`、Stitch 源目录或无关历史改动。 |
+
+### T48 Conclusion
+
+T48 主流程最终人工口径验收通过；未发现发布阻塞级 BLOCKER。以上结论以本轮新鲜命令输出、`t48-manual-browser-report.json`、`t48-browser-report.json` 和 `docs/qa/t48-artifacts/*.png` 截图为准。

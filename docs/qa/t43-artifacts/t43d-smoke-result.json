@@ -1,0 +1,1198 @@
+{
+  "baseUrl": "http://127.0.0.1:5191",
+  "checkedAt": "2026-05-19T06:24:54.322Z",
+  "routes": 35,
+  "results": [
+    {
+      "viewport": "desktop",
+      "route": "/",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "华宁矿产资源公共交易与数字服务平台",
+        "path": "/",
+        "bodyTextLength": 861,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/resources",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "矿产资源 - 华宁矿产竞拍平台",
+        "path": "/resources",
+        "bodyTextLength": 960,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/resources/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "资源详情 - 华宁矿产竞拍平台",
+        "path": "/resources/detail",
+        "bodyTextLength": 624,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/announcements/upcoming",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/announcements/upcoming",
+        "bodyTextLength": 551,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/announcements/upcoming/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/announcements/upcoming/detail",
+        "bodyTextLength": 733,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/auctions/live",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/auctions/live",
+        "bodyTextLength": 382,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/auctions/live/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/auctions/live/detail",
+        "bodyTextLength": 1044,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/results",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/results",
+        "bodyTextLength": 356,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/results/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/results/detail",
+        "bodyTextLength": 351,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/news",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/news",
+        "bodyTextLength": 423,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/news/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/news/detail",
+        "bodyTextLength": 363,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/disclosures",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/disclosures",
+        "bodyTextLength": 523,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/login",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/login",
+        "bodyTextLength": 110,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/enterprise/register",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/enterprise/register",
+        "bodyTextLength": 559,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/login",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/login",
+        "bodyTextLength": 186,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/dashboard",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/dashboard",
+        "bodyTextLength": 695,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/lots",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/lots",
+        "bodyTextLength": 4208,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/lots/edit",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/lots/edit",
+        "bodyTextLength": 492,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/reviews/lots",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/reviews/lots",
+        "bodyTextLength": 565,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/reviews/enterprises",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/reviews/enterprises",
+        "bodyTextLength": 804,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/reviews/deposits",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/reviews/deposits",
+        "bodyTextLength": 625,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/bids",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/bids",
+        "bodyTextLength": 2670,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/results",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/results",
+        "bodyTextLength": 855,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/contracts",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/contracts",
+        "bodyTextLength": 834,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/refunds",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/refunds",
+        "bodyTextLength": 653,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/blacklist",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/blacklist",
+        "bodyTextLength": 737,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/content",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/content",
+        "bodyTextLength": 704,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/notifications",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/notifications",
+        "bodyTextLength": 862,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/files",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/files",
+        "bodyTextLength": 3401,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/admin/logs",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/logs",
+        "bodyTextLength": 6397,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/account",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account",
+        "bodyTextLength": 813,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/account/certification",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/certification",
+        "bodyTextLength": 870,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/account/deposits",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/deposits",
+        "bodyTextLength": 999,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/account/bids",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/bids",
+        "bodyTextLength": 1072,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/account/messages",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/messages",
+        "bodyTextLength": 420,
+        "innerWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "华宁矿产资源公共交易与数字服务平台",
+        "path": "/",
+        "bodyTextLength": 861,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/resources",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "矿产资源 - 华宁矿产竞拍平台",
+        "path": "/resources",
+        "bodyTextLength": 960,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/resources/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "资源详情 - 华宁矿产竞拍平台",
+        "path": "/resources/detail",
+        "bodyTextLength": 624,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/announcements/upcoming",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/announcements/upcoming",
+        "bodyTextLength": 551,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/announcements/upcoming/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/announcements/upcoming/detail",
+        "bodyTextLength": 733,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/auctions/live",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/auctions/live",
+        "bodyTextLength": 382,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/auctions/live/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/auctions/live/detail",
+        "bodyTextLength": 1044,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/results",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/results",
+        "bodyTextLength": 356,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/results/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/results/detail",
+        "bodyTextLength": 351,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/news",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/news",
+        "bodyTextLength": 423,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/news/detail",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/news/detail",
+        "bodyTextLength": 363,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/disclosures",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/disclosures",
+        "bodyTextLength": 523,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/login",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/login",
+        "bodyTextLength": 110,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/enterprise/register",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/enterprise/register",
+        "bodyTextLength": 559,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/login",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/login",
+        "bodyTextLength": 186,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/dashboard",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/dashboard",
+        "bodyTextLength": 695,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/lots",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/lots",
+        "bodyTextLength": 4208,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/lots/edit",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/lots/edit",
+        "bodyTextLength": 492,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/reviews/lots",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/reviews/lots",
+        "bodyTextLength": 565,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/reviews/enterprises",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/reviews/enterprises",
+        "bodyTextLength": 804,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/reviews/deposits",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/reviews/deposits",
+        "bodyTextLength": 625,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/bids",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/bids",
+        "bodyTextLength": 2670,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/results",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/results",
+        "bodyTextLength": 855,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/contracts",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/contracts",
+        "bodyTextLength": 834,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/refunds",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/refunds",
+        "bodyTextLength": 653,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/blacklist",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/blacklist",
+        "bodyTextLength": 737,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/content",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/content",
+        "bodyTextLength": 704,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/notifications",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/notifications",
+        "bodyTextLength": 862,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/files",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/files",
+        "bodyTextLength": 3401,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/admin/logs",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/admin/logs",
+        "bodyTextLength": 6397,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/account",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account",
+        "bodyTextLength": 783,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/account/certification",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/certification",
+        "bodyTextLength": 840,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/account/deposits",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/deposits",
+        "bodyTextLength": 969,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/account/bids",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/bids",
+        "bodyTextLength": 1042,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "mobile390",
+      "route": "/account/messages",
+      "status": 200,
+      "ok": true,
+      "overflow": false,
+      "metrics": {
+        "title": "frontend",
+        "path": "/account/messages",
+        "bodyTextLength": 390,
+        "innerWidth": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  ],
+  "failures": []
+}

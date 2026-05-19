@@ -2,6 +2,20 @@
 
 状态只使用：TODO、IN_PROGRESS、BLOCKED、DONE、NEEDS_REVIEW。
 
+## 总控快速读取区
+
+新会话优先读取本区，再按需定点追溯 `docs/agent-handoff.md`，避免把历史流水账全文塞入上下文。
+
+- 当前发布前状态：T47B 与 T48 已完成；T48 最终人工口径验收未发现发布阻塞级 BLOCKER。
+- 最新验收事实源：`docs/qa/main-flow-acceptance.md` 的 `T48 Final Manual Flow Acceptance - 2026-05-19 17:19`。
+- 最新交接追溯：优先在 `docs/agent-handoff.md` 中搜索 `T47B`、`T48`、`BLOCKER`、`未完成事项`、`需要总控确认`；通常只读文件尾部或命中段落。
+- 固定入口：后端 `http://127.0.0.1:3101`，前端 `http://127.0.0.1:5173`；前端 Vite dev `/api/**` 代理到 `http://127.0.0.1:3101` 并保留 `/api` 前缀。
+- 认证口径：正式验收使用 `Authorization: Bearer <accessToken>`；开发头 fallback 默认关闭，仅显式设置后端 `DEV_AUTH_HEADERS_ENABLED=true` 且前端 `VITE_DEV_AUTH_HEADERS_ENABLED=true` 时可用。
+- 最新验证摘要：后端 lint/typecheck/test 通过，默认 `npm test` 为 26 suites / 91 tests；前端 lint/build 通过；`git diff -- backend/prisma/schema.prisma` 无输出；`git diff --check` 无 whitespace error，仅既有 LF/CRLF warning。
+- T48 浏览器证据：`docs/qa/t48-artifacts/t48-manual-browser-report.json` 记录 console error=0、failedRequests=0、390px 溢出=0、截图 34 张；最终一致性为成交公示 `已公示`、合同 `已完成`、拍品 `已完成`、看板 totals `3 / 330`。
+- 发布前非阻塞缺口：结拍仍通过管理员 HTTP 入口 `POST /api/admin/auction-closing/run` 或运维定时触发；`backend/.env` 仍有旧 `PORT=3000`，裸启动前需显式确认使用 `3101`。
+- 提交纪律：当前工作树仍为大型混合未提交状态，禁止 `git add .`；必须按批次精确 stage，排除 `backend/prisma/schema.prisma`、`.tmp/`、`.playwright-cli/`、`frontend/.playwright-cli/`、`stitch_document_to_webpage_generator/`、`stitch_document_to_webpage_generator (1)/`、未确认首页截图和临时脚本/日志/夹具。
+
 ## 总表
 
 | ID | 状态 | 模块 | 任务 | 依赖 | 负责人/会话 | 备注 |
@@ -47,7 +61,10 @@
 | T32 | DONE | 文件上传 | 后台拍品录入本地图片/附件上传体验 | T30,T31 | T32A/T32B 执行会话 / 总控复核 | 已补真实 `POST /api/files/upload` 与 `/admin/lots/edit` 三处上传接入，图一/图二/检测报告上传成功后回填真实文件 URL |
 | T32A | DONE | 文件上传 | 后端真实文件上传接口 | T30,T31 | T32A 执行会话 / 总控复核 | 新增 `POST /api/files/upload` 与 `GET /api/files/content/{id}`，复用 Attachment 模型，不改 Prisma schema |
 | T32B | DONE | 文件上传 | 前端拍品表单真实上传接入 | T32A,T38A | T32B 执行会话 / 总控复核 | `/admin/lots/edit` 图一、图二、检测报告均接真实 file input 与 multipart 上传，保存草稿/提交复核链路复核通过 |
-| T33 | TODO | 生产认证 | 登录/JWT 与角色权限生产化 | T30 | 待排期 | 上线必做：替换开发期 `x-user-id`/`x-user-role` 直传模式，完成登录、JWT、会话持久化和 ADMIN/ENTERPRISE 权限保护 |
+| T33 | DONE | 生产认证 | 登录/JWT 与角色权限生产化 | T30 | T33A/T33B/T33C 执行会话 / 总控复核 | T33A 后端登录/JWT、T33B 前端登录态与 Bearer 接入、T33C 权限回归与完整主流程验收均已完成；尾款支付和签约地址仍为既有 GAP |
+| T33A | DONE | 生产认证 | 后端登录/JWT 与认证守卫生产化 | T33 | T33A 执行会话 / 总控复核 | 已新增 `POST /api/auth/login`、`POST /api/auth/logout`，AuthGuard 支持 Bearer JWT 并保留本地开发头 fallback；未修改 Prisma schema |
+| T33B | DONE | 生产认证 | 前端登录态与 Bearer 请求接入 | T33A | T33B 执行会话 / 总控复核 | 登录页已接真实登录和算术验证码；前端会话保存 token/profile，请求统一注入 Bearer，401/403 不再回退 mock；角色入口保护已接入 |
+| T33C | DONE | 生产认证 | 权限回归与完整主流程人工验收 | T33B | T33C 执行会话 | Handoff `2026-05-19 11:17` 已记录账号密码验证码登录、错角色拦截、拍品发布审核、凭证上传审核、竞拍、成交、签约/完成确认与 390px 验收；尾款支付和签约地址为 PARTIAL/GAP |
 | T34 | DONE | 竞价修复 | 出价按加价次数计算 | T30,T31 | T34 执行会话 / 总控复核 | 竞价详情页已改为出价加价次数步进器并提交计算金额；后端测试锁定合法倍数与非法金额兜底 |
 | T35 | DONE | 前端视觉 | 拍卖详情页按 Stitch 效果复刻 | T30,T31,T34 | T35 执行会话 / 总控复核 | 已基于 Stitch 竞价详情页参考源复刻拍卖详情布局，并保留 T34 次数报价交互；桌面/移动截图已留档 |
 | T36 | DONE | 前端视觉 | 全站 Stitch 页面效果复刻盘点与分批计划 | T35 | T36 执行会话 / 总控复核 | 已产出 `docs/qa/stitch-full-replication-plan.md`，完成 Stitch 页面映射、差异清单、优先级和 T37/T38 分批计划 |
@@ -62,13 +79,28 @@
 | T38C | DONE | 前端视觉 | 企业中心页面 Stitch 复刻 | T38A | T38C 执行会话 / 总控复核 | 已复刻 `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages`；企业端开发请求头 UUID 口径保持不变 |
 | T39 | DONE | 联调数据 | 竞价功能真实验证数据准备 | T30,T32,T38 | 总控调度 / 验证会话 | 已准备审核通过企业、竞价中拍品、已审核意向金并完成真实报价验证；后续报价需按页面当前价继续计算 |
 | T40 | DONE | 竞价体验 | 门户登录状态与竞价报价体验修复 | T33 前开发态,T39 | T40 执行会话 / 总控复核 | 登录后门户头部显示企业名/认证状态/退出；mock 拍品禁止真实报价；加价次数支持手动输入；仍使用开发认证头，未实施 JWT |
+| T41 | DONE | 主流程体验 | 前端全流程可操作性修复 | T33B,T40 | T41 执行会话 | 后台拍品时间/金额提示、提交复核反馈、公告详情真实凭证上传、竞价倒计时与 mock 禁用均已完成；后端仅补 `DEPOSIT_VOUCHER` 上传白名单，未改 Prisma schema |
+| T42 | DONE | 主流程体验 | 人工主流程导航与审核待办体验优化 | T41 | T42 执行会话 | 公告详情、我的意向金、后台待办审核与意向金凭证审核入口已补强；前端 lint/build/diff check 与分角色 390px 验证通过 |
+| T43 | DONE | 前端视觉 | Stitch 全量复刻补齐与总体验收 | T42 | T43A/T43B/T43C/T43D 执行会话 / 总控验收 | 门户、后台、企业中心全量路由已补齐并完成总体验收；`stitch_document_to_webpage_generator/` 仅作本地参考，不提交 |
+| T43A | DONE | 前端视觉 | 门户全量 Stitch 页面复刻与资源页补齐 | T42 | T43A 执行会话 | 新增 `/resources`、`/resources/detail`，门户 14 条路由 Playwright 390px smoke 通过；资源页复用 `GET /api/lots` / `GET /api/lots/{id}` |
+| T43B | DONE | 前端视觉 | 后台全量 Stitch 页面复刻与后台登录页补齐 | T43A | T43B 执行会话 | 新增 `/admin/login` 并覆盖后台 15 条业务路由；后台登录真实 `admin/admin123456` 验证通过，截图与报告已留档 |
+| T43C | DONE | 前端视觉 | 企业中心全量 Stitch 页面复刻与凭证流程联动 | T43A,T43B | T43C 执行会话 | 企业中心 5 条路由已强化，真实企业登录、意向金上传后记录可见、390px 无横向溢出，截图与结果已留档 |
+| T43D | DONE | 前端视觉 | Stitch 全量复刻总体验收与缺口归档 | T43A,T43B,T43C | T43D 总控验收 | 已盘点 41 个 `code.html`；重复首页 `_22/_23/pc/huaning_mineral_auction_platform_1-4` 明确归并，首页变体 `_3/_13` 作为 `_14` 参考；门户/后台/企业中心路由和截图资产完成验收 |
+| T44 | DONE | 总控 | 提交范围整理与任务状态校准 | T33,T41,T42,T43 | T44 总控整理 | 已校准 T33/T33C 状态，输出 T33A/T33B/T41-T42/T43 建议提交批次、必须排除项和 `docs/qa/t43-artifacts` 资产分类；未执行 git add/commit/push |
+| T45 | DONE | 意向金附件 | 企业意向金凭证附件字段补齐 | T43,T44 | T45 执行会话 | `GET /api/account/deposit-vouchers` 已返回 `attachmentId`、`voucherFileName`、`voucherFileUrl`；不改 Prisma schema |
+| T46A | DONE | 前端状态 | 通用状态组件 Stitch 规范落地 | T45 | T46A 执行会话 | 新增 `StatusViews.tsx` 并小范围接入未登录、无权限、审核中、空数据、加载失败等状态；不改后端和 Prisma schema |
+| T46B | DONE | 履约流程 | 线下签约与尾款确认 Stitch 流程补齐 | T46A | T46B 执行会话 | 新增 `/account/winning-detail` 与 `/admin/lots/progress`，后台合同页强化线下签约/尾款确认；系统不处理线上资金 |
+| T47 | DONE | 本地运行 | 生产认证与本地运行入口收口 | T46B | T47 执行会话 | 固定推荐入口 3101/5173；Bearer 为正式认证入口；开发头 fallback 默认关闭；默认测试失败风险已转 T47B 处理 |
+| T47B | DONE | 测试认证 | 后端 E2E 测试认证口径迁移 | T47 | T47B 执行会话 / 总控复核 | 4 个 HTTP/DB e2e 已改为登录取 Bearer；默认与 `DEV_AUTH_HEADERS_ENABLED=true` 两套 `backend npm test` 均为 26 suites / 91 tests 通过 |
+| T48 | DONE | 最终验收 | 最终全流程人工验收与发布前缺口清单 | T47B | T48 验收会话 | 固定 3101/5173 完成最终人工口径验收；未发现发布阻塞级 BLOCKER；证据归档到 `docs/qa/t48-artifacts/` |
 
 ## 当前可并行任务
 
-- T33 可启动：登录/JWT 与角色权限生产化，建议拆为后端认证、前端登录态接入、权限回归验收三批。
-- 提交收口可启动：当前 T37D/T38B/T38C/T40 均已完成但尚未提交，需要按批次 stage，避免混入本地 Stitch 源和未确认截图。
+- T45、T46A、T46B、T47、T47B、T48 均已有 handoff/QA 证据并登记完成；下一步是发布提交整理。
+- 可并行做提交范围审计与发布说明草案，但同一批次 stage/commit 必须串行执行，避免混批。
 
 ## 当前必须串行任务
 
-- T33 上线必做能力仍需排期，完成后必须重跑主流程、敏感附件权限和企业数据隔离验收。
-- T37D/T38B/T38C/T40 提交前需先确认提交批次；`docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md` 当前同时包含多批追加记录，不宜用 `git add .`。
+- 当前工作树混有 T33A/T33B/T41/T42/T43/T44/T45/T46/T47/T47B/T48 差异，提交时必须按批次精确 stage，不得使用 `git add .`。
+- 发布提交前先做 T49 提交范围审计：确认每个批次文件/hunk、确认排除项、确认 `backend/prisma/schema.prisma` 无 diff。
+- T48 非阻塞缺口需进入发布说明：结拍通过管理员 HTTP 入口或运维定时触发；裸启动前确认 `backend/.env` 的 `PORT` 使用 3101。

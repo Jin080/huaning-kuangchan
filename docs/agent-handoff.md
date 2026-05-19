@@ -3836,3 +3836,900 @@
 - 需要总控确认：
   - T37D/T38B/T38C/T40 是否分批提交，或合并为一次前端视觉与体验收口提交。
   - 是否启动 T33A 后端认证/JWT 实施。
+
+## 2026-05-19 09:57 - T33A 后端登录/JWT 与认证守卫生产化
+
+- 任务名称：T33A 后端登录/JWT 与认证守卫生产化
+- 负责模块：后端认证、JWT、认证守卫
+- 修改文件：
+  - `backend/src/auth/auth.controller.ts`
+  - `backend/src/auth/auth.service.ts`
+  - `backend/src/auth/dto/login.dto.ts`
+  - `backend/src/auth/jwt.service.ts`
+  - `backend/src/auth/password.service.ts`
+  - `backend/src/auth/auth.guard.ts`
+  - `backend/src/auth/auth.module.ts`
+  - `backend/src/auth/roles.guard.ts`
+  - `backend/src/common/errors/error-codes.ts`
+  - `backend/src/common/errors/app-exception.filter.ts`
+  - `backend/prisma/seed.ts`
+  - `docs/api-contract.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `backend/src/auth/auth.controller.ts`
+  - `backend/src/auth/auth.service.ts`
+  - `backend/src/auth/dto/login.dto.ts`
+  - `backend/src/auth/jwt.service.ts`
+  - `backend/src/auth/password.service.ts`
+- 删除文件：无
+- 接口变更：
+  - 新增 `POST /api/auth/login`：校验 `username/password`，成功返回 `accessToken`、`user`、`profile`。
+  - 新增 `POST /api/auth/logout`：携带有效认证后返回 `{ success: true, message: "退出成功" }`，服务端当前不维护 session 黑名单。
+  - `AuthGuard` 支持 `Authorization: Bearer <accessToken>`，并保持 `CurrentUser` 为 `{ id, role }` 兼容；开发头 `x-user-id` / `x-user-role` 仅保留为本地开发 fallback。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 验证命令：
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan/backend; npx prisma db seed`
+  - `curl.exe` 登录 ADMIN：`POST http://127.0.0.1:3101/api/auth/login`
+  - `curl.exe` 登录 ENTERPRISE：`POST http://127.0.0.1:3101/api/auth/login`
+  - `curl.exe` Bearer 访问 `/api/account/profile`
+  - `curl.exe` Bearer 访问 `/api/admin/lots?pageSize=1`
+  - `curl.exe` 无 token 访问 `/api/account/profile`
+  - `curl.exe` ENTERPRISE Bearer 访问 `/api/admin/lots?pageSize=1`
+  - `curl.exe` Bearer 访问 `POST /api/auth/logout`
+- 验证结果：
+  - `npm run lint` 通过。
+  - `npm run typecheck` 通过。
+  - `npm test` 通过：25 个测试套件、85 个用例通过。
+  - `git diff --check` 通过，无 whitespace error；仅输出既有 LF/CRLF warning。
+  - `npx prisma db seed` 通过；seed 后开发账号为 `admin / admin123456`、`enterprise_demo / enterprise123456`。
+  - 现有 `127.0.0.1:3100` 为旧后端进程，`/api/auth/login` 返回 404；本轮另启 `127.0.0.1:3101` 验证新代码。
+  - ADMIN 登录返回 HTTP 201，响应包含 JWT token，用户 `admin`、角色 `ADMIN`。
+  - ENTERPRISE 登录返回 HTTP 201，响应包含 JWT token，用户 `enterprise_demo`、角色 `ENTERPRISE`。
+  - ENTERPRISE Bearer 访问 `/api/account/profile` 返回 HTTP 200，角色 `ENTERPRISE`，企业为 `华宁示例矿业有限公司`。
+  - ADMIN Bearer 访问 `/api/admin/lots?pageSize=1` 返回 HTTP 200。
+  - 无 token 访问 `/api/account/profile` 返回 HTTP 401，`code=UNAUTHORIZED`。
+  - ENTERPRISE Bearer 访问 `/api/admin/lots?pageSize=1` 返回 HTTP 403，`code=FORBIDDEN`。
+  - Bearer 访问 `POST /api/auth/logout` 返回 HTTP 201，`success=true`。
+- 未完成事项：前端登录页尚未接入本轮 JWT；当前门户登录状态仍是 T40 的前端开发态会话标记。
+- 阻塞问题：无
+- 剩余风险：
+  - JWT 使用本地 HS256 最小实现，默认开发密钥来自代码 fallback；生产部署前必须配置强 `JWT_SECRET` 并规划密钥轮换。
+  - `POST /api/auth/logout` 不做 token 黑名单/服务端失效，已在契约中声明。
+  - 开发头 fallback 仍保留，需后续由总控决定上线前是否移除或用环境开关关闭。
+  - 本轮为遵守允许修改范围，未新增持久化登录审计；如需登录/退出入库日志，可后续在授权范围内接入。
+  - 本轮临时验证进程监听 `127.0.0.1:3101`，未停止用户既有 `127.0.0.1:3100` 旧进程。
+
+## 2026-05-19 10:05 - 总控复核 T33A 后端登录/JWT
+
+- 任务名称：总控复核 T33A 后端登录/JWT 与认证守卫生产化
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无新增，本轮仅复核并同步任务板
+- 状态枚举变更：无
+- 数据模型变更：无；复核 `backend/prisma/schema.prisma` 无 diff
+- 复核依据：
+  - 已读取 T33A 交接记录。
+  - 已读取 `backend/src/auth/auth.controller.ts`、`auth.service.ts`、`auth.guard.ts`、`jwt.service.ts`、`password.service.ts`、`roles.guard.ts`、`auth.module.ts`、`dto/login.dto.ts`。
+  - 已读取 `docs/api-contract.md` 中认证约定，确认 Bearer JWT 为生产化认证入口，开发头 fallback 标注为仅本地开发和历史联调脚本使用。
+  - 已读取 `backend/prisma/seed.ts`，确认开发账号密码哈希已替换为 `admin / admin123456`、`enterprise_demo / enterprise123456`。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-status`
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan/backend; npx prisma db seed`
+  - 启动新后端验证进程：`PORT=3101 npm run start`，未停止既有 `3100` 服务
+  - `curl.exe` 覆盖 ADMIN/ENTERPRISE 登录、Bearer profile、Bearer admin lots、无 token、错角色、logout
+- 验证结果：
+  - `git status --short --branch` 显示当前 `main...origin/main [ahead 2]`，T33A 为未提交改动；未跟踪项仍包含两张未确认首页截图与 `stitch_document_to_webpage_generator/`。
+  - `git diff --name-status` 显示 T33A 改动集中在 `backend/src/auth/**`、`backend/prisma/seed.ts`、错误码/异常过滤、`docs/api-contract.md`、`docs/frontend-backend-integration-checklist.md`、`docs/agent-handoff.md`。
+  - `backend/prisma/schema.prisma` 无 diff。
+  - 后端 `npm run lint` 通过。
+  - 后端 `npm run typecheck` 通过。
+  - 后端 `npm test` 通过：25 个测试套件、85 个用例通过。
+  - `git diff --check` 通过，无 whitespace error；仅 LF/CRLF warning。
+  - `npx prisma db seed` 通过；输出 `users=2, enterprises=2, lots=4, contents=4`，ADMIN/ENTERPRISE UUID 保持固定口径。
+  - `127.0.0.1:3101/api/health` 返回 HTTP 200；`127.0.0.1:3100` 未停止。
+  - ADMIN 登录 `POST /api/auth/login` 返回 HTTP 201，角色 `ADMIN`，包含 token。
+  - ENTERPRISE 登录 `POST /api/auth/login` 返回 HTTP 201，角色 `ENTERPRISE`，包含 token。
+  - ENTERPRISE Bearer 访问 `/api/account/profile` 返回 HTTP 200，角色 `ENTERPRISE`。
+  - ADMIN Bearer 访问 `/api/admin/lots?pageSize=1` 返回 HTTP 200。
+  - 无 token 访问 `/api/account/profile` 返回 HTTP 401，`code=UNAUTHORIZED`。
+  - ENTERPRISE Bearer 访问 `/api/admin/lots?pageSize=1` 返回 HTTP 403，`code=FORBIDDEN`。
+  - Bearer 访问 `POST /api/auth/logout` 返回 HTTP 201，`success=true`。
+- 总控结论：
+  - T33A 后端登录/JWT 达到当前验收标准，可登记 DONE。
+  - T33 父任务保持 IN_PROGRESS，等待 T33B 前端登录态接入与 T33C 权限/主流程回归。
+- 未完成事项：
+  - T33A 尚未提交、尚未推送。
+  - 前端登录页仍未接入真实 `POST /api/auth/login`。
+  - 请求层仍未统一注入 Bearer token，部分前端接口仍依赖开发请求头。
+  - 用户要求的验证码登录尚未设计/实现，需在 T33B 前确认验证码口径。
+- 风险：
+  - JWT 使用 HS256 最小实现；生产部署前必须配置强 `JWT_SECRET`。
+  - 开发头 fallback 仍存在，当前仅靠契约限制使用；生产上线前建议改为环境开关关闭或彻底移除。
+  - logout 当前不做服务端 token 黑名单，契约已声明。
+
+## 2026-05-19 10:30 - T33B 前端登录态与 Bearer 请求接入
+
+- 任务名称：T33B 前端登录态与 Bearer 请求接入
+- 修改文件：
+  - `frontend/src/services/api.ts`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `frontend/src/services/auth.ts`
+- 接口变更：无；前端接入既有 `POST /api/auth/login`、`POST /api/auth/logout` 与 Bearer 认证口径。
+- 是否修改后端：否
+- 是否修改 Prisma schema：否
+- 登录账号验证结果：
+  - `curl.exe -s -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123456"}' http://127.0.0.1:3101/api/auth/login` 通过，返回 `accessToken`，用户 `admin`、角色 `ADMIN`。
+  - `curl.exe -s -H 'Content-Type: application/json' -d '{"username":"enterprise_demo","password":"enterprise123456"}' http://127.0.0.1:3101/api/auth/login` 通过，返回 `accessToken`，用户 `enterprise_demo`、角色 `ENTERPRISE`，企业 `华宁示例矿业有限公司`。
+  - 说明：按任务原样双引号转义在 PowerShell 中首跑 JSON 被转义破坏，后按等价 JSON 请求重跑通过。
+- lint/build/diff check 真实结果：
+  - `Set-Location E:/kuangchan; git status --short --branch` 通过；当前分支 `main...origin/main [ahead 2]`，工作树仍包含既有 T33A 后端未提交差异、未跟踪 Stitch 源/截图，以及本轮 T33B 前端与文档差异。
+  - `Set-Location E:/kuangchan; git diff --name-status` 通过；本轮新增 `frontend/src/services/auth.ts` 为未跟踪文件，跟踪差异包含 T33B 允许修改文件；输出同时包含既有 T33A 后端文件和总控文档差异。
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过，Vite 输出 `built in 202ms`。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅输出既有 LF/CRLF warning。
+- Playwright 真实结果：
+  - 使用 Chrome channel 验证生产构建静态服务 `http://127.0.0.1:5176`，同源 `/api` 反代到 `http://127.0.0.1:3101/api`；未停止既有 3100 服务。
+  - `/login` 管理员登录成功并跳转 `/admin/dashboard`；后台侧栏显示 `admin / 平台管理员`。
+  - `/login` 企业登录成功并跳转 `/account`；企业中心和门户头部显示 `华宁示例矿业有限公司 / 审核通过`，刷新后会话保持。
+  - 企业 Bearer 访问 `/api/account/profile` 返回 HTTP 200；管理员 Bearer 访问 `/api/admin/lots?pageSize=1` 返回 HTTP 200。
+  - 企业 Bearer 访问 `/api/admin/lots?pageSize=1` 返回 HTTP 403；企业账号访问 `/admin/dashboard` 显示无权限；管理员账号访问 `/account` 显示不能访问企业中心。
+  - 退出后 `huaningAuthToken` 清除，首页恢复“登录 / 企业入驻”，`/account` 显示需要企业账号登录。
+  - 登录失败显示“登录失败：用户名或密码错误”；无 token 访问 `/api/account/profile` 返回 HTTP 401。
+  - 390px 首页和登录页均为 `innerWidth=390`、`documentElementScrollWidth=390`、`bodyScrollWidth=390`。
+  - 正常登录/首页/登录页干净场景 `console error = 0`；包含故意触发 401/403 的权限脚本中浏览器会把预期 401/403 network 响应记录为 resource error，已单独排除并验证页面提示。
+- 未完成事项：
+  - 未提交、未推送。
+  - 本轮未重跑完整“首页选正在竞价拍品 -> 详情 -> 上传意向金凭证 -> 管理员审核 -> 企业竞价”人工全流程；已保持对应 API 调用 Bearer 注入与 mock 详情禁报价逻辑，完整主流程建议纳入 T33C。
+  - 未新增截图产物。
+- 风险和需要总控确认的问题：
+  - 直接用 Vite 跨源 `VITE_API_BASE_URL=http://127.0.0.1:3101/api` 登录会被当前 3101 CORS 预检拦截；生产构建同源 `/api` 反代验证通过。是否需要后端开发 CORS 放行 5174/5176 由总控确认。
+  - `api.ts` 仍按契约保留无 token 时的开发头 fallback；上线前是否彻底关闭或改环境开关需总控确认。
+  - 当前工作树含 T33A 后端未提交改动与本轮 T33B 改动，提交时需分批选择范围，避免混入 `stitch_document_to_webpage_generator/` 与未确认截图。
+
+## 2026-05-19 10:43 - 总控复核 T33B 前端登录态与 Bearer 接入
+
+- 任务名称：总控复核 T33B 前端登录态与 Bearer 请求接入
+- 负责模块：总控调度
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无新增，本轮仅复核并同步任务板
+- 数据模型变更：无；复核 `backend/prisma/schema.prisma` 无 diff
+- 复核依据：
+  - 已读取 T33B 交接记录。
+  - 已读取 `frontend/src/services/auth.ts`，确认 `huaningAuthToken`、`huaningAuthProfile`、会话事件、profile normalize 与清理逻辑。
+  - 已读取 `frontend/src/services/api.ts`，确认有 token 时统一注入 `Authorization: Bearer <token>`；无 token 时保留开发头 fallback；401 清理登录态；401/403 不再进入 mock fallback。
+  - 已读取 `frontend/src/pages/PortalPages.tsx`、`frontend/src/components/Layouts.tsx`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx` 相关登录、验证码、角色保护和竞价按钮逻辑。
+  - 已确认本轮未修改 `backend/prisma/schema.prisma` 和 `backend/src/app.module.ts`。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-status`
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`
+  - `Set-Location E:/kuangchan; git diff -- backend/src/app.module.ts`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `curl.exe -s -o NUL -w "3101 %{http_code}\n" http://127.0.0.1:3101/api/health`
+  - 启动前端 `http://127.0.0.1:5176/`，未停止既有服务
+  - Playwright Chrome channel 通过本地临时脚本复核企业登录、管理员登录、刷新保持会话、logout、错角色拦截、Bearer profile/admin lots、390px 宽度和 console error
+- 验证结果：
+  - `git status --short --branch` 显示当前 `main...origin/main [ahead 2]`，工作树同时包含 T33A 后端未提交差异、T33B 前端未提交差异、未跟踪 `frontend/src/services/auth.ts`、两张未确认首页截图和 `stitch_document_to_webpage_generator/`。
+  - `git diff --name-status` 显示本轮前端差异在 `frontend/src/services/api.ts`、`frontend/src/pages/PortalPages.tsx`、`frontend/src/components/Layouts.tsx`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/index.css`，另有 T33A 后端和文档差异。
+  - `backend/prisma/schema.prisma` 无 diff。
+  - `backend/src/app.module.ts` 无 diff。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 212ms`。
+  - `git diff --check` 通过，无 whitespace error；仅 LF/CRLF warning。
+  - `127.0.0.1:3101/api/health` 返回 HTTP 200。
+  - `127.0.0.1:5176/` 返回 HTTP 200。
+  - Playwright 企业登录：`enterprise_demo / enterprise123456 / 算术验证码` 登录后路径为 `/account`；门户显示 `华宁示例矿业有限公司 / 审核通过`；刷新后会话保持；Bearer `/api/account/profile` 返回 200。
+  - Playwright 企业访问后台：页面出现“无权访问管理后台”提示；该验证会产生预期 403 resource console error。
+  - Playwright logout：`huaningAuthToken` 被清理，首页恢复未登录入口。
+  - Playwright 管理员登录：`admin / admin123456 / 算术验证码` 登录后路径为 `/admin/dashboard`；后台显示 `admin / 平台管理员`；Bearer `/api/admin/lots?pageSize=1` 返回 200。
+  - Playwright 管理员访问企业中心：页面出现“不能访问企业中心”提示。
+  - Playwright 390px：登录页和首页均为 `innerWidth=390`、`documentElement.scrollWidth=390`、`body.scrollWidth=390`。
+  - Playwright 正常登录/首页/企业中心/后台/移动宽度干净场景 `consoleErrorCount=0`。
+- 总控结论：
+  - T33B 前端登录态与 Bearer 接入达到当前验收标准，可登记 DONE。
+  - T33 父任务保持 IN_PROGRESS，等待 T33C 完整权限回归与主流程人工验收。
+- 未完成事项：
+  - T33A/T33B 均尚未提交、尚未推送。
+  - 尚未重跑用户要求的完整人工业务流程：管理员上架拍品与审核、企业凭证上传与审核、竞拍、成交、线下签约地址展示、尾款支付展示/审核、完成确认。
+  - 当前直接 Vite 跨源访问新后端仍有 CORS 风险，T33B 通过同源 `/api` 反代方式验证。
+- 风险：
+  - `api.ts` 仍保留无 token 开发头 fallback；生产上线前需确认关闭方式。
+  - 错角色验证会产生预期 401/403 浏览器 resource error，不能和干净路径 console=0 混为一谈。
+  - 提交时需精确 stage T33A/T33B 文件，排除 `stitch_document_to_webpage_generator/`、两张未确认首页截图和本地临时目录。
+
+## 2026-05-19 11:17 - T33C 权限回归与完整主流程人工验收
+
+- 任务名称：T33C 权限回归与完整主流程人工验收
+- 负责模块：生产认证回归、完整业务主流程人工验收
+- 验收环境：
+  - 后端：`http://127.0.0.1:3101/api`，既有进程 PID 26376，健康检查 200；未停止 3100/3101 任何既有服务。
+  - 前端：既有 `http://127.0.0.1:5176/` 可访问但当前为 Vite dev 且无 `/api` 代理，浏览器请求会打到 `5176/api/*` 并 404，不能作为本轮真实 API 浏览器验收环境。
+  - 浏览器真实验收改用临时同源代理 `http://127.0.0.1:5177/`，静态服务 `frontend/dist` 并将 `/api/*` 反代到 3101；该临时进程仅用于 T33C 验收。
+  - 浏览器：本机 Chrome headless，CDP `127.0.0.1:9223`，临时 user-data-dir `E:/kuangchan/.tmp/t33c-chrome`。
+- 账号：
+  - 管理员：`admin / admin123456`
+  - 企业：`enterprise_demo / enterprise123456`
+- 修改文件：仅追加 `docs/agent-handoff.md` 本记录
+- 新增文件：无；临时运行脚本位于 `.tmp/t33c-static-proxy.cjs`，不纳入提交范围
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；`git diff -- backend/prisma/schema.prisma` 无输出
+- 是否修改代码：否
+- 是否修改 schema：否
+- 权限回归结果：
+  - ADMIN HTTP 登录 `POST /api/auth/login` 返回 201，用户 `admin`、角色 `ADMIN`，返回 Bearer token。
+  - ENTERPRISE HTTP 登录 `POST /api/auth/login` 返回 201，用户 `enterprise_demo`、角色 `ENTERPRISE`，企业 `华宁示例矿业有限公司`、认证 `APPROVED`，返回 Bearer token。
+  - 无 token 访问 `GET /api/account/profile` 返回 401，`code=UNAUTHORIZED`，`message=未登录`。
+  - ENTERPRISE Bearer 访问 `GET /api/admin/lots?pageSize=1` 返回 403，`code=FORBIDDEN`，`message=无权访问`。
+  - ADMIN Bearer 访问 `GET /api/account/profile` 返回 403，`code=FORBIDDEN`，`message=无权访问`。
+  - 浏览器 ADMIN 登录经账号/密码/算术验证码进入 `/admin/dashboard`，刷新后 localStorage token/profile 保持，后台显示 `admin / 平台管理员`。
+  - 浏览器 ENTERPRISE 登录经账号/密码/算术验证码进入 `/account`，刷新后 localStorage token/profile 保持，门户与企业中心显示 `华宁示例矿业有限公司 / 审核通过`。
+  - 浏览器 ADMIN 访问 `/account` 显示“当前管理员账号不能访问企业中心，请切换企业账号。”。
+  - 浏览器 ENTERPRISE 访问 `/admin/dashboard` 显示“当前账号无权访问管理后台，请使用管理员账号登录。”。
+- 主流程验收数据：
+  - 拍品标题：`T33C-权限主流程验收-1779160367274`
+  - 拍品 ID：`6072f827-09ac-4916-9f37-00f5ae56f060`
+  - 成交结果 ID：`4fa12d97-97eb-4f52-9fda-1201a694cdb0`
+  - 合同 ID：`5a0fdbf4-16b7-45d6-8a28-07c7f88efee1`
+- 每一步结果：
+  1. 管理员上传拍品图片/检测报告：PASS。`POST /api/files/upload` 上传图一 PNG `d9040c05-41fb-4a06-a808-b89b6daa6968`、图二 PNG `6e3008bb-64dc-4f43-97b1-aa3b1a48ff43`、检测报告 PDF `3bc9c09e-52c8-4847-8b32-890156bba935`；检测报告 `isSensitive=true`。
+  2. 管理员新建拍品：PASS。`POST /api/admin/lots` 返回状态 `草稿`；字段包含标题、起拍价 `100`、加价幅度 `10`、保证金 `1000`、公告时间、竞拍开始/结束时间、图一/图二/检测报告 URL、客户须知。
+  3. 管理员提交发布复核：PASS。`POST /api/admin/lots/{id}/submit-review` 返回 `待发布复核`，`releaseSubmittedAt=2026-05-19T03:12:47.336Z`。
+  4. 管理员审核通过：PASS。`POST /api/admin/reviews/lots/{id}/approve` 返回 `公示中`，`releaseReviewedAt=2026-05-19T03:12:47.345Z`。
+  5. 企业在公开列表可见：PASS。`GET /api/lots?pageSize=100` 找到该拍品，状态 `公示中`；后续推进后 `竞拍中` 列表也找到该拍品。
+  6. 企业进入详情/提交意向金凭证：PASS。`POST /api/lots/{id}/deposit-vouchers` 返回凭证 `ad956652-2ee6-4b99-8e63-03fd4c5a851e`，状态 `待审核`，`paidAmount=1000`。
+  7. 管理员审核意向金凭证通过：PASS。`POST /api/admin/reviews/deposits/{id}/approve` 返回 `审核通过`，`reviewedAt=2026-05-19T03:12:47.370Z`。
+  8. 管理员推进竞拍：PASS。`POST /api/admin/lots/{id}/advance-to-bidding` 返回 `竞拍中`。
+  9. 企业报价成功：PASS。`POST /api/lots/{id}/bids` 提交 `amount=110` 返回 bid `e736a907-e0e6-47ec-b605-ffdeedee0074`，`incrementCount=1`，`isCurrentHighest=true`；公开出价记录 total=1，企业名脱敏为 `华***司`。
+  10. 拍卖结束生成成交结果：PASS。为避免等待 90 分钟，仅将本轮测试拍品 `biddingEndAt` 调整到过去后调用 `POST /api/admin/auction-closing/run`；返回 `checkedLots=1, closedLots=1, endedWithoutBids=0, skippedLots=0`；后台成交结果为 `已生成`，最终价 `110`，中标企业 `华宁示例矿业有限公司`。
+  11. 管理员发布成交公示：PASS。`POST /api/admin/results/{id}/publish` 返回 `已公示`，`publishedAt=2026-05-19T03:12:47.564Z`；公开 `GET /api/results?pageSize=100` 可见该成交结果。
+  12. 合同/线下签约展示：PARTIAL。拍品 `customerNotice` 与 `productDetail` 写入并在拍品详情可展示“签约地址：华宁县宁州街道矿产资源交易中心二楼签约室”；成交通知文案提示“请办理签约与尾款手续”。系统没有合同专用签约地址字段或企业合同详情页，标记为展示口径 PARTIAL。
+  13. 管理员标记已签约：PASS。`POST /api/admin/contracts/{id}/mark-signed` 返回合同 `已签约`，`signedAt=2026-05-19T03:12:47.591Z`，拍品 `lotStatusCode=SIGNED`。
+  14. 尾款支付展示与管理员确认：GAP/PARTIAL。PRD 口径为线下尾款；当前系统无线上尾款支付、尾款凭证、尾款审核或支付状态接口。可验证的页面/接口口径只有合同页“标记已完成后成交额将计入数据看板”和 `mark-completed` 管理员确认。
+  15. 管理员确认最终完成：PASS。`POST /api/admin/contracts/{id}/mark-completed` 返回合同 `已完成`，`completedAt=2026-05-19T03:12:47.605Z`；拍品详情最终 `status=已完成`、`statusCode=COMPLETED`。
+  16. 企业中心状态：PASS。`GET /api/account/bids?pageSize=100` 找到该拍品出价记录；`GET /api/account/deposit-vouchers?pageSize=100` 找到该拍品意向金 `审核通过`；`GET /api/account/messages?pageSize=100` 找到成交通知，内容为“您参与的T33C-权限主流程验收-1779160367274竞拍已结束，已中标，请办理签约与尾款手续。”。
+  17. 数据看板：PASS。`GET /api/portal/dashboard` 返回 `currentYearCompletedCount=1`、`currentYearCompletedAmount=110`、`totalCompletedCount=1`、`totalCompletedAmount=110`。
+  18. 390px 关键页面：PASS。浏览器 390px 覆盖 `/`、`/login`、`/account`、`/account/bids`、`/account/messages`、`/results`、`/results/detail?id=4fa12d97-97eb-4f52-9fda-1201a694cdb0`、`/auctions/live/detail?id=6072f827-09ac-4916-9f37-00f5ae56f060`；各页 `innerWidth=390`，`documentElement.scrollWidth/body.scrollWidth` 为 375-390，`overflow=false`。
+  19. 正常路径 console error：PASS。在 5177 同源代理正常企业路径 `/`、`/account`、`/account/bids`、`/account/messages`、`/results`、`/results/detail` 下 `consoleErrorCount=0`，无非预期 API 4xx/5xx。
+  20. 预期 401/403 单独记录：PASS。无 token 401、错角色 403 均单独记录；浏览器错角色路径产生的 403 resource console error 不混入正常路径。
+- 阻塞/GAP：
+  - GAP-001：尾款支付没有完整实现。当前无线上尾款支付、尾款凭证、尾款审核或尾款状态字段/API；只能以线下支付 + 管理员 `mark-completed` 作为确认口径。
+  - GAP-002：线下签约地址没有专用数据模型/API 字段。当前只能放在拍品 `customerNotice`/`productDetail` 或通知文案中展示。
+  - ENV-001：既有 `5176` 是 Vite dev 服务且无 `/api` 代理，浏览器真实 API 请求到 `5176/api/*` 返回 404；T33C 真实浏览器验收改用 5177 临时同源代理。
+  - TOOL-001：Playwright CLI 包可运行，但首次安装 `chrome-for-testing` 超时；本轮改用本机 Chrome CDP 完成浏览器验证。
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git diff --name-status`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`
+- 验证结果：
+  - `git status --short --branch` 通过；当前 `main...origin/main [ahead 2]`，工作树已有 T33A/T33B 未提交改动、未跟踪 `frontend/src/services/auth.ts`、两张未确认首页截图和 `stitch_document_to_webpage_generator/`；本轮未纳入这些范围。
+  - `git diff --name-status` 通过；显示既有 T33A/T33B 代码/文档差异，未跟踪文件不在该输出中；仅有 LF/CRLF warning。
+  - 后端 `npm run lint` 通过。
+  - 后端 `npm run typecheck` 通过。
+  - 后端 `npm test` 通过：25 test suites / 85 tests passed。
+  - 前端 `npm run lint` 通过。
+  - 前端 `npm run build` 通过，Vite 输出 `built in 240ms`。
+  - `git diff --check` 通过，无 whitespace error；仅 LF/CRLF warning。
+  - `backend/prisma/schema.prisma` 无 diff。
+- 后续修复任务建议：
+  - T41：补线下签约地址专用展示字段或配置项，至少让合同/成交详情能展示结构化签约地点、联系人和办理时间。
+  - T42：补尾款支付线下确认模型与页面口径：尾款应付金额、线下支付说明、凭证可选上传、管理员确认尾款、尾款状态展示；不做真实金钱交易。
+  - T43：修复/明确前端本地验收启动方式。5176 若继续作为推荐验收地址，应配置同源 `/api` 代理或以生产静态代理启动，避免 `/api/*` 404 被 fallback 掩盖。
+  - T44：上线前关闭或环境开关化无 token 开发头 fallback，避免生产路径误用 `x-user-id/x-user-role`。
+
+## 2026-05-19 12:02 - T41 前端全流程可操作性修复
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/index.css`
+  - `backend/src/files/files.controller.ts`
+  - `backend/src/files/files.service.ts`
+  - `backend/test/files/files.service.spec.ts`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改后端：是，仅补 `POST /api/files/upload` 对 `DEPOSIT_VOUCHER` 的最小上传白名单与企业角色限制。
+- 是否修改 Prisma schema：否
+- 修复点：
+  - 后台拍品表单截止日期、公示开始/结束、竞拍开始/结束改为 `datetime-local`，页面显示本地年月日与 24 小时制，提交时转换为 ISO 字符串。
+  - 后台单价/起拍价、评估价、保证金金额、加价幅度增加实时中文大额单位提示，例如 `1000000 => 100 万元`、`120000000 => 1.2 亿元`。
+  - 提交复核按钮增加 loading/disabled，成功显示“提交成功，已进入发布复核”并跳回 `/admin/lots`；失败继续显示后端错误且不跳转。
+  - 公告详情页意向金凭证改为真实文件选择与上传：先 `POST /api/files/upload` 获取 `fileUrl/fileName`，再 `POST /api/lots/{id}/deposit-vouchers`，成功提示“凭证已提交，等待管理员审核”。
+  - 后端 `AttachmentCategory.DEPOSIT_VOUCHER` 已确认存在；未改 schema；企业账号仅允许上传 `DEPOSIT_VOUCHER`，管理员继续上传拍品图片/检测报告。
+  - 竞价详情页基于真实 `biddingEndAt` 实时显示“剩余 HH:mm:ss / 剩余 N天 HH:mm:ss”，到期显示“已结束/等待系统结拍”并禁用确认出价。
+  - mock/演示拍品详情禁止真实上传与报价请求，并给出明确提示。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan; git status --short --branch` 通过；工作树仍含 T33A/T33B 既有未提交改动、未跟踪 `frontend/src/services/auth.ts`、Stitch 源目录和截图；本轮新增/修改集中在上方文件。
+  - `Set-Location E:/kuangchan; git diff --name-status` 通过；显示本轮 files、AdminPages、PortalPages、api、index.css、docs 清单，同时包含既有 T33A/T33B 差异。
+  - `Set-Location E:/kuangchan/backend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/backend; npm run typecheck` 通过。
+  - `Set-Location E:/kuangchan/backend; npm test` 通过：25 test suites / 87 tests passed。
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过，Vite 构建成功。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅既有 LF/CRLF warning。
+  - `git diff -- backend/prisma/schema.prisma` 无输出。
+- 浏览器人工验收结果：
+  - 使用本轮源码后端 `http://127.0.0.1:3121/api` 与生产构建同源代理 `http://127.0.0.1:5178/` 验证；未停止既有 3100/3101 服务。
+  - `admin / admin123456` 与 `enterprise_demo / enterprise123456` 真实登录接口均返回 Bearer token 与正确角色。
+  - `/admin/lots/edit` 时间字段类型为 `datetime-local`；金额提示验证为 `1000000 => 100 万元`、`120000000 => 1.2 亿元`；提交复核成功提示并跳转 `/admin/lots`，按钮在提交中 disabled。
+  - 管理员审核并推进测试拍品后，企业在公告详情选择本地 PDF 凭证，真实上传与提交成功，页面显示“凭证已提交，等待管理员审核”；管理员审核意向金通过。
+  - 企业进入 `/auctions/live/detail?id=真实拍品ID` 显示倒计时如“剩余 00:54:17”，确认出价按钮可用，报价成功后公开出价记录 total >= 1。
+  - mock/演示拍品 `/announcements/upcoming/detail?id=lot-001` 点击上传按钮仅显示“当前为本地演示拍品，不能提交真实意向金凭证，请从公告列表进入真实拍品。”，未发真实 API 请求，console error = 0。
+  - 390px 验证覆盖 `/`、真实公告详情、真实竞价详情、`/admin/lots/edit`，`innerWidth=390` 且 `documentElement/body scrollWidth=390`，无横向溢出。
+- 未完成/GAP：
+  - 5178/3121 为本轮临时验收环境；既有 3101 后端进程仍是旧代码，未重启时企业上传 `DEPOSIT_VOUCHER` 会返回 403。
+  - 文件上传接口先生成上传附件，提交凭证时 deposits 服务会再创建一条 `DEPOSIT_VOUCHER` 业务附件记录，当前不改数据模型去合并二者。
+  - 本轮未提交、未推送。
+- 风险：
+  - 当前工作树混有 T33A/T33B 既有未提交差异，后续提交必须精确 stage，避免混入 `stitch_document_to_webpage_generator/`、未确认截图或无关认证改动。
+  - 前端 `api.ts` 仍继承 T33B 的开发头 fallback 口径；上线前是否关闭仍按 T33B/T44 风险处理。
+
+## 2026-05-19 13:51 - T42 人工主流程导航与审核待办体验优化
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改后端：否
+- 是否修改 Prisma schema：否
+- 修复点：
+  - 企业公告详情“意向金资格”卡改为四步流程展示，上传或刷新已有凭证后显示“已提交，等待管理员审核”、文件名/提交时间/金额与“查看我的意向金 / 重新上传凭证”。
+  - 公告详情会读取当前企业 `/account/deposit-vouchers`，刷新后仍能看到待审核、审核通过或驳回状态；审核通过时展示“竞价资格已获得”与进入/等待竞价按钮。
+  - 上传凭证成功后显示下一步提示，“查看我的意向金”跳转 `/account/deposits`；我的意向金页展示待审核记录、凭证文件、应缴/实缴金额，并可返回拍品详情。
+  - 后台首页新增真实待办审核区，聚合发布复核、企业认证、意向金凭证待审核数量；接口失败显示“待办加载失败，请刷新”。
+  - 后台侧边栏“审核管理”下直接显示“拍品发布审核 / 企业认证审核 / 意向金凭证审核”，有待审核数量时显示角标。
+  - `/admin/reviews/deposits` 明确命名为“意向金凭证审核”，默认待审核，支持企业名、拍品名、项目编号/拍品 ID 搜索和状态筛选。
+  - 意向金审核通过/驳回、拍品发布审核通过/驳回、企业报价成功后补下一步按钮或反馈。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan; git status --short --branch` 通过；工作树仍混有 T33A/T33B/T41 既有未提交改动、未跟踪 `frontend/src/services/auth.ts`、Stitch 源目录与截图；本轮未 stage、未提交。
+  - `Set-Location E:/kuangchan; git diff --name-status` 通过；显示既有后端/文档差异与本轮前端文件差异。
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma` 无输出。
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过，Vite 构建成功。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅 LF/CRLF warning。
+- 浏览器人工验收结果：
+  - 使用当前源码后端 `http://127.0.0.1:3122/api` 与生产构建同源代理 `http://127.0.0.1:5179/` 验证；未使用旧 3101 进程。
+  - 企业账号 `enterprise_demo / enterprise123456` 登录后，公告详情能展示已有待审核意向金“已提交，等待管理员审核”，含“查看我的意向金”和后台处理路径提示。
+  - `/account/deposits` 可见对应拍品 `华宁磷矿石竞价标的一` 的意向金记录和待审核提示；审核后可见 `审核通过`。
+  - 管理员账号 `admin / admin123456` 登录 `/admin/dashboard`，可见“待办审核”和“待意向金凭证审核”入口。
+  - 点击进入 `/admin/reviews/deposits` 后，搜索拍品名可定位待审核凭证；点击“审核通过”后页面出现“继续审核下一条 / 返回待办 / 去拍品列表 / 推进竞拍”反馈，后端状态更新为 `APPROVED`。
+  - 分角色 390px 验证覆盖 `/admin/dashboard`、`/admin/reviews/deposits`、公告详情、`/account/deposits`，`innerWidth=390` 且 `documentElement/body scrollWidth=390`。
+  - 正常角色路径 console error = 0；一次中间脚本在企业登录态访问后台产生预期 403，已分角色重跑排除。
+- 未完成/GAP：
+  - 本轮未提交、未 push。
+  - 浏览器验证复用了数据库中已有待审核凭证并完成审核通过；未额外造新的后端业务接口。
+  - 后端当前响应未返回凭证文件名/URL，本轮前端已做字段兼容，缺失时显示“查看凭证”。
+- 风险：
+  - 当前工作树仍混有 T33A/T33B/T41 既有差异，后续提交必须精确 stage，避免混入 `stitch_document_to_webpage_generator/`、未确认截图或本地临时脚本。
+  - 旧 3101 进程若未重启仍可能不包含 T41 的 `DEPOSIT_VOUCHER` 上传白名单；验收需使用当前源码后端。
+
+## 2026-05-19 14:00 - T43A 门户全量 Stitch 页面复刻与资源页补齐
+- 修改文件：
+  - `frontend/src/App.tsx`
+  - `frontend/src/routes.ts`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改后端：否
+- 是否修改 Prisma schema：否
+- Stitch 源到 React 路由映射：
+  - `_14/code.html` -> `/`，智能交互门户首页主结构。
+  - `_22/code.html` -> `/`，首页数据区块与资源表参考，不单独实现重复首页。
+  - `_18/code.html` -> `/announcements/upcoming`，即将拍卖公告列表。
+  - `_27/code.html` -> `/announcements/upcoming/detail`，公告详情与意向金资格区。
+  - `_34/code.html` -> `/auctions/live`，正在竞价列表。
+  - `_30/code.html` -> `/auctions/live/detail`，竞价详情；资源详情复用其矿区图文/附件结构。
+  - `_26/code.html` -> `/results`，成交公示列表。
+  - `_31/code.html` -> `/results/detail`，成交公示详情。
+  - `_21/code.html` -> `/news`，信息资讯列表。
+  - `_20/code.html` -> `/news/detail`，信息资讯详情。
+  - `_7/code.html` -> `/disclosures`，公开说明。
+  - `_35/code.html` -> `/login`，登录页。
+  - `_29/code.html` -> `/enterprise/register`，企业入驻页。
+  - `_22` 的矿产资源区与 `_30` 的资源详情表达 -> 新增 `/resources`、`/resources/detail`。
+- 修复点：
+  - 新增 `/resources` 与 `/resources/detail` 路由，并加入 `routeCatalog`。
+  - 门户导航“矿产资源”已从 `/announcements/upcoming` 改为 `/resources`。
+  - 首页搜索与矿产资源区“查看全部”跳转 `/resources`；首页新增矿产资源表，复用现有 lots 数据。
+  - 资源列表与详情均复用现有 `api.fetchLots()` / `api.fetchLot()`，即 `GET /api/lots` 与 `GET /api/lots/{id}` 映射展示，不新增后端接口。
+  - 保留现有 Bearer 请求层、登录态、意向金上传、倒计时与报价逻辑；mock fallback 仍按既有 `api.ts` 策略，不把 fallback 说成真实接口通过。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过，Vite 构建成功。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅既有 LF/CRLF warning。
+  - `Set-Location E:/kuangchan; node docs/qa/t43-artifacts/t43-portal-check.cjs` 通过；使用 `T43_BASE_URL=http://127.0.0.1:5183` 的临时同源静态代理，`/api` 转发到当前可用后端 `127.0.0.1:3100`。
+  - Playwright 覆盖 `/`、`/resources`、`/resources/detail`、`/announcements/upcoming`、`/announcements/upcoming/detail`、`/auctions/live`、`/auctions/live/detail`、`/results`、`/results/detail`、`/news`、`/news/detail`、`/disclosures`、`/login`、`/enterprise/register`：逐页 `console error=0`，390px 下 `innerWidth=390`、`documentElement.scrollWidth=390`、`body.scrollWidth=390`，无横向溢出。
+  - 截图与摘要保存到 `docs/qa/t43-artifacts/`，包含 `t43-*-390.png` 与 `t43-playwright-summary.json`。
+- 未完成/GAP：
+  - 本轮未新增后端资源接口；资源页按要求复用 `/api/lots`。
+  - 5183 静态代理是本轮浏览器验证用临时服务，不作为项目启动配置提交。
+
+## 2026-05-19 14:24 - T43B 后台全量 Stitch 页面复刻与后台登录页补齐
+- 修改文件：
+  - `frontend/src/App.tsx`
+  - `frontend/src/routes.ts`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t43-artifacts/**`（新增后台 Playwright 截图与报告）
+- 是否修改后端：否
+- 是否修改 Prisma schema：否
+- 必读文件完成情况：
+  - 已读取 `stitch_document_to_webpage_generator/_17/_9/_4/_16/_6/_5/_25/_28/_33/_15/_11/_10/_36/_1/code.html`。
+  - 已读取 `docs/frontend-backend-integration-checklist.md`、`frontend/src/App.tsx`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/components/Layouts.tsx`、`frontend/src/services/api.ts`。
+  - 后台登录页本地 Stitch 目录没有独立 `code.html`，按 `stitch_frontend_page_prompts.md` 4.1 和现有后台视觉补齐。
+- 修复点：
+  - 新增 `/admin/login` 路由和 `AdminLoginPage`，复用真实 `api.login()`；登录成功且 `profile.roleCode === 'ADMIN'` 后跳转 `/admin/dashboard`。
+  - 管理员账号默认填充 `admin / admin123456`；验证码为前端本地算术校验，错误时刷新验证码并提示。
+  - 如果登录账号不是 ADMIN，会调用 logout 清理会话并阻止进入后台。
+  - 后台未登录/非管理员守卫的主按钮改为跳 `/admin/login`；企业中心守卫仍跳 `/login`。
+  - 保留 T38/T41/T42 已有后台页面与真实 API 操作：待办卡、意向金凭证审核入口和筛选、拍品编辑 datetime-local/大额单位提示/真实上传/提交复核反馈均未移除。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅既有 LF/CRLF warning。
+  - 直连当前源码后端 `POST http://127.0.0.1:3101/api/auth/login`，`admin/admin123456` 返回 `role=ADMIN`。
+  - Playwright 使用生产构建同源代理 `http://127.0.0.1:5177` 反代到 `127.0.0.1:3101`，从 `/admin/login` 浏览器真实登录成功进入 `/admin/dashboard`。
+  - Playwright 覆盖后台 15 个路由：`/admin/dashboard`、`/admin/lots`、`/admin/lots/edit`、`/admin/reviews/lots`、`/admin/reviews/enterprises`、`/admin/reviews/deposits`、`/admin/bids`、`/admin/results`、`/admin/contracts`、`/admin/refunds`、`/admin/blacklist`、`/admin/content`、`/admin/notifications`、`/admin/files`、`/admin/logs`。
+  - Playwright 报告 `docs/qa/t43-artifacts/t43-playwright-report.json`：`errors=[]`、`overflow=[]`；桌面和 390px 路由检查均无横向溢出。
+  - 截图保存到 `docs/qa/t43-artifacts/`，新增后台截图文件名前缀为 `t43-admin-`。
+- 环境注意：
+  - 旧 `http://127.0.0.1:3100/api/auth/login` 返回 404，说明该进程不是当前认证源码；本轮真实验证使用 3101。
+  - 直接用 Vite 5178 跨源访问 3101 会被当前后端 CORS 白名单拦截；同源代理 5177 验证通过。
+- 未完成/GAP：
+  - 本轮未提交、未 push。
+  - 当前工作树仍混有前序后端、门户、企业中心和文档改动；后续提交需精确 stage。
+
+## 2026-05-19 14:08 - T43C 企业中心全量 Stitch 页面复刻与凭证流程联动
+
+- 任务名称：T43C 企业中心全量 Stitch 页面复刻与凭证流程联动
+- 负责模块：企业中心前端、企业认证详情、意向金凭证状态、出价与通知联动
+- 修改文件：
+  - `frontend/src/pages/AccountPages.tsx`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/t43-artifacts/t43-account-home-desktop.png`
+  - `docs/qa/t43-artifacts/t43-account-home-mobile.png`
+  - `docs/qa/t43-artifacts/t43-account-certification-desktop.png`
+  - `docs/qa/t43-artifacts/t43-account-certification-mobile.png`
+  - `docs/qa/t43-artifacts/t43-account-deposits-desktop.png`
+  - `docs/qa/t43-artifacts/t43-account-deposits-mobile.png`
+  - `docs/qa/t43-artifacts/t43-account-bids-desktop.png`
+  - `docs/qa/t43-artifacts/t43-account-bids-mobile.png`
+  - `docs/qa/t43-artifacts/t43-account-messages-desktop.png`
+  - `docs/qa/t43-artifacts/t43-account-messages-mobile.png`
+  - `docs/qa/t43-artifacts/t43-browser-result.json`
+  - `docs/qa/t43-artifacts/t43-voucher-fixture.pdf`（浏览器上传验证用临时凭证）
+- 删除文件：无
+- 接口变更：前端新增读取既有 `GET /api/account/certification`；未新增或修改后端接口。
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 Prisma schema。
+- 是否修改后端：否
+- 是否修改登录/JWT 后端逻辑：否
+- 是否修改 Stitch 源文件：否
+- 修复点：
+  - 企业中心首页继续按 Stitch `_8` 结构突出认证状态、待处理意向金、进行中竞价、未读通知，并联动真实企业端数据。
+  - 我的企业认证页读取真实认证详情，展示认证资料、提交/审核时间、状态、驳回原因和重新提交入口。
+  - 我的意向金页保留 T41/T42 上传凭证后的下一步提示，补待审核/已通过/需处理摘要，并兼容凭证文件名和 URL；后端当前企业列表未返回附件 URL 时显示“待后端返回附件链接”。
+  - 我的出价页补出价记录、当前最高价、进行中竞价摘要，继续展示加价次数、当前最高价、竞价状态和查看详情。
+  - 我的通知页合并 `_12/_24` 风格，支持全部/未读/已读筛选、查看详情、标记已读和全部标记已读。
+  - Bearer 登录态和企业角色拦截保持既有实现，未改 `AccountLayout` 保护逻辑。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - 启动当前源码后端：`PORT=3123 npm run start`
+  - 启动同源静态代理：`node .tmp/t43-static-proxy.cjs`，访问 `http://127.0.0.1:5182/`
+  - Playwright 脚本：`node .tmp/t43-pw/t43-check.cjs`
+- 验证结果：
+  - `frontend npm run lint` 通过。
+  - `frontend npm run build` 通过，Vite 构建成功。
+  - `git diff --check` 通过，无 whitespace error；仅既有 LF/CRLF warning。
+  - 企业账号 `enterprise_demo / enterprise123456` 经同源代理真实登录成功，登录后访问 `/account`、`/account/certification`、`/account/deposits`、`/account/bids`、`/account/messages` 均成功。
+  - 上传意向金验证：脚本从公告详情选择 PDF 凭证上传，随后 `/account/deposits` 可见凭证/审核状态记录；`t43-browser-result.json` 中 `uploadResult.depositsVisible=true`、`depositRecordVisible=true`。
+  - 390px 验证：五个企业中心页面均 `innerWidth=390`、`documentScrollWidth=390`、`bodyScrollWidth=390`、`overflow=false`。
+  - 正常企业路径 console error=0。
+- 未完成事项：未提交、未 push；未清理本轮 `.tmp/t43-*` 临时服务脚本和 Playwright 临时依赖目录。
+- 阻塞问题：无。
+- 需要总控确认：后端企业意向金列表当前未返回 `voucherFileName/voucherFileUrl`，前端已兼容并提示“待后端返回附件链接”；如验收要求直接打开凭证，需要后端在 `GET /api/account/deposit-vouchers` 响应中带附件名称和 URL。
+
+## 2026-05-19 15:10 - T43D Stitch 全量复刻总体验收与缺口归档
+
+- 任务名称：T43D Stitch 全量复刻总体验收与缺口归档
+- 负责模块：总控验收 / Stitch 全量映射归档
+- 修改文件：
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：
+  - `docs/qa/t43-artifacts/t43d-smoke-result.json`
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；`git diff -- backend/prisma/schema.prisma` 无输出。
+- 是否修改业务代码：否
+- 是否修改 Prisma schema：否
+- 是否修改 Stitch 源文件：否；`stitch_document_to_webpage_generator/` 仅作为本地参考源，未纳入本轮提交范围。
+- 验收结论：
+  - 已读取 `docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`docs/qa/stitch-full-replication-plan.md`、`frontend/src/App.tsx`、`frontend/src/routes.ts` 和 `stitch_document_to_webpage_generator/**/code.html`。
+  - 已盘点 41 个 `code.html`；`_22/_23/pc/huaning_mineral_auction_platform_1-4` 的 SHA256 均为 `4B85358123E96C222E10562F24D104F7309C2763F469BF8159D7E974B2296B30`，明确归并为重复首页参考组。
+  - 首页变体明确：`_14/code.html` 为当前 `/` 智能交互门户首页主来源；`_3/code.html`、`_13/code.html` 作为视觉探索参考；`_22` 重复组作为旧首页数据区块与资源表参考。
+  - 门户 14 条路由、后台 16 条路由、企业中心 5 条路由均在 `frontend/src/App.tsx` 与 `frontend/src/routes.ts` 中存在；新增 `/resources`、`/resources/detail`、`/admin/login` 已确认可访问。
+  - 已检查 `docs/qa/t43-artifacts/`：门户 14 条 390px 截图、后台业务路由桌面/移动截图、后台登录截图、企业中心 5 条桌面/移动截图以及 T43 汇总 JSON 均存在。
+  - 已在 `docs/frontend-backend-integration-checklist.md` 新增 T43D 全量映射表，覆盖 41 个 `code.html` 的路由或重复/变体归并说明。
+  - 已在 `docs/task-board.md` 新增/更新 T41、T42、T43、T43A、T43B、T43C、T43D 状态。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan; git status --short --branch` 通过；当前 `main...origin/main [ahead 2]`，工作树仍混有前序 T33/T41/T43 业务与文档差异、未跟踪 `frontend/src/services/auth.ts`、`docs/qa/t43-artifacts/`、本地 `stitch_document_to_webpage_generator/`。
+  - `Set-Location E:/kuangchan; git diff --name-status` 通过；显示既有前序差异与本轮文档差异，未跟踪项不在该命令输出中。
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma` 无输出。
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅 LF/CRLF warning。
+  - Playwright 全路由 smoke test：使用生产构建 `frontend/dist`、同源静态代理 `http://127.0.0.1:5191/` 转发 `/api` 到当前可用后端 `http://127.0.0.1:3101`；先以 `admin/admin123456`、`enterprise_demo/enterprise123456` 真实登录获取 Bearer token，再覆盖 `routeCatalog` 35 条路由的桌面 1440px 与移动 390px，共 70 次检查，`failures=0`，结果写入 `docs/qa/t43-artifacts/t43d-smoke-result.json`。
+- 未完成/GAP：
+  - 本轮未提交、未 push。
+  - 当前工作树混有前序未提交业务差异；后续提交必须精确 stage，继续排除 `stitch_document_to_webpage_generator/` 和临时服务日志。
+- 阻塞问题：无。
+- 需要总控确认：是否将 T43A-T43D 前端与截图资产按单独提交范围提交；如提交，建议先清理/确认 `docs/qa/t43-artifacts/` 中临时日志与脚本是否纳入。
+
+## 2026-05-19 14:40 - T44 提交范围整理与任务状态校准
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 状态校准：
+  - `docs/agent-handoff.md` 已存在 `2026-05-19 11:17 - T33C 权限回归与完整主流程人工验收` 证据，覆盖账号密码验证码登录、Bearer 权限回归、错角色拦截、拍品发布审核、凭证上传审核、竞拍、成交、合同签约/完成确认、企业中心状态、数据看板、390px 验收和正常路径 console 检查。
+  - 已将 `docs/task-board.md` 中 `T33C` 从 TODO 校准为 DONE，将 `T33` 父任务从 IN_PROGRESS 校准为 DONE。
+  - T33C 记录中的尾款支付和签约地址仍保留为 PARTIAL/GAP，不误判为完整线上尾款或结构化签约地址已实现。
+  - 已登记 `T44` 为 DONE；本轮不改业务代码、不改 Prisma schema、不 stage、不 commit、不 push。
+- 建议提交批次：
+  - T33A 后端 JWT：stage `backend/prisma/seed.ts`、`backend/src/auth/auth.controller.ts`、`backend/src/auth/auth.service.ts`、`backend/src/auth/dto/login.dto.ts`、`backend/src/auth/jwt.service.ts`、`backend/src/auth/password.service.ts`、`backend/src/auth/auth.guard.ts`、`backend/src/auth/auth.module.ts`、`backend/src/auth/roles.guard.ts`、`backend/src/common/errors/app-exception.filter.ts`、`backend/src/common/errors/error-codes.ts`，以及 `docs/api-contract.md`、`docs/frontend-backend-integration-checklist.md`、`docs/task-board.md`、`docs/agent-handoff.md` 中 T33A/T33A 复核相关 hunks。
+  - T33B 前端 Bearer 登录态：stage `frontend/src/services/auth.ts`、`frontend/src/services/api.ts`、`frontend/src/pages/PortalPages.tsx`、`frontend/src/components/Layouts.tsx`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/index.css` 中 T33B hunks，以及文档中 T33B/T33B 复核相关 hunks；这些文件后续又被 T41/T42/T43 修改，建议 `git add -p` 分 hunk。
+  - T41/T42 主流程体验：stage `backend/src/files/files.controller.ts`、`backend/src/files/files.service.ts`、`backend/test/files/files.service.spec.ts` 中 `DEPOSIT_VOUCHER` 上传白名单/测试 hunks；stage `frontend/src/pages/AdminPages.tsx`、`frontend/src/pages/PortalPages.tsx`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/components/Layouts.tsx`、`frontend/src/services/api.ts`、`frontend/src/index.css` 中后台拍品表单、公告详情凭证、倒计时、待办审核、意向金审核入口和下一步反馈 hunks；stage 文档中 T41/T42 hunks。
+  - T43 Stitch 全量复刻：stage `frontend/src/App.tsx`、`frontend/src/routes.ts`、`frontend/src/pages/PortalPages.tsx`、`frontend/src/pages/AdminPages.tsx`、`frontend/src/pages/AccountPages.tsx`、`frontend/src/components/Layouts.tsx`、`frontend/src/services/api.ts`、`frontend/src/index.css` 中 T43A/T43B/T43C hunks；stage `docs/qa/t43-artifacts/` 中确认资产文件；stage 文档中 T43A/T43B/T43C/T43D hunks。
+- 必须排除：
+  - `backend/prisma/schema.prisma`。
+  - `stitch_document_to_webpage_generator/` 全目录。
+  - `docs/qa/stitch-latest-home/latest-home-react-desktop.png`、`docs/qa/stitch-latest-home/latest-home-react-mobile.png`。
+  - `docs/qa/t43-artifacts/t43-portal-check.cjs`、`docs/qa/t43-artifacts/t43-static-proxy.cjs`、`docs/qa/t43-artifacts/t43-preview-*.log`、`docs/qa/t43-artifacts/t43-preview-*.err.log`、`docs/qa/t43-artifacts/t43-static-proxy-*.log`、`docs/qa/t43-artifacts/t43-static-proxy-*.err.log`、`docs/qa/t43-artifacts/t43-voucher-fixture.pdf`、`docs/qa/t43-artifacts/t43-login-debug.png`。
+  - `.tmp/`、本地服务日志、未确认截图，以及任何未归属到上述批次的文件。
+- T43 artifacts 清点：
+  - 截图/报告：门户、后台、企业中心 `t43-*.png` 截图中除 `t43-login-debug.png` 外可作为 T43 验收资产；`t43-playwright-summary.json`、`t43-playwright-report.json`、`t43-browser-result.json`、`t43d-smoke-result.json` 为报告。
+  - 临时脚本/日志/夹具：`t43-portal-check.cjs`、`t43-static-proxy.cjs`、`t43-preview-*.log`、`t43-preview-*.err.log`、`t43-static-proxy-*.log`、`t43-static-proxy-*.err.log`、`t43-voucher-fixture.pdf`；`t43-login-debug.png` 为调试截图。
+- 风险：
+  - 当前工作树前端文件承载 T33B/T41/T42/T43 多轮 hunk，必须交互式 stage；直接 `git add frontend/src/...` 可能混批。
+  - `docs/agent-handoff.md`、`docs/frontend-backend-integration-checklist.md`、`docs/task-board.md` 也混有多轮文档 hunk，建议按提交批次拆分。
+  - `api.ts` 仍保留无 token 开发头 fallback，生产上线前需确认关闭或环境开关化。
+  - T33C 尾款支付与线下签约地址为已知 GAP/PARTIAL，不能在提交说明中宣称完整线上能力。
+
+## 2026-05-19 15:24 - T45 企业意向金凭证附件字段补齐
+- 修改文件：
+  - `backend/src/modules/account/account.service.ts`
+  - `backend/src/modules/account/account.types.ts`
+  - `backend/test/account/account.service.spec.ts`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `docs/api-contract.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改 Prisma schema：否
+- 接口字段变化：
+  - `GET /api/account/deposit-vouchers` 每条记录新增/补齐 `attachmentId`、`voucherFileName`、`voucherFileUrl`。
+  - 字段来自既有 `DepositVoucher.attachmentId -> Attachment` 关系，不新增 schema 字段。
+  - `voucherFileUrl` 继续使用既有附件 `fileUrl`，浏览/下载仍走 `GET /api/files/content/{id}` 的文件权限控制。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan/backend; npm test -- account.service.spec.ts`：先失败，确认旧实现只 `include: { lot: true }`，未返回附件字段；实现后通过，6 个用例通过。
+  - `Set-Location E:/kuangchan/backend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`：通过。
+  - `Set-Location E:/kuangchan/backend; npm test`：通过，25 个测试套件、87 个用例通过。
+  - `Set-Location E:/kuangchan/frontend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build`：通过，Vite 构建成功。
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`：无输出。
+  - `Set-Location E:/kuangchan; git diff --check`：通过，无 whitespace error；仅既有 LF/CRLF warning。
+- 浏览器验证结果：
+  - 使用当前源码后端 `http://127.0.0.1:3125/api` 与生产构建同源代理 `http://127.0.0.1:5185/`。
+  - 企业账号 `enterprise_demo / enterprise123456` 登录成功。
+  - 在 `华宁磷矿石竞价标的一` 上传 PDF 意向金凭证后，`GET /api/account/deposit-vouchers?pageSize=100` 返回该记录的 `attachmentId=f82ef47d-b176-43a2-a87f-1bca7742d86c`、`voucherFileName=t45-voucher-1779175429975.pdf`、`voucherFileUrl=http://127.0.0.1:5185/api/files/content/5b30ede8-2a22-4e77-b563-c2db84d64812`。
+  - `/account/deposits` 页面可见凭证文件名、真实链接和“查看凭证”按钮。
+  - 直接访问凭证链接返回 `200`，`Content-Type=application/pdf`；Playwright console error 为 0。
+- 风险：
+  - 当前工作树仍混有 T33/T41/T43 等前序未提交差异，以及 `.tmp/` 临时浏览器验证脚本/日志；提交 T45 时需精确 stage，排除 `.tmp/`、`stitch_document_to_webpage_generator/` 和无关前序 hunk。
+  - 页面仍保留“待后端返回附件链接”作为旧接口/异常数据兼容提示；新后端路径下不会命中。
+
+## 2026-05-19 16:17 - T46B 线下签约与尾款确认 Stitch 流程补齐
+- 修改文件：
+  - `frontend/src/App.tsx`
+  - `frontend/src/routes.ts`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/services/api.ts`
+  - `frontend/src/index.css`
+  - `docs/api-contract.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t46-artifacts/t46b-browser-report.json`
+  - `docs/qa/t46-artifacts/t46b-admin-contracts-390.png`
+  - `docs/qa/t46-artifacts/t46b-admin-progress-390.png`
+  - `docs/qa/t46-artifacts/t46b-account-winning-detail-390.png`
+- 使用的 Stitch 源：
+  - `stitch_document_to_webpage_generator (1)/stitch_document_to_webpage_generator/_1/code.html`：中标后办理详情页
+  - `stitch_document_to_webpage_generator (1)/stitch_document_to_webpage_generator/_2/code.html`：合同与尾款确认详情抽屉
+  - `stitch_document_to_webpage_generator (1)/stitch_document_to_webpage_generator/_3/code.html`：全流程操作进度页
+- 是否修改后端：否
+- 是否修改 Prisma schema：否
+- 新增/调整路由：
+  - 新增 `/account/winning-detail`
+  - 新增 `/admin/lots/progress`
+  - `/results/detail` 增加“查看办理详情”入口
+  - `/account/messages` 成交通知增加“查看办理详情”入口
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build`：通过，Vite 构建成功。
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`：无输出。
+  - `Set-Location E:/kuangchan; git diff --check`：通过，无 whitespace error；仅既有 LF/CRLF warning。
+- 浏览器验收结果：
+  - 使用当前可用后端 `http://127.0.0.1:3101/api`，生产构建静态代理 `http://127.0.0.1:5196/`。
+  - 管理员 `admin/admin123456` 登录成功，进入 `/admin/contracts` 可见合同列表和“合同与尾款确认详情”抽屉。
+  - 点击“确认尾款已线下支付并完成”出现二次确认：“系统不处理线上资金，仅记录管理员已核验线下尾款支付凭证，请确认是否继续？”；脚本为避免重复修改真实数据选择取消确认。
+  - 企业 `enterprise_demo/enterprise123456` 登录成功；`/account/messages` 与 `/results/detail` 均可见“查看办理详情”入口。
+  - `/account/winning-detail` 可展示流程条、签约信息、尾款说明，并根据真实 `lotStatusCode=COMPLETED` 展示“已完成确认”。
+  - `/admin/lots/progress` 可访问，页面明确标注“节点根据当前 lot/result/contract 数据生成，不代表独立操作记录接口”。
+  - 390px 覆盖 `/account/winning-detail`、`/admin/contracts`、`/admin/lots/progress`，`documentScrollWidth=390`、`bodyScrollWidth=390`，无横向溢出。
+  - 正常路径 console error=0，报告见 `docs/qa/t46-artifacts/t46b-browser-report.json`。
+- 未完成/GAP：
+  - 后端没有独立签约地址、联系人、收款账户、尾款凭证上传或完整操作记录接口；本轮按要求不改后端，用前端固定线下办理说明与现有状态做最小表达。
+  - `/admin/lots/progress` 中意向金提交/审核节点没有读取完整凭证记录接口，仅按后续业务状态推导并在节点说明中标注。
+  - 当前真实合同已是已完成状态，浏览器脚本未真正提交 `mark-signed` 或 `mark-completed`，只验证按钮和二次确认弹窗；避免对现有真实验收数据重复写状态。
+- 风险：
+  - 当前工作树混有前序 T33/T41/T43/T45 未提交差异；提交 T46B 时需精确 stage，排除 `.tmp/`、`stitch_document_to_webpage_generator/` 和不属于本任务的后端/组件 hunk。
+  - 企业办理页的签约/收款信息为平台固定说明，不是后端结构化字段；如后续要求按项目动态配置，需要新增后端字段或接口。
+
+## 2026-05-19 15:47 - T46A 通用状态组件 Stitch 规范落地
+- 修改文件：
+  - `frontend/src/components/StatusViews.tsx`
+  - `frontend/src/components/DataTable.tsx`
+  - `frontend/src/components/Layouts.tsx`
+  - `frontend/src/pages/PortalPages.tsx`
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/pages/AccountPages.tsx`
+  - `frontend/src/index.css`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+  - `docs/qa/t46-artifacts/**`
+- 使用的 Stitch 源：
+  - 用户在会话中提供的 `_4/code.html`：`华宁矿产竞拍平台 - 交互状态规范`。
+  - 本地 `stitch_document_to_webpage_generator (1)/stitch_document_to_webpage_generator/_4/screen.png`；该本地 `_4` 目录仅发现 `screen.png`，未发现 `code.html`。
+- 是否修改后端：否
+- 是否修改 Prisma schema：否
+- 接入页面：
+  - `/account` 未登录状态：统一 `LoginRequiredState`。
+  - `/admin/dashboard` 企业身份访问：统一 `ForbiddenState`。
+  - `/admin/dashboard` 待办加载中/加载失败：`TableSkeleton` / `ErrorState`。
+  - 后台通用列表与 `/admin/reviews/deposits` 401/403：统一 `ErrorState`。
+  - `/account/certification` 企业认证待审核：统一 `PendingReviewState`。
+  - `/resources`、`/auctions/live`、企业中心通知/小列表空数据：统一 `EmptyState`。
+- 验证结果：
+  - `Set-Location E:/kuangchan/frontend; npm run lint` 通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build` 通过。
+  - `Set-Location E:/kuangchan; git diff --check` 通过，无 whitespace error；仅既有 LF/CRLF warning。
+  - 生产构建预览 `http://127.0.0.1:5196/` 下用本机 Chrome + Playwright 验证：`/account` 显示“请先登录”；企业身份访问 `/admin/dashboard` 显示“无权访问”；企业认证待审核访问 `/account/certification` 显示“资料审核中”；空 `GET /api/lots` 响应下 `/auctions/live` 显示“暂无相关数据”。
+  - 390px 验证：上述 4 条路径均 `innerWidth=390`、`documentElement.scrollWidth=390`、`body.scrollWidth=390`，无横向溢出。
+  - 正常路径 console error=0；浏览器报告写入 `docs/qa/t46-artifacts/t46-browser-report.json`，截图写入同目录。
+- 风险：
+  - 本轮仅小范围接入高频页面，没有替换全站所有旧 `.empty-state` 文案，符合“不做大范围重构”。
+  - 后台普通接口失败仍按既有策略回退 mock；只有 401/403 和待办失败显式展示统一失败状态，避免破坏真实 API/fallback 逻辑。
+  - 当前工作树仍混有前序 T33/T41/T43/T45 等未提交差异；提交 T46A 时需精确 stage 本轮文件和 `docs/qa/t46-artifacts/`，排除 `.tmp/`、`stitch_document_to_webpage_generator/`。
+
+## 2026-05-19 15:52 - T46A 环境问题回传：命令窗口与 Playwright 验证注意事项
+- 任务名称：T46A 运行环境问题回传
+- 负责模块：前端状态组件 / 浏览器验证
+- 修改文件：
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`
+- 本轮遇到的问题与解决方法：
+  - Windows PowerShell 中用 `Start-Process -FilePath npm ...` 启动 Vite preview 失败，报 `%1 不是有效的 Win32 应用程序`。原因是 Windows 下 `npm` 实际走 shim/cmd，`Start-Process` 直接找 `npm` 容易解析到不可执行目标。解决：使用 `Start-Process -FilePath npm.cmd -ArgumentList @('run','preview','--','--host','127.0.0.1','--port','5196') ...`。
+  - `Start-Process -RedirectStandardOutput` 的日志目标目录必须预先存在，否则会失败：`Could not find a part of the path ... t46-preview.log`。解决：先 `New-Item -ItemType Directory -Force docs/qa/t46-artifacts`，再启动服务。
+  - `npx --yes --package playwright node script.cjs` 和 `npx --yes -p playwright -c "node script.cjs"` 在本机 Windows/Node 组合下没有让外部脚本成功 `require('playwright')`，报 `Cannot find module 'playwright'`。原因是临时包的 `node_modules` 不一定进入外部脚本模块解析路径。解决：复用本地已有临时依赖目录，设置 `NODE_PATH=E:/kuangchan/.tmp/t43-pw/node_modules` 后运行脚本；或后续可直接在 `.tmp/<task>-pw` 下执行 `npm init -y && npm i playwright`，但不要改项目 `package.json`。
+  - 复用 `.tmp/t43-pw/node_modules/playwright` 后，Playwright 默认 Chromium 缓存缺失，报 `Executable doesn't exist at C:\Users\JM\AppData\Local\ms-playwright\chromium_headless_shell-...`。解决：不要立即下载浏览器，优先使用本机 Chrome：`chromium.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' })`。本机也可检查 Edge：`C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`。
+  - 用纯 `vite preview` 访问生产构建时，页面真实 API 请求 `/api/**` 若无后端代理会返回 404，console 出现多条 `Failed to load resource`，影响“正常路径 console error=0”。解决：浏览器验证脚本里用 Playwright `context.route('**/api/**', ...)` 提供最小 JSON mock，并拦截 `**/favicon.ico` 返回 204，避免 404 噪声。
+  - 前端 `api.fetchLots()` 期望响应形状为 `{ items, total, page, pageSize }`，不是裸数组。第一次 mock `/api/lots` 返回 `[]`，触发前端 fallback，导致空状态没有出现。解决：按接口契约返回 `{ items: [], total: 0, page: 1, pageSize: 100 }`；`/api/contents`、`/api/results` 同理。
+  - 通过并行工具同时跑 lint/build/diff 和文件清理时，曾出现一次 `AdminPages.tsx` 读取到中间态导致 build 报 helper 未定义；单独 `npx tsc -b --pretty false` 随后通过。建议后续在刚完成文件写入后，不要把最终验证命令和清理/写文件类操作并行，最终三条命令应串行或至少确保没有并发写入。
+  - 停 Vite preview 时，可用 `Get-NetTCPConnection -LocalPort <port>` 找 `OwningProcess` 后 `Stop-Process -Id <pid> -Force`。端口检查命令无输出/退出非 0 通常表示端口已释放，不是业务失败。
+- 后续 agent 建议：
+  - Windows 下启动 npm 脚本统一优先使用 `npm.cmd`。
+  - 任何重定向日志路径先建目录。
+  - 浏览器验证如果不需要真实后端，优先在 Playwright 层 mock `/api/**`，并严格按 `frontend/src/services/api.ts` 的响应形状返回。
+  - Playwright 包/浏览器运行时优先复用已有 `.tmp/t43-pw/node_modules/playwright` + 系统 Chrome；不要把 Playwright 加入前端项目依赖，除非任务明确要求。
+  - 最终验证命令 `npm run lint`、`npm run build`、`git diff --check` 建议在所有文件写入结束后重新串行跑一遍，以最终输出为准。
+- 验证命令：无业务验证；本记录为环境问题回传。
+- 验证结果：已追加到 handoff。
+- 未完成事项：无
+- 阻塞问题：无
+- 需要总控确认：是否将上述 Playwright/Windows 运行约定写入项目级 AGENTS 或后续任务模板。
+
+## 2026-05-19 16:36 - T47 生产认证与本地运行入口收口
+- 修改文件：
+  - `backend/src/auth/auth.guard.ts`
+  - `backend/src/main.ts`
+  - `backend/src/auth/auth.guard.spec.ts`
+  - `frontend/src/services/api.ts`
+  - `frontend/vite.config.ts`
+  - `docs/api-contract.md`
+  - `docs/frontend-backend-integration-checklist.md`
+  - `docs/qa/local-runbook.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改 Prisma schema：否
+- 推荐本地端口：
+  - 后端：`3101`
+  - 前端：`5173`
+  - 前端 dev `/api/**` 代理到 `http://127.0.0.1:3101`，保留 `/api` 前缀。
+- 开发头环境开关：
+  - 后端：`DEV_AUTH_HEADERS_ENABLED=true` 时才接受 `x-user-id/x-user-role`。
+  - 前端：`VITE_DEV_AUTH_HEADERS_ENABLED=true` 且无 token 时才发送开发头。
+  - Bearer JWT 始终优先；开发头角色仅允许 `ADMIN` / `ENTERPRISE`。
+- 验证命令与真实结果：
+  - `Set-Location E:/kuangchan/backend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`：通过。
+  - `Set-Location E:/kuangchan/backend; npm test`：默认环境失败，4 个既有 HTTP/DB 测试仍默认使用开发头，按 T47 默认关闭开发头后返回 401；新增 `src/auth/auth.guard.spec.ts` 通过并覆盖默认拒绝、显式开启、非法角色拒绝和 Bearer 优先。
+  - `Set-Location E:/kuangchan/backend; $env:DEV_AUTH_HEADERS_ENABLED='true'; npm test`：通过，26 个测试套件、91 个用例通过，确认历史开发头联调能力保留。
+  - `Set-Location E:/kuangchan/frontend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/frontend; npm run build`：通过。
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`：无输出。
+  - `Set-Location E:/kuangchan; git diff --check`：通过，无 whitespace error；仅既有 LF/CRLF warning。
+- HTTP 验证结果：
+  - 默认后端 `DEV_AUTH_HEADERS_ENABLED` 未设置，`POST http://127.0.0.1:3101/api/auth/login`：`admin / admin123456` 返回 201，`enterprise_demo / enterprise123456` 返回 201。
+  - 无 token 访问 `GET /api/account/profile` 返回 401。
+  - 默认环境仅带 `x-user-id/x-user-role: ADMIN` 访问 `GET /api/admin/lots?pageSize=1` 返回 401。
+  - ENTERPRISE Bearer 访问 `GET /api/admin/lots?pageSize=1` 返回 403。
+  - ADMIN Bearer 访问 `GET /api/admin/lots?pageSize=1` 返回 200。
+  - ENTERPRISE Bearer 访问 `GET /api/account/profile` 返回 200。
+  - 显式开启 `DEV_AUTH_HEADERS_ENABLED=true` 后，仅带 ADMIN 开发头访问后台返回 200，仅带 ENTERPRISE 开发头访问 account 返回 200，`x-user-role: GUEST` 返回 401。
+  - 前端 dev 代理验证：`POST http://127.0.0.1:5173/api/auth/login` 返回 201，未出现 `/api/auth/login` 404。
+- 浏览器验证结果：
+  - 后端 `3101`、前端 `5173`，默认关闭开发头。
+  - Playwright 使用本机 Chrome 打开 `http://127.0.0.1:5173/login`，企业 `enterprise_demo / enterprise123456` 登录成功并跳转 `/account`，Bearer 探针 `GET /api/account/profile` 返回 200。
+  - 打开 `http://127.0.0.1:5173/admin/login`，管理员 `admin / admin123456` 登录成功并跳转 `/admin/dashboard`，Bearer 探针 `GET /api/admin/lots?pageSize=1` 返回 200。
+  - `/api/auth/login` 响应状态为 201、201，404 次数为 0。
+  - 正常路径 console error=0。
+  - 390px 首页、登录页、后台首页宽度检查均为 `innerWidth=390`、`documentElement.scrollWidth=390`、`body.scrollWidth=390`，无横向溢出。
+- 未完成/GAP：
+  - 既有 HTTP/DB e2e 测试默认仍依赖开发头，导致默认 `npm test` 按新生产口径失败；本轮受允许修改范围限制未改 `backend/test/**`。后续建议将这些 e2e 用例改为 Bearer 登录，或在测试前置中显式设置 `DEV_AUTH_HEADERS_ENABLED=true`。
+  - 裸 `npm run start` 若当前 shell 已残留 `PORT=3000` 会继续使用该环境变量；推荐验证命令显式设置 `$env:PORT='3101'` 或清理旧 `PORT`。
+- 风险：
+  - 当前工作树仍混有 T33/T41/T43/T45/T46 等前序未提交差异，提交时必须精确 stage，排除 `backend/prisma/schema.prisma`、`.tmp/`、`stitch_document_to_webpage_generator/` 和无关资产。
+  - `VITE_API_BASE_URL` 仍可覆盖默认 `/api`，若人为设为旧临时端口，仍可能绕过推荐入口；文档已标注本地默认优先同源 `/api`。
+
+## 2026-05-19 16:53 - T47B 后端 E2E 测试认证口径迁移
+- 修改文件：
+  - `backend/test/e2e/auth-test-helpers.ts`
+  - `backend/test/e2e/main-flow-http-db.spec.ts`
+  - `backend/test/e2e/auction-closing-http-db.spec.ts`
+  - `backend/test/e2e/upload-http-db.spec.ts`
+  - `backend/test/e2e/sensitive-files-http-db.spec.ts`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改业务代码：否
+- 是否修改 Prisma schema：否
+- 迁移测试：
+  - 4 个 HTTP/DB e2e 默认环境均改为先 `POST /api/auth/login` 获取测试账号 token，再用 `Authorization: Bearer <token>` 访问受保护接口。
+  - 新增 `backend/test/e2e/auth-test-helpers.ts`，统一测试密码哈希与登录取 token。
+  - e2e seed 用户更新为真实 scrypt 密码哈希；企业账号按登录要求预绑定测试企业，再继续覆盖原注册/审核/竞价/附件流程。
+  - `auction-closing-http-db.spec.ts` 中企业 Bearer 访问管理员接口期望调整为正式认证口径 `403`。
+  - AuthGuard 单测保留，继续覆盖默认拒绝开发头、`DEV_AUTH_HEADERS_ENABLED=true` 允许开发头、非法角色拒绝、Bearer 优先。
+- 默认 npm test 结果：
+  - `Set-Location E:/kuangchan/backend; npm test`：通过，26 个测试套件、91 个用例通过。
+- DEV_AUTH_HEADERS_ENABLED=true npm test 结果：
+  - `Set-Location E:/kuangchan/backend; $env:DEV_AUTH_HEADERS_ENABLED='true'; npm test`：通过，26 个测试套件、91 个用例通过。
+- 其他验证：
+  - `Set-Location E:/kuangchan/backend; npm run lint`：通过。
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`：通过。
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`：无输出。
+  - `Set-Location E:/kuangchan; git diff --check`：通过，无 whitespace error；仅既有 LF/CRLF warning。
+- 风险：
+  - 当前工作树仍混有 T33/T41/T43/T45/T46/T47 等前序未提交差异；提交时需精确 stage 本轮 5 个 e2e 测试文件和 handoff 追加记录，排除业务代码、前端、Prisma schema、`.tmp/`、Stitch 源目录和无关资产。
+  - 本轮完整 `npm test` 必须串行运行；并行跑默认与 `DEV_AUTH_HEADERS_ENABLED=true` 两套 e2e 会共享同一测试数据库并互相清理数据，可能产生无效失败。
+
+## 2026-05-19 17:19 - T48 最终全流程人工验收与发布前缺口清单
+
+- 任务名称：T48 最终全流程人工验收与发布前缺口清单
+- 负责模块：最终 QA / 发布前验收
+- 修改文件：
+  - `docs/qa/main-flow-acceptance.md`
+  - `docs/agent-handoff.md`
+- 新增文件：
+  - `docs/qa/t48-artifacts/t48-manual-browser-report.json`
+  - `docs/qa/t48-artifacts/t48-browser-report.json`
+  - `docs/qa/t48-artifacts/*.png`
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；`git diff -- backend/prisma/schema.prisma` 无输出
+- 固定入口：
+  - 后端 `http://127.0.0.1:3101`
+  - 前端 `http://127.0.0.1:5173`
+  - 未使用临时代理
+- 验收数据：
+  - 主人工口径验收拍品：`6a60c2d4-364b-42d4-811b-c1f264da475d`，`T48-MANUAL-20260519091748-人工口径验收标的`
+  - 主人工口径成交结果：`de853958-8680-4695-a4a2-5d8733787c70`
+  - 主人工口径合同：`b84b2ac4-e08b-40e3-89ba-6e856499b15a`
+  - 辅助 API 全流程拍品：`fae3b802-07b5-43b2-ade8-58a1728570d1`
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - Playwright/Chrome 浏览器验收，证据写入 `docs/qa/t48-artifacts/`
+- 验证结果：
+  - `backend npm run lint` 通过。
+  - `backend npm run typecheck` 通过。
+  - `backend npm test` 通过，26 个测试套件、91 个用例通过。
+  - `frontend npm run lint` 通过。
+  - `frontend npm run build` 通过。
+  - `git diff -- backend/prisma/schema.prisma` 无输出。
+  - `git diff --check` 通过，无 whitespace error；仅既有 LF/CRLF warning。
+  - 主人工口径浏览器验收 `t48-manual-browser-report.json`：console error=0，failedRequests=0，390px width failures=0，截图 34 张。
+  - 辅助全流程浏览器验收 `t48-browser-report.json`：console error=0，failedRequests=0，390px width failures=0，截图 31 张。
+  - 最终一致性：成交公示 `已公示`、合同 `已完成`、拍品 `已完成`、看板 totals `3 / 330`。
+- 未完成事项：
+  - 竞拍结拍仍无前端页面按钮；本轮使用既有管理员 HTTP 入口 `POST /api/admin/auction-closing/run`，按验收流程“管理员触发结拍或等待结束”归为非阻塞缺口。
+  - `backend/.env` 仍含 `PORT=3000`，本轮使用已运行的 `3101` 固定入口；后续裸启动需显式确认端口。
+  - 工作树仍混有 T45/T46/T47/T47B 等前序未提交差异；发布提交需精确 stage。
+- 阻塞问题：无；本轮未发现 BLOCKER。
+- 需要总控确认：
+  - 是否按 T48 结论进入发布提交/PR 准备。
+  - 是否在发布说明保留“结拍通过管理员 HTTP 入口或运维定时触发”的操作口径。

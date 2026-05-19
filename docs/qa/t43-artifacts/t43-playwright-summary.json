@@ -1,0 +1,156 @@
+[
+  {
+    "route": "/",
+    "screenshot": "t43-home-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "华宁矿产资源公共交易与数字服务平台"
+  },
+  {
+    "route": "/resources",
+    "screenshot": "t43-resources-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "矿产资源 - 华宁矿产竞拍平台"
+  },
+  {
+    "route": "/resources/detail",
+    "screenshot": "t43-resources-detail-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "资源详情 - 华宁矿产竞拍平台"
+  },
+  {
+    "route": "/announcements/upcoming",
+    "screenshot": "t43-upcoming-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/announcements/upcoming/detail",
+    "screenshot": "t43-upcoming-detail-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/auctions/live",
+    "screenshot": "t43-live-auctions-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/auctions/live/detail",
+    "screenshot": "t43-live-auction-detail-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/results",
+    "screenshot": "t43-results-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/results/detail",
+    "screenshot": "t43-result-detail-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/news",
+    "screenshot": "t43-news-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/news/detail",
+    "screenshot": "t43-news-detail-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/disclosures",
+    "screenshot": "t43-disclosures-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/login",
+    "screenshot": "t43-login-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  },
+  {
+    "route": "/enterprise/register",
+    "screenshot": "t43-enterprise-register-390.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "overflow": false,
+    "innerWidth": 390,
+    "documentScrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "title": "frontend"
+  }
+]

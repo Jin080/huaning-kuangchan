@@ -1,0 +1,79 @@
+{
+  "baseUrl": "http://127.0.0.1:5196",
+  "generatedAt": "2026-05-19T07:46:52.374Z",
+  "failures": [],
+  "results": [
+    {
+      "name": "t46-account-unauth-390",
+      "route": "/account",
+      "consoleErrorCount": 0,
+      "consoleErrors": [],
+      "badResponses": [],
+      "overflow": false,
+      "containsLoginRequired": true,
+      "containsForbidden": false,
+      "containsPendingReview": false,
+      "containsEmpty": false,
+      "snapshot": {
+        "href": "http://127.0.0.1:5196/account",
+        "width": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      }
+    },
+    {
+      "name": "t46-admin-enterprise-forbidden-390",
+      "route": "/admin/dashboard",
+      "consoleErrorCount": 0,
+      "consoleErrors": [],
+      "badResponses": [],
+      "overflow": false,
+      "containsLoginRequired": false,
+      "containsForbidden": true,
+      "containsPendingReview": false,
+      "containsEmpty": false,
+      "snapshot": {
+        "href": "http://127.0.0.1:5196/admin/dashboard",
+        "width": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      }
+    },
+    {
+      "name": "t46-account-cert-pending-390",
+      "route": "/account/certification",
+      "consoleErrorCount": 0,
+      "consoleErrors": [],
+      "badResponses": [],
+      "overflow": false,
+      "containsLoginRequired": false,
+      "containsForbidden": false,
+      "containsPendingReview": true,
+      "containsEmpty": false,
+      "snapshot": {
+        "href": "http://127.0.0.1:5196/account/certification",
+        "width": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      }
+    },
+    {
+      "name": "t46-portal-empty-live-390",
+      "route": "/auctions/live",
+      "consoleErrorCount": 0,
+      "consoleErrors": [],
+      "badResponses": [],
+      "overflow": false,
+      "containsLoginRequired": false,
+      "containsForbidden": false,
+      "containsPendingReview": false,
+      "containsEmpty": true,
+      "snapshot": {
+        "href": "http://127.0.0.1:5196/auctions/live",
+        "width": 390,
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390
+      }
+    }
+  ]
+}

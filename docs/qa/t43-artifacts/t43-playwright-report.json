@@ -1,0 +1,276 @@
+{
+  "errors": [],
+  "overflow": [],
+  "results": [
+    {
+      "route": "/admin/dashboard",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/dashboard",
+      "overflow": false
+    },
+    {
+      "route": "/admin/lots",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/lots",
+      "overflow": false
+    },
+    {
+      "route": "/admin/lots/edit",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/lots/edit",
+      "overflow": false
+    },
+    {
+      "route": "/admin/reviews/lots",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/reviews/lots",
+      "overflow": false
+    },
+    {
+      "route": "/admin/reviews/enterprises",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/reviews/enterprises",
+      "overflow": false
+    },
+    {
+      "route": "/admin/reviews/deposits",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/reviews/deposits",
+      "overflow": false
+    },
+    {
+      "route": "/admin/bids",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/bids",
+      "overflow": false
+    },
+    {
+      "route": "/admin/results",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/results",
+      "overflow": false
+    },
+    {
+      "route": "/admin/contracts",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/contracts",
+      "overflow": false
+    },
+    {
+      "route": "/admin/refunds",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/refunds",
+      "overflow": false
+    },
+    {
+      "route": "/admin/blacklist",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/blacklist",
+      "overflow": false
+    },
+    {
+      "route": "/admin/content",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/content",
+      "overflow": false
+    },
+    {
+      "route": "/admin/notifications",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/notifications",
+      "overflow": false
+    },
+    {
+      "route": "/admin/files",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/files",
+      "overflow": false
+    },
+    {
+      "route": "/admin/logs",
+      "viewport": "desktop",
+      "innerWidth": 1440,
+      "docScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "path": "/admin/logs",
+      "overflow": false
+    },
+    {
+      "route": "/admin/dashboard",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/dashboard",
+      "overflow": false
+    },
+    {
+      "route": "/admin/lots",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/lots",
+      "overflow": false
+    },
+    {
+      "route": "/admin/lots/edit",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/lots/edit",
+      "overflow": false
+    },
+    {
+      "route": "/admin/reviews/lots",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/reviews/lots",
+      "overflow": false
+    },
+    {
+      "route": "/admin/reviews/enterprises",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/reviews/enterprises",
+      "overflow": false
+    },
+    {
+      "route": "/admin/reviews/deposits",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/reviews/deposits",
+      "overflow": false
+    },
+    {
+      "route": "/admin/bids",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/bids",
+      "overflow": false
+    },
+    {
+      "route": "/admin/results",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/results",
+      "overflow": false
+    },
+    {
+      "route": "/admin/contracts",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/contracts",
+      "overflow": false
+    },
+    {
+      "route": "/admin/refunds",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/refunds",
+      "overflow": false
+    },
+    {
+      "route": "/admin/blacklist",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/blacklist",
+      "overflow": false
+    },
+    {
+      "route": "/admin/content",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/content",
+      "overflow": false
+    },
+    {
+      "route": "/admin/notifications",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/notifications",
+      "overflow": false
+    },
+    {
+      "route": "/admin/files",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/files",
+      "overflow": false
+    },
+    {
+      "route": "/admin/logs",
+      "viewport": "390px",
+      "innerWidth": 390,
+      "docScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "path": "/admin/logs",
+      "overflow": false
+    }
+  ]
+}

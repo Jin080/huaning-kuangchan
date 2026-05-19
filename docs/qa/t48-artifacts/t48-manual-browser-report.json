@@ -1,0 +1,499 @@
+{
+  "task": "T48 final manual-oriented browser acceptance",
+  "runId": "T48-MANUAL-20260519091748",
+  "entrypoints": {
+    "backend": "http://127.0.0.1:3101",
+    "frontend": "http://127.0.0.1:5173"
+  },
+  "createdLot": {
+    "id": "6a60c2d4-364b-42d4-811b-c1f264da475d",
+    "title": "T48-MANUAL-20260519091748-人工口径验收标的",
+    "resultId": "de853958-8680-4695-a4a2-5d8733787c70",
+    "contractId": "b84b2ac4-e08b-40e3-89ba-6e856499b15a"
+  },
+  "closing": {
+    "checkedLots": 1,
+    "closedLots": 1,
+    "endedWithoutBids": 0,
+    "skippedLots": 0
+  },
+  "dashboard": {
+    "currentYearCompletedCount": 3,
+    "currentYearCompletedAmount": "330",
+    "totalCompletedCount": 3,
+    "totalCompletedAmount": "330"
+  },
+  "consistency": {
+    "resultStatus": "已公示",
+    "contractStatus": "已完成",
+    "lotStatus": "已完成",
+    "dashboardTotalCompletedCount": 3,
+    "dashboardTotalCompletedAmount": "330"
+  },
+  "uiChecks": [
+    {
+      "path": "/resources",
+      "containsLot": true
+    },
+    {
+      "path": "/announcements/upcoming",
+      "containsLot": true
+    },
+    {
+      "path": "/auctions/live",
+      "containsLot": true
+    },
+    {
+      "path": "/account/messages",
+      "containsWinNotice": true
+    }
+  ],
+  "widthChecks": [
+    {
+      "path": "/admin/lots/edit",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/reviews/lots",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/resources",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/announcements/upcoming",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/announcements/upcoming/detail?id=6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/reviews/deposits",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/lots",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/auctions/live",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/auctions/live/detail?id=6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/results",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/account/messages",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/account/winning-detail?id=de853958-8680-4695-a4a2-5d8733787c70",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/contracts",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/account/winning-detail?id=de853958-8680-4695-a4a2-5d8733787c70",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/contracts",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/account/winning-detail?id=de853958-8680-4695-a4a2-5d8733787c70",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/results",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/dashboard",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/admin/contracts",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "innerWidth": 1280,
+      "documentScrollWidth": 1280,
+      "bodyScrollWidth": 1280,
+      "ok": true
+    },
+    {
+      "path": "/",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    },
+    {
+      "path": "/login",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    },
+    {
+      "path": "/announcements/upcoming/detail?id=6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    },
+    {
+      "path": "/auctions/live/detail?id=6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    },
+    {
+      "path": "/admin/dashboard",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    },
+    {
+      "path": "/admin/contracts",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    },
+    {
+      "path": "/account/winning-detail?id=de853958-8680-4695-a4a2-5d8733787c70",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "innerWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "ok": true
+    }
+  ],
+  "screenshots": [
+    "manual-01-admin-dashboard-after-login.png",
+    "manual-02-admin-lot-edit-empty.png",
+    "manual-03-admin-lot-edit-files-filled.png",
+    "manual-04-admin-lot-submitted-list.png",
+    "manual-05-admin-lot-review.png",
+    "manual-06-portal-home.png",
+    "manual-07-resources.png",
+    "manual-08-upcoming-list.png",
+    "manual-09-announcement-detail-before-deposit.png",
+    "manual-10-announcement-detail-deposit-submitted.png",
+    "manual-11-admin-deposit-review.png",
+    "manual-12-admin-lots-before-bidding.png",
+    "manual-13-live-list.png",
+    "manual-14-live-detail-before-bid.png",
+    "manual-15-live-detail-after-bid.png",
+    "manual-16-admin-result-generated.png",
+    "manual-17-account-winning-message.png",
+    "manual-18-winning-detail-pending-sign.png",
+    "manual-19-admin-contracts-pending.png",
+    "manual-20-admin-contracts-signed.png",
+    "manual-21-winning-detail-signed-tail-payment.png",
+    "manual-22-admin-contracts-before-complete.png",
+    "manual-23-admin-contracts-completed.png",
+    "manual-24-winning-detail-completed.png",
+    "manual-25-public-results-consistent.png",
+    "manual-26-admin-dashboard-consistent.png",
+    "manual-27-admin-contracts-consistent.png",
+    "manual-m01-home.png",
+    "manual-m02-login.png",
+    "manual-m03-announcement-detail.png",
+    "manual-m04-auction-detail.png",
+    "manual-m05-admin-dashboard.png",
+    "manual-m06-admin-contracts.png",
+    "manual-m07-winning-detail.png"
+  ],
+  "consoleErrorCount": 0,
+  "consoleMessages": [],
+  "failedRequests": [],
+  "apiLog": [
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 201,
+      "ok": true
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 201,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/lots?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/lots/6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/reviews/deposits",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/reviews/deposits",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/lots/6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/lots/6a60c2d4-364b-42d4-811b-c1f264da475d",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "POST",
+      "path": "/admin/auction-closing/run",
+      "status": 201,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/results?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/results?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/contracts?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/contracts?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/contracts?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/portal/dashboard",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/results?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/contracts?pageSize=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/lots?pageSize=100",
+      "status": 200,
+      "ok": true
+    }
+  ]
+}
