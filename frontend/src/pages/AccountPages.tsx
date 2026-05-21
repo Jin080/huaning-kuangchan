@@ -4,7 +4,7 @@ import { ButtonRow } from '../components/Button';
 import { DataTable } from '../components/DataTable';
 import { AccountLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
-import { EmptyState, PendingReviewState } from '../components/StatusViews';
+import { CardSkeleton, EmptyState, ErrorState, PendingReviewState, TableSkeleton } from '../components/StatusViews';
 import { navigateTo } from '../navigation';
 import { ApiError, api, type AccountCertificationRecord, type ResultWorkflowRecord } from '../services/api';
 import type { AccountProfile, BidRecord, DepositRecord, NotificationRecord, StatusTone } from '../types';
@@ -16,42 +16,43 @@ type DepositRecordWithVoucher = DepositRecord & {
   voucherFileName?: string;
   voucherFileUrl?: string;
 };
+type AccountRequestState = 'loading' | 'ready' | 'error' | 'unauthorized' | 'forbidden';
 
 const defaultProfile: AccountProfile = {
-  id: 'mock-account',
-  username: 'mock',
-  enterpriseName: '中核华原钛白股份有限公司',
-  certificationStatus: '待审核',
+  id: '',
+  username: '-',
+  enterpriseName: '未加载企业信息',
+  certificationStatus: '未提交',
   isBlacklisted: false,
 };
 
 const defaultCertification: AccountCertificationRecord = {
-  id: 'mock-certification',
-  name: defaultProfile.enterpriseName,
-  contactPerson: '李明华',
-  contactPhone: '138****5678',
-  mainCategory: '矿产资源开发',
-  legalRepresentative: '张建国',
-  legalRepresentativeIdNo: '530102********1234',
-  email: 'contact@example.com',
-  userCategory: '企业法人',
-  userType: '内资企业',
-  registeredCapital: '5000 万人民币',
-  region: '云南省 玉溪市 华宁县',
-  address: '华宁县宁州街道矿业服务中心',
-  unifiedSocialCreditCode: '91110000X123456789',
-  companyProfile: '专注于有色金属、非金属矿产资源开发与投资。',
-  businessScope: '矿产资源开发、矿产品销售、供应链服务',
-  paymentBankAccount: '中国银行 6222 **** 8899',
-  paymentAccountName: defaultProfile.enterpriseName,
-  paymentBankName: '中国银行华宁支行',
-  paymentBankLineNo: '104000000000',
-  receivingBankAccount: '中国银行 6222 **** 7788',
-  receivingAccountName: '华宁矿产资源交易中心',
-  receivingBankName: '中国银行华宁支行',
-  receivingBankLineNo: '104000000001',
-  status: '待审核',
-  submittedAt: '2026-05-17 10:26',
+  id: '',
+  name: '-',
+  contactPerson: '-',
+  contactPhone: '-',
+  mainCategory: '-',
+  legalRepresentative: '-',
+  legalRepresentativeIdNo: '-',
+  email: '-',
+  userCategory: '-',
+  userType: '-',
+  registeredCapital: '-',
+  region: '-',
+  address: '-',
+  unifiedSocialCreditCode: '-',
+  companyProfile: '-',
+  businessScope: '-',
+  paymentBankAccount: '-',
+  paymentAccountName: '-',
+  paymentBankName: '-',
+  paymentBankLineNo: '-',
+  receivingBankAccount: '-',
+  receivingAccountName: '-',
+  receivingBankName: '-',
+  receivingBankLineNo: '-',
+  status: '未提交',
+  submittedAt: '-',
   reviewedAt: '-',
 };
 
@@ -61,24 +62,42 @@ export function AccountHome() {
   const [bids, setBids] = useState<BidRecord[]>(api.getBids());
   const [messages, setMessages] = useState<NotificationRecord[]>(api.getNotifications());
   const [notice, setNotice] = useState('');
+  const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const pendingDeposits = deposits.filter((item) => item.status === '待审核' || item.status === '审核驳回' || item.status === '未提交').length;
   const activeBids = bids.filter((item) => item.auctionStatus !== '已结束').length;
   const unreadMessages = messages.filter((item) => !item.read).length;
   const completedBids = bids.filter((item) => item.auctionStatus === '已结束' && item.isHighest).length;
 
   useEffect(() => {
-    const showError = (error: unknown) => setNotice(getAccountErrorMessage(error));
-
-    void api.fetchAccountProfile().then(setProfile).catch(showError);
-    void api.fetchAccountDeposits().then(setDeposits).catch(showError);
-    void api.fetchAccountBids().then(setBids).catch(showError);
-    void api.fetchAccountMessages().then(setMessages).catch(showError);
+    void Promise.all([
+      api.fetchAccountProfile(),
+      api.fetchAccountDeposits(),
+      api.fetchAccountBids(),
+      api.fetchAccountMessages(),
+    ]).then(([nextProfile, nextDeposits, nextBids, nextMessages]) => {
+      setProfile(nextProfile);
+      setDeposits(nextDeposits);
+      setBids(nextBids);
+      setMessages(nextMessages);
+      setRequestState('ready');
+    }).catch((error) => {
+      setProfile(defaultProfile);
+      setDeposits([]);
+      setBids([]);
+      setMessages([]);
+      setNotice(getAccountErrorMessage(error));
+      setRequestState(getAccountRequestState(error));
+    });
   }, []);
 
   return (
     <AccountLayout active="中心首页">
       <AccountPageHead title="企业用户中心" subtitle="查看企业资质、意向金、竞价和站内通知的最新状态。" />
       {notice ? <p className="admin-api-notice">{notice}</p> : null}
+      {renderAccountRequestState(requestState, notice, '企业中心数据加载失败')}
+      {requestState === 'loading' ? <CardSkeleton count={3} /> : null}
+      {requestState === 'ready' ? (
+        <>
       <section className={`account-status-card ${profile.isBlacklisted ? 'danger' : certificationTone(profile.certificationStatus)}`}>
         <div className="account-status-icon">{profile.isBlacklisted ? '!' : '✓'}</div>
         <div>
@@ -139,27 +158,36 @@ export function AccountHome() {
           </div>
         </AccountPanel>
       </section>
+        </>
+      ) : null}
     </AccountLayout>
   );
 }
 
 export function MyCertificationPage() {
-  const [profile, setProfile] = useState<AccountProfile>({
-    ...defaultProfile,
-    certificationStatus: '审核驳回',
-  });
+  const [profile, setProfile] = useState<AccountProfile>(defaultProfile);
   const [certification, setCertification] = useState<AccountCertificationRecord>(defaultCertification);
   const [notice, setNotice] = useState('');
+  const [requestState, setRequestState] = useState<AccountRequestState>('loading');
 
   useEffect(() => {
-    const showError = (error: unknown) => setNotice(getAccountErrorMessage(error));
-
-    void api.fetchAccountProfile().then(setProfile).catch(showError);
-    void api.fetchAccountCertification().then(setCertification).catch(showError);
+    void Promise.all([
+      api.fetchAccountProfile(),
+      api.fetchAccountCertification(),
+    ]).then(([nextProfile, nextCertification]) => {
+      setProfile(nextProfile);
+      setCertification(nextCertification);
+      setRequestState('ready');
+    }).catch((error) => {
+      setProfile(defaultProfile);
+      setCertification(defaultCertification);
+      setNotice(getAccountErrorMessage(error));
+      setRequestState(getAccountRequestState(error));
+    });
   }, []);
 
   const certificationStatus = certification.status || profile.certificationStatus;
-  const rejectReason = certification.rejectReason || '上传的营业执照扫描件或企业资质材料不清晰，请重新上传清晰文件后提交审核。';
+  const rejectReason = certification.rejectReason || '后台暂未返回驳回原因。';
 
   return (
     <AccountLayout active="我的企业认证">
@@ -169,13 +197,16 @@ export function MyCertificationPage() {
         action={certificationStatus === '审核驳回' || certificationStatus === '未提交' ? <button className="btn primary" onClick={() => navigateTo('/enterprise/register')} type="button">修改后重新提交</button> : undefined}
       />
       {notice ? <p className="admin-api-notice">{notice}</p> : null}
-      {certificationStatus === '待审核' ? (
+      {renderAccountRequestState(requestState, notice, '企业认证资料加载失败')}
+      {requestState === 'loading' ? <CardSkeleton count={2} /> : null}
+      {requestState === 'ready' && certificationStatus === '待审核' ? (
         <PendingReviewState
           description={`${getCertificationMessage({ ...profile, certificationStatus })} 提交时间：${certification.submittedAt}，平台管理员将在 1-3 个工作日内完成核验。`}
           primaryAction={{ label: '查看进度', to: '/account/certification' }}
           secondaryAction={{ label: '返回个人中心', to: '/account' }}
         />
-      ) : (
+      ) : null}
+      {requestState === 'ready' && certificationStatus !== '待审核' ? (
         <section className={`account-cert-status ${certificationTone(certificationStatus)}`}>
           <div className="account-status-icon">{certificationStatus === '审核通过' ? '✓' : '!'}</div>
           <div>
@@ -188,8 +219,8 @@ export function MyCertificationPage() {
           </div>
           <StatusTag value={certificationStatus} />
         </section>
-      )}
-      <ReadOnlyGroups
+      ) : null}
+      {requestState === 'ready' ? <ReadOnlyGroups
         groups={[
           { title: '账号信息', icon: '人', fields: [['用户名', profile.username], ['设置密码', '********'], ['头像', certification.name.slice(0, 1)]] },
           { title: '企业基础信息', icon: '企', fields: [['企业名', certification.name], ['统一社会信用代码', certification.unifiedSocialCreditCode], ['用户类别', certification.userCategory], ['用户类型', certification.userType], ['注册资本', certification.registeredCapital], ['所属区域', certification.region], ['详细地址', certification.address]] },
@@ -197,10 +228,10 @@ export function MyCertificationPage() {
           { title: '经营信息', icon: '文', fields: [['主营类别', certification.mainCategory], ['公司简介', certification.companyProfile], ['经营范围', certification.businessScope], ['企业资质附件', '已随企业认证资料提交'], ['营业执照', '已随企业认证资料提交']] },
           { title: '银行账户', icon: '￥', fields: [['付款户名', certification.paymentAccountName], ['付款账户', certification.paymentBankAccount], ['付款开户行', certification.paymentBankName], ['付款联行号', certification.paymentBankLineNo], ['收款户名', certification.receivingAccountName], ['收款账户', certification.receivingBankAccount], ['收款开户行', certification.receivingBankName], ['收款联行号', certification.receivingBankLineNo]] },
         ]}
-      />
-      <div className="account-bottom-actions">
+      /> : null}
+      {requestState === 'ready' ? <div className="account-bottom-actions">
         <ButtonRow actions={[{ label: '返回中心', to: '/account' }, { label: '去修改并重新提交', tone: 'primary', to: '/enterprise/register' }]} />
-      </div>
+      </div> : null}
     </AccountLayout>
   );
 }
@@ -208,18 +239,28 @@ export function MyCertificationPage() {
 export function MyDepositsPage() {
   const [deposits, setDeposits] = useState<DepositRecord[]>(api.getDeposits());
   const [notice, setNotice] = useState('');
+  const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const latestPending = deposits.find((item) => item.status === '待审核');
   const needsAction = deposits.filter((item) => item.status === '未提交' || item.status === '审核驳回').length;
 
   useEffect(() => {
-    void api.fetchAccountDeposits().then(setDeposits).catch((error) => setNotice(getAccountErrorMessage(error)));
+    void api.fetchAccountDeposits().then((items) => {
+      setDeposits(items);
+      setRequestState('ready');
+    }).catch((error) => {
+      setDeposits([]);
+      setNotice(getAccountErrorMessage(error));
+      setRequestState(getAccountRequestState(error));
+    });
   }, []);
 
   return (
     <AccountLayout active="我的意向金">
       <AccountPageHead title="我的意向金" subtitle="管理和查看您提交的意向金付款凭证审核状态。" />
       {notice ? <p className="admin-api-notice">{notice}</p> : null}
-      {latestPending ? (
+      {renderAccountRequestState(requestState, notice, '意向金记录加载失败')}
+      {requestState === 'loading' ? <TableSkeleton columns={8} rows={4} /> : null}
+      {requestState === 'ready' && latestPending ? (
         <section className="account-next-step-card">
           <div>
             <strong>凭证已提交，等待管理员审核</strong>
@@ -228,13 +269,13 @@ export function MyDepositsPage() {
           <button className="btn primary" onClick={() => navigateTo(getLotFallbackTarget(latestPending))} type="button">返回拍品详情</button>
         </section>
       ) : null}
-      <section className="account-summary-strip">
+      {requestState === 'ready' ? <section className="account-summary-strip">
         <AccountSummary label="待审核凭证" value={`${deposits.filter((item) => item.status === '待审核').length} 笔`} />
         <AccountSummary label="已通过凭证" value={`${deposits.filter((item) => item.status === '审核通过').length} 笔`} tone="green" />
         <AccountSummary label="需处理凭证" value={`${needsAction} 笔`} tone={needsAction > 0 ? 'red' : 'gray'} />
-      </section>
-      <AccountFilter fields={['拍品名称', '意向金状态', '提交时间']} />
-      <DataTable columns={[
+      </section> : null}
+      {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '意向金状态', '提交时间']} /> : null}
+      {requestState === 'ready' ? <DataTable columns={[
         { key: 'lotTitle', label: '拍品名称', width: '28%', render: (row) => <TitleCell title={row.lotTitle} sub={`编号：${shortId(row.lotId)}`} /> },
         { key: 'amount', label: '保证金金额', render: (row) => {
           const deposit = row as DepositRecordWithVoucher;
@@ -270,7 +311,7 @@ export function MyDepositsPage() {
             </div>
           ),
         },
-      ]} rows={deposits} />
+      ]} rows={deposits} emptyDescription="当前企业暂无意向金记录，请从拍卖公告详情页提交真实付款凭证。" emptyText="暂无意向金记录" /> : null}
     </AccountLayout>
   );
 }
@@ -278,23 +319,33 @@ export function MyDepositsPage() {
 export function MyBidsPage() {
   const [bids, setBids] = useState<BidRecord[]>(api.getBids());
   const [notice, setNotice] = useState('');
+  const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const highestCount = bids.filter((item) => item.isHighest).length;
 
   useEffect(() => {
-    void api.fetchAccountBids().then(setBids).catch((error) => setNotice(getAccountErrorMessage(error)));
+    void api.fetchAccountBids().then((items) => {
+      setBids(items);
+      setRequestState('ready');
+    }).catch((error) => {
+      setBids([]);
+      setNotice(getAccountErrorMessage(error));
+      setRequestState(getAccountRequestState(error));
+    });
   }, []);
 
   return (
     <AccountLayout active="我的出价记录">
       <AccountPageHead title="我的出价记录" subtitle="查看本企业在竞价中的全部出价记录与当前领先状态。" />
       {notice ? <p className="admin-api-notice">{notice}</p> : null}
-      <section className="account-summary-strip">
+      {renderAccountRequestState(requestState, notice, '出价记录加载失败')}
+      {requestState === 'loading' ? <TableSkeleton columns={7} rows={4} /> : null}
+      {requestState === 'ready' ? <section className="account-summary-strip">
         <AccountSummary label="出价记录" value={`${bids.length} 条`} />
         <AccountSummary label="当前最高价" value={`${highestCount} 个`} tone="green" />
         <AccountSummary label="进行中竞价" value={`${bids.filter((item) => item.auctionStatus !== '已结束').length} 个`} tone="orange" />
-      </section>
-      <AccountFilter fields={['拍品名称', '出价时间', '当前最高价']} />
-      <DataTable columns={[
+      </section> : null}
+      {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '出价时间', '当前最高价']} /> : null}
+      {requestState === 'ready' ? <DataTable columns={[
         { key: 'lotTitle', label: '拍品名称', width: '30%', render: (row) => <TitleCell title={row.lotTitle} sub={`编号：${shortId(row.lotId)}`} /> },
         { key: 'amount', label: '出价金额' },
         { key: 'incrementTimes', label: '加价次数' },
@@ -302,7 +353,7 @@ export function MyBidsPage() {
         { key: 'isHighest', label: '当前最高价', render: (row) => <StatusTag value={row.isHighest ? '是' : '否'} tone={row.isHighest ? 'green' : 'gray'} /> },
         { key: 'auctionStatus', label: '竞价状态', render: (row) => <StatusTag value={row.auctionStatus || '竞拍中'} tone={row.auctionStatus === '已结束' ? 'gray' : 'blue'} /> },
         { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row, '/auctions/live/detail'))} type="button">查看详情</button> },
-      ]} rows={bids} />
+      ]} rows={bids} emptyDescription="当前企业暂无真实出价记录。通过竞价详情页提交报价后会在这里展示。" emptyText="暂无出价记录" /> : null}
     </AccountLayout>
   );
 }
@@ -310,10 +361,18 @@ export function MyBidsPage() {
 export function MyMessagesPage() {
   const [messages, setMessages] = useState<NotificationRecord[]>(api.getNotifications());
   const [notice, setNotice] = useState('');
+  const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const [readFilter, setReadFilter] = useState<'全部' | '未读' | '已读'>('全部');
 
   useEffect(() => {
-    void api.fetchAccountMessages().then(setMessages).catch((error) => setNotice(getAccountErrorMessage(error)));
+    void api.fetchAccountMessages().then((items) => {
+      setMessages(items);
+      setRequestState('ready');
+    }).catch((error) => {
+      setMessages([]);
+      setNotice(getAccountErrorMessage(error));
+      setRequestState(getAccountRequestState(error));
+    });
   }, []);
 
   const markRead = (id: string) => {
@@ -342,7 +401,9 @@ export function MyMessagesPage() {
         action={<button className="btn" onClick={() => messages.filter((item) => !item.read).forEach((item) => markRead(item.id))} type="button">全部标记已读</button>}
       />
       {notice ? <p className="admin-api-notice">{notice}</p> : null}
-      <section className="account-message-filters">
+      {renderAccountRequestState(requestState, notice, '通知消息加载失败')}
+      {requestState === 'loading' ? <CardSkeleton count={3} /> : null}
+      {requestState === 'ready' ? <section className="account-message-filters">
         <div>
           <span>通知类型：</span>
           <button className="active" type="button">全部</button>
@@ -356,8 +417,8 @@ export function MyMessagesPage() {
             <button className={readFilter === filter ? 'active' : ''} key={filter} onClick={() => setReadFilter(filter)} type="button">{filter}</button>
           ))}
         </div>
-      </section>
-      <section className="account-message-list">
+      </section> : null}
+      {requestState === 'ready' ? <section className="account-message-list">
         <div className="account-list-summary">共 {visibleMessages.length} 条通知，未读 {messages.filter((item) => !item.read).length} 条</div>
         {visibleMessages.map((message) => (
           <article className={message.read ? 'read' : 'unread'} key={message.id}>
@@ -382,7 +443,7 @@ export function MyMessagesPage() {
           </article>
         ))}
         {visibleMessages.length === 0 ? <EmptyState compact description="当前筛选条件下没有通知消息。" title="暂无相关数据" /> : null}
-      </section>
+      </section> : null}
     </AccountLayout>
   );
 }
@@ -392,14 +453,26 @@ export function WinningDetailPage() {
   const [bids, setBids] = useState<BidRecord[]>(api.getBids());
   const [profile, setProfile] = useState<AccountProfile>(defaultProfile);
   const [notice, setNotice] = useState('');
+  const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const queryId = getQueryId();
 
   useEffect(() => {
-    const showError = (error: unknown) => setNotice(getAccountErrorMessage(error));
-
-    void api.fetchResults().then((items) => setResults(items as ResultWorkflowRecord[])).catch(showError);
-    void api.fetchAccountBids().then(setBids).catch(showError);
-    void api.fetchAccountProfile().then(setProfile).catch(showError);
+    void Promise.all([
+      api.fetchResults(),
+      api.fetchAccountBids(),
+      api.fetchAccountProfile(),
+    ]).then(([nextResults, nextBids, nextProfile]) => {
+      setResults(nextResults as ResultWorkflowRecord[]);
+      setBids(nextBids);
+      setProfile(nextProfile);
+      setRequestState('ready');
+    }).catch((error) => {
+      setResults([]);
+      setBids([]);
+      setProfile(defaultProfile);
+      setNotice(getAccountErrorMessage(error));
+      setRequestState(getAccountRequestState(error));
+    });
   }, []);
 
   const selectedResult = selectWinningResult(results, bids, queryId);
@@ -416,14 +489,17 @@ export function WinningDetailPage() {
         action={<button className="btn" onClick={() => navigateTo('/results')} type="button">返回成交公示</button>}
       />
       {notice ? <p className="admin-api-notice">{notice}</p> : null}
-      {!selectedResult ? (
+      {renderAccountRequestState(requestState, notice, '中标办理详情加载失败')}
+      {requestState === 'loading' ? <CardSkeleton count={2} /> : null}
+      {requestState === 'ready' && !selectedResult ? (
         <EmptyState
           description="暂未找到可展示的成交记录。可从成交通知、成交公示详情或我的出价记录进入。"
           primaryAction={{ label: '查看成交公示', to: '/results' }}
           secondaryAction={{ label: '返回企业中心', to: '/account' }}
           title="暂无中标办理记录"
         />
-      ) : (
+      ) : null}
+      {requestState === 'ready' && selectedResult ? (
         <div className="winning-detail-page">
           <WinningFlowStepper status={contractStatus} />
           <section className={`winning-status-hero ${statusSummary.tone}`}>
@@ -487,7 +563,7 @@ export function WinningDetailPage() {
             </article>
           </section>
         </div>
-      )}
+      ) : null}
     </AccountLayout>
   );
 }
@@ -731,6 +807,58 @@ function getLotIdByTitle(row: { lotTitle?: string }) {
   const lotTitle = String(row.lotTitle ?? '');
 
   return api.getLots().find((lot) => lot.title === lotTitle)?.id ?? '';
+}
+
+function getAccountRequestState(error: unknown): AccountRequestState {
+  if (error instanceof ApiError && error.status === 401) {
+    return 'unauthorized';
+  }
+
+  if (error instanceof ApiError && error.status === 403) {
+    return 'forbidden';
+  }
+
+  return 'error';
+}
+
+function renderAccountRequestState(state: AccountRequestState, notice: string, title: string) {
+  if (state === 'loading' || state === 'ready') {
+    return null;
+  }
+
+  if (state === 'unauthorized') {
+    return (
+      <ErrorState
+        compact
+        description={notice}
+        primaryAction={{ label: '重新登录', to: '/login' }}
+        secondaryAction={{ label: '返回首页', to: '/' }}
+        title="登录状态已失效"
+      />
+    );
+  }
+
+  if (state === 'forbidden') {
+    return (
+      <ErrorState
+        compact
+        description={notice}
+        primaryAction={{ label: '切换账号', to: '/login' }}
+        secondaryAction={{ label: '返回企业中心', to: '/account' }}
+        title="无权限访问"
+      />
+    );
+  }
+
+  return (
+    <ErrorState
+      compact
+      description={notice}
+      primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
+      secondaryAction={{ label: '返回企业中心', to: '/account' }}
+      title={title}
+    />
+  );
 }
 
 function getAccountErrorMessage(error: unknown) {

@@ -6,9 +6,9 @@ import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { PortalLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
-import { EmptyState } from '../components/StatusViews';
+import { CardSkeleton, EmptyState, ErrorState } from '../components/StatusViews';
 import { navigateTo } from '../navigation';
-import { api, type DepositVoucherPayload, type EnterpriseRegisterPayload } from '../services/api';
+import { api, type DepositVoucherPayload, type EnterpriseRegisterPayload, type UploadCategory } from '../services/api';
 import { AUTH_SESSION_EVENT, getAuthProfile } from '../services/auth';
 import type { BidRecord, ContentRecord, DepositRecord, Lot, ResultRecord, Stat, TableColumn } from '../types';
 
@@ -26,6 +26,24 @@ type DepositRecordWithVoucher = DepositRecord & {
   requiredAmount?: string;
   voucherFileName?: string;
 };
+type EnterpriseUploadKey = 'businessLicenseFileUrl' | 'qualificationFileUrl' | 'authorizationMaterialUrl';
+type EnterpriseUploadState = 'empty' | 'uploading' | 'success' | 'error';
+type EnterpriseUploadItem = {
+  key: EnterpriseUploadKey;
+  label: string;
+  required: boolean;
+  helper: string;
+  category: UploadCategory;
+};
+type EnterpriseUploadStatus = {
+  state: EnterpriseUploadState;
+  fileName: string;
+  fileUrl: string;
+  message: string;
+  progress: number;
+};
+type LoadState = 'loading' | 'ready' | 'empty' | 'error';
+type BidEligibility = 'unknown' | 'approved' | 'pending' | 'rejected' | 'missing' | 'error';
 
 const lotColumns: TableColumn<Lot>[] = [
   { key: 'title', label: '拍品标题', width: '28%' },
@@ -52,6 +70,7 @@ export function PortalHome() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
   const [results, setResults] = useState<ResultRecord[]>(api.getResults());
   const [contents, setContents] = useState<ContentRecord[]>(api.getContents());
+  const [notice, setNotice] = useState('');
   const liveLots = lots.filter((lot) => lot.status === '竞拍中');
   const upcomingLots = lots.filter((lot) => lot.status === '公示中');
   const featuredLot = (liveLots[0] ?? lots[0]) as Lot | undefined;
@@ -61,14 +80,34 @@ export function PortalHome() {
 
   useEffect(() => {
     document.title = '华宁矿产资源公共交易与数字服务平台';
-    void api.fetchStats().then(setStats);
-    void api.fetchLots().then(setLots);
-    void api.fetchResults().then(setResults);
-    void api.fetchContents().then(setContents);
+    void api.fetchStats().then(setStats).catch((error) => {
+      setStats([]);
+      setNotice(`真实接口读取失败：${getErrorMessage(error)}`);
+    });
+    void api.fetchLots().then(setLots).catch((error) => {
+      setLots([]);
+      setNotice(`真实接口读取失败：${getErrorMessage(error)}`);
+    });
+    void api.fetchResults().then(setResults).catch((error) => {
+      setResults([]);
+      setNotice(`真实接口读取失败：${getErrorMessage(error)}`);
+    });
+    void api.fetchContents().then(setContents).catch((error) => {
+      setContents([]);
+      setNotice(`真实接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
     <PortalLayout active="首页">
+      {notice ? (
+        <ErrorState
+          compact
+          description={notice}
+          primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
+          title="部分数据加载失败"
+        />
+      ) : null}
       <section className="latest-home-hero">
         <div className="latest-home-hero-inner">
           <span className="latest-home-kicker">智能交互门户</span>
@@ -117,15 +156,17 @@ export function PortalHome() {
                 <button className="btn primary" onClick={() => navigateTo(`/auctions/live/detail?id=${featuredLot.id}`)} type="button">参与竞价</button>
               </div>
             </article>
-          ) : null}
-          {[0, 1].map((item) => (
+          ) : (
+            <EmptyState compact description="当前没有正在竞价的真实标的。" primaryAction={{ label: '查看公告', to: '/announcements/upcoming' }} title="暂无正在竞价" />
+          )}
+          {featuredLot ? [0, 1].map((item) => (
             <article className="latest-home-skeleton-card" key={item}>
               <div />
               <span />
               <span />
               <strong />
             </article>
-          ))}
+          )) : null}
         </div>
       </section>
 
@@ -204,6 +245,7 @@ export function PortalHome() {
                   <strong>{lot.title}</strong>
                 </button>
               ))}
+              {displayUpcomingLots.length === 0 ? <EmptyState compact description="平台暂未发布即将拍卖公告。" title="暂无拍卖公告" /> : null}
             </article>
             <article className="latest-home-news-panel">
               <header>
@@ -216,6 +258,7 @@ export function PortalHome() {
                   <strong>{content.title}</strong>
                 </button>
               ))}
+              {contents.length === 0 ? <EmptyState compact description="平台暂未发布政策资讯。" title="暂无政策资讯" /> : null}
             </article>
             <article className="latest-home-news-panel">
               <header>
@@ -228,6 +271,7 @@ export function PortalHome() {
                   <strong>{result.lotTitle}</strong>
                 </button>
               ))}
+              {results.length === 0 ? <EmptyState compact description="平台暂未发布成交公示。" title="暂无成交公示" /> : null}
             </article>
           </div>
         </div>
@@ -238,10 +282,14 @@ export function PortalHome() {
 
 export function ResourceList() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     document.title = '矿产资源 - 华宁矿产竞拍平台';
-    void api.fetchLots().then(setLots);
+    void api.fetchLots().then(setLots).catch((error) => {
+      setLots([]);
+      setNotice(`矿产资源接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
@@ -252,6 +300,14 @@ export function ResourceList() {
         subtitle="汇总平台已发布的矿产资源与拍卖标的，便于按矿种、所在地、状态和交易阶段快速查找。"
         title="矿产资源"
       />
+      {notice ? (
+        <ErrorState
+          compact
+          description={notice}
+          primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
+          title="资源列表加载失败"
+        />
+      ) : null}
       <FilterBar fields={['关键词', '品种/品位', '所在地', '交易状态']} />
       <section className="resource-list-layout">
         <aside className="resource-category-panel">
@@ -302,7 +358,9 @@ export function ResourceList() {
 }
 
 export function ResourceDetail() {
-  const [lot, setLot] = useState<Lot>(api.getLot(getQueryId()));
+  const [lot, setLot] = useState<Lot | undefined>(() => getInitialLot(getQueryId()));
+  const [notice, setNotice] = useState('');
+  const [loadState, setLoadState] = useState<LoadState>('loading');
 
   useEffect(() => {
     document.title = '资源详情 - 华宁矿产竞拍平台';
@@ -312,15 +370,31 @@ export function ResourceDetail() {
       ? Promise.resolve(localMockLot)
       : queryId
         ? api.fetchLot(queryId)
-        : api.fetchLots().then((items) => items[0] ?? api.getLot());
+        : api.fetchLots().then((items) => items[0]);
 
-    void loadLot.then(setLot);
+    void loadLot.then((nextLot) => {
+      setLot(nextLot);
+      setLoadState(nextLot?.id ? 'ready' : 'empty');
+    }).catch((error) => {
+      setLot(undefined);
+      setLoadState('error');
+      setNotice(`资源详情接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
     <PortalLayout active="矿产资源">
       <PortalBreadcrumb items={['首页', '矿产资源', '资源详情']} />
-      <div className="resource-detail-layout">
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '返回列表', to: '/resources' }} title="资源详情加载失败" /> : null}
+      {loadState === 'loading' ? <CardSkeleton count={2} /> : null}
+      {loadState === 'empty' ? (
+        <EmptyState
+          description={getQueryId() ? '未找到对应的矿产资源，可能已下架或链接参数有误。' : '平台暂未发布矿产资源详情。'}
+          primaryAction={{ label: '返回列表', to: '/resources' }}
+          title="暂无资源详情"
+        />
+      ) : null}
+      {lot ? <div className="resource-detail-layout">
         <article className="resource-detail-main">
           <header className="resource-detail-head">
             <StatusTag value={lot.status} />
@@ -377,16 +451,20 @@ export function ResourceDetail() {
           </button>
           <button className="btn secondary" onClick={() => navigateTo('/resources')} type="button">返回资源列表</button>
         </aside>
-      </div>
+      </div> : null}
     </PortalLayout>
   );
 }
 
 export function UpcomingList() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    void api.fetchLots().then(setLots);
+    void api.fetchLots().then(setLots).catch((error) => {
+      setLots([]);
+      setNotice(`拍卖公告接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
@@ -397,6 +475,7 @@ export function UpcomingList() {
         subtitle="平台发布的矿产标的公示信息，公示期内可查看标的详情并提交意向金凭证。"
         title="即将拍卖公告"
       />
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="公告列表加载失败" /> : null}
       <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '公示状态']} />
       <DataTable columns={lotColumns} rows={lots.filter((lot) => lot.status === '公示中')} />
     </PortalLayout>
@@ -404,8 +483,9 @@ export function UpcomingList() {
 }
 
 export function UpcomingDetail() {
-  const [lot, setLot] = useState<Lot>(api.getLot(getQueryId()));
+  const [lot, setLot] = useState<Lot | undefined>(() => getInitialLot(getQueryId()));
   const [notice, setNotice] = useState('企业认证通过后，可上传意向金付款凭证。');
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [voucherStatus, setVoucherStatus] = useState<'idle' | 'uploading' | 'submitted'>('idle');
   const [submittedDeposit, setSubmittedDeposit] = useState<DepositSubmission | null>(null);
   const [profile, setProfile] = useState(() => getAuthProfile());
@@ -414,15 +494,22 @@ export function UpcomingDetail() {
   useEffect(() => {
     const queryId = getQueryId();
     const localMockLot = queryId
-      ? api.getLots().find((mockLot) => mockLot.id === queryId) ?? (queryId.startsWith('lot-') ? api.getLot() : undefined)
+      ? api.getLots().find((mockLot) => mockLot.id === queryId)
       : undefined;
     const loadLot = queryId
       ? localMockLot
         ? Promise.resolve(localMockLot)
         : api.fetchLot(queryId)
-      : api.fetchLots().then((items) => items.find((item) => item.status === '公示中') ?? items[0] ?? api.getLot());
+      : api.fetchLots().then((items) => items.find((item) => item.status === '公示中') ?? items[0]);
 
-    void loadLot.then(setLot);
+    void loadLot.then((nextLot) => {
+      setLot(nextLot);
+      setLoadState(nextLot?.id ? 'ready' : 'empty');
+    }).catch((error) => {
+      setLot(undefined);
+      setLoadState('error');
+      setNotice(`公告详情接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   useEffect(() => {
@@ -439,7 +526,7 @@ export function UpcomingDetail() {
   useEffect(() => {
     const currentLot = lot;
 
-    if (!currentLot.id || isLocalMockLot(currentLot) || profile?.roleCode !== 'ENTERPRISE') {
+    if (!currentLot?.id || isLocalMockLot(currentLot) || profile?.roleCode !== 'ENTERPRISE') {
       return;
     }
 
@@ -477,6 +564,11 @@ export function UpcomingDetail() {
   }, [lot, profile?.roleCode]);
 
   const selectDepositVoucher = () => {
+    if (!lot?.id || loadState !== 'ready') {
+      setNotice('未加载到真实公告详情，不能提交意向金付款凭证。');
+      return;
+    }
+
     if (isLocalMockLot(lot)) {
       setNotice('当前为本地演示拍品，不能提交真实意向金凭证，请从公告列表进入真实拍品。');
       return;
@@ -505,6 +597,11 @@ export function UpcomingDetail() {
     event.currentTarget.value = '';
 
     if (!file) {
+      return;
+    }
+
+    if (!lot?.id) {
+      setNotice('未加载到真实公告详情，不能提交意向金付款凭证。');
       return;
     }
 
@@ -539,24 +636,39 @@ export function UpcomingDetail() {
 
   return (
     <PortalLayout active="即将拍卖">
-      <NoticeDetailPage
-        lot={lot}
-        notice={notice}
-        onDepositFileChange={uploadDepositVoucher}
-        onDepositSelect={selectDepositVoucher}
-        submittedDeposit={submittedDeposit}
-        voucherInputRef={voucherInputRef}
-        voucherStatus={voucherStatus}
-      />
+      {notice && loadState === 'error' ? <ErrorState compact description={notice} primaryAction={{ label: '返回列表', to: '/announcements/upcoming' }} title="公告详情加载失败" /> : null}
+      {loadState === 'loading' ? <CardSkeleton count={2} /> : null}
+      {loadState === 'empty' ? (
+        <EmptyState
+          description={getQueryId() ? '未找到对应的拍卖公告，可能已下架或链接参数有误。' : '平台暂未发布即将拍卖公告。'}
+          primaryAction={{ label: '返回列表', to: '/announcements/upcoming' }}
+          title="暂无公告详情"
+        />
+      ) : null}
+      {lot ? (
+        <NoticeDetailPage
+          lot={lot}
+          notice={notice}
+          onDepositFileChange={uploadDepositVoucher}
+          onDepositSelect={selectDepositVoucher}
+          submittedDeposit={submittedDeposit}
+          voucherInputRef={voucherInputRef}
+          voucherStatus={voucherStatus}
+        />
+      ) : null}
     </PortalLayout>
   );
 }
 
 export function LiveAuctionList() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    void api.fetchLots().then(setLots);
+    void api.fetchLots().then(setLots).catch((error) => {
+      setLots([]);
+      setNotice(`正在竞价接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
@@ -567,6 +679,7 @@ export function LiveAuctionList() {
         subtitle="查看竞拍期标的、当前最高价、竞价时间区间与倒计时。"
         title="正在竞价标的"
       />
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="竞价列表加载失败" /> : null}
       <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '状态']} />
       <LiveAuctionCards lots={lots.filter((lot) => lot.status === '竞拍中')} />
     </PortalLayout>
@@ -574,14 +687,17 @@ export function LiveAuctionList() {
 }
 
 export function AuctionDetail() {
-  const [lot, setLot] = useState<Lot>(api.getLot(getQueryId()));
-  const [bidRecords, setBidRecords] = useState<BidRecord[]>(api.getBids());
+  const [lot, setLot] = useState<Lot | undefined>(() => getInitialLot(getQueryId()));
+  const [bidRecords, setBidRecords] = useState<BidRecord[]>([]);
   const [notice, setNotice] = useState('请选择出价加价次数，系统将自动计算报价金额。');
   const [incrementTimes, setIncrementTimes] = useState(1);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [isRealLot, setIsRealLot] = useState(false);
+  const [bidEligibility, setBidEligibility] = useState<BidEligibility>('unknown');
+  const [bidEligibilityLotId, setBidEligibilityLotId] = useState('');
   const [profile, setProfile] = useState(() => getAuthProfile());
   const [now, setNow] = useState(() => Date.now());
-  const estimatedAmount = calculateBidAmount(lot, incrementTimes);
+  const estimatedAmount = lot ? calculateBidAmount(lot, incrementTimes) : '0';
 
   useEffect(() => {
     const queryId = getQueryId();
@@ -590,21 +706,30 @@ export function AuctionDetail() {
       ? Promise.resolve(localMockLot)
       : queryId
       ? api.fetchLot(queryId)
-      : api.fetchLots().then((items) => items.find((item) => item.status === '竞拍中') ?? items[0] ?? api.getLot());
+      : api.fetchLots().then((items) => items.find((item) => item.status === '竞拍中') ?? items[0]);
 
     void loadLot.then((nextLot) => {
       setLot(nextLot);
-      const loadedRealLot = Boolean(nextLot.id)
+      const loadedRealLot = Boolean(nextLot?.id)
         && !isLocalMockLot(nextLot)
         && (!queryId || nextLot.id === queryId);
       setIsRealLot(loadedRealLot);
+      setLoadState(nextLot?.id ? 'ready' : 'empty');
 
       if (loadedRealLot) {
-        void api.fetchBidRecords(nextLot.id, nextLot.title).then(setBidRecords);
+        void api.fetchBidRecords(nextLot.id, nextLot.title).then(setBidRecords).catch((error) => {
+          setBidRecords([]);
+          setNotice(`出价记录读取失败：${getErrorMessage(error)}`);
+        });
       } else {
-        setBidRecords(api.getBids());
-        setNotice('当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。');
+        setBidRecords([]);
+        setNotice(nextLot?.id ? '当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。' : '未加载到真实竞价标的，不能提交报价。');
       }
+    }).catch((error) => {
+      setLot(undefined);
+      setBidRecords([]);
+      setLoadState('error');
+      setNotice(`竞价详情接口读取失败：${getErrorMessage(error)}`);
     });
   }, []);
   useEffect(() => {
@@ -622,19 +747,65 @@ export function AuctionDetail() {
       window.removeEventListener('storage', syncProfile);
     };
   }, []);
-  const countdown = getAuctionCountdown(lot, now);
-  const canBid = Boolean(isRealLot && profile?.roleCode === 'ENTERPRISE' && !countdown.ended);
+  const canCheckBidEligibility = Boolean(lot?.id && isRealLot && profile?.roleCode === 'ENTERPRISE' && profile.enterprise?.certificationStatusCode === 'APPROVED');
+  useEffect(() => {
+    if (!lot?.id || !isRealLot || profile?.roleCode !== 'ENTERPRISE' || profile.enterprise?.certificationStatusCode !== 'APPROVED') {
+      return;
+    }
+
+    void api.fetchAccountDeposits().then((items) => {
+      const deposit = items.find((item) => item.lotId === lot.id);
+
+      if (!deposit) {
+        setBidEligibilityLotId(lot.id);
+        setBidEligibility('missing');
+        return;
+      }
+
+      if (deposit.status === '审核通过') {
+        setBidEligibilityLotId(lot.id);
+        setBidEligibility('approved');
+        return;
+      }
+
+      if (deposit.status === '审核驳回') {
+        setBidEligibilityLotId(lot.id);
+        setBidEligibility('rejected');
+        return;
+      }
+
+      setBidEligibilityLotId(lot.id);
+      setBidEligibility('pending');
+    }).catch((error) => {
+      setBidEligibilityLotId(lot.id);
+      setBidEligibility('error');
+      setNotice(`竞价资格读取失败：${getErrorMessage(error)}`);
+    });
+  }, [isRealLot, lot?.id, profile?.roleCode, profile?.enterprise?.certificationStatusCode]);
+  const countdown = lot ? getAuctionCountdown(lot, now) : { text: '-', ended: true };
+  const effectiveBidEligibility = canCheckBidEligibility && bidEligibilityLotId === lot?.id ? bidEligibility : 'unknown';
+  const qualificationNotice = getBidQualificationNotice({ bidEligibility: effectiveBidEligibility, isRealLot, lot, notice, profile });
+  const canBid = Boolean(isRealLot && profile?.roleCode === 'ENTERPRISE' && profile.enterprise?.certificationStatusCode === 'APPROVED' && !profile.enterprise?.isBlacklisted && effectiveBidEligibility === 'approved' && !countdown.ended);
 
   return (
     <PortalLayout active="正在竞价">
-      <AuctionDetailView
+      {notice && loadState === 'error' ? <ErrorState compact description={notice} primaryAction={{ label: '返回列表', to: '/auctions/live' }} title="竞价详情加载失败" /> : null}
+      {loadState === 'loading' ? <CardSkeleton count={2} /> : null}
+      {loadState === 'empty' ? (
+        <EmptyState
+          description={getQueryId() ? '未找到对应的竞价标的，可能已结束、下架或链接参数有误。' : '当前没有可展示的竞价标的。'}
+          primaryAction={{ label: '返回竞价列表', to: '/auctions/live' }}
+          title="暂无竞价详情"
+        />
+      ) : null}
+      {lot ? <AuctionDetailView
         bidRecords={bidRecords}
         estimatedAmount={estimatedAmount}
         incrementTimes={incrementTimes}
         lot={lot}
         countdownText={countdown.text}
         hasEnded={countdown.ended}
-        notice={notice}
+        notice={qualificationNotice}
         isRealLot={canBid}
         onBidSubmit={async () => {
           if (!isRealLot) {
@@ -644,6 +815,21 @@ export function AuctionDetail() {
 
           if (profile?.roleCode !== 'ENTERPRISE') {
             setNotice(profile ? '当前管理员账号不能参与企业竞价，请切换企业账号。' : '请先登录企业账号后参与竞价。');
+            return;
+          }
+
+          if (profile.enterprise?.certificationStatusCode !== 'APPROVED') {
+            setNotice('企业认证通过后，才可提交报价。');
+            return;
+          }
+
+          if (profile.enterprise?.isBlacklisted) {
+            setNotice('当前企业账号已被限制，不能参与竞价。');
+            return;
+          }
+
+          if (effectiveBidEligibility !== 'approved') {
+            setNotice(getBidEligibilityMessage(effectiveBidEligibility));
             return;
           }
 
@@ -673,16 +859,20 @@ export function AuctionDetail() {
             setNotice(`刷新当前价失败：${getErrorMessage(error)}`);
           });
         }}
-      />
+      /> : null}
     </PortalLayout>
   );
 }
 
 export function ResultList() {
   const [results, setResults] = useState<ResultRecord[]>(api.getResults());
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    void api.fetchResults().then(setResults);
+    void api.fetchResults().then(setResults).catch((error) => {
+      setResults([]);
+      setNotice(`成交公示接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
@@ -693,6 +883,7 @@ export function ResultList() {
         subtitle="公开展示平台已结束竞价并确认成交的标的结果，接受社会各界监督。"
         title="成交公示"
       />
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="成交公示加载失败" /> : null}
       <FilterBar fields={['关键词', '成交时间', '品种/品位']} />
       <DataTable columns={resultColumns} rows={results} />
     </PortalLayout>
@@ -700,18 +891,28 @@ export function ResultList() {
 }
 
 export function ResultDetail() {
-  const [result, setResult] = useState<ResultRecord>(api.getResults()[0]);
+  const [result, setResult] = useState<ResultRecord | undefined>(undefined);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     void api.fetchResults().then((items) => {
-      setResult(items.find((item) => item.id === getQueryId()) ?? items[0] ?? api.getResults()[0]);
-    });
+      const queryId = getQueryId();
+      setResult(queryId ? items.find((item) => item.id === queryId || item.lotId === queryId) : items[0]);
+    }).catch((error) => setNotice(`成交详情接口读取失败：${getErrorMessage(error)}`));
   }, []);
 
   return (
     <PortalLayout active="成交公示">
       <PortalBreadcrumb items={['首页', '成交公示', '公示详情']} />
-      <section className="result-detail-card">
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '返回列表', to: '/results' }} title="成交详情加载失败" /> : null}
+      {!notice && !result ? (
+        <EmptyState
+          description="暂未找到可展示的成交公示详情。"
+          primaryAction={{ label: '返回列表', to: '/results' }}
+          title="暂无成交详情"
+        />
+      ) : null}
+      {result ? <section className="result-detail-card">
         <div className="result-detail-head">
           <span className="status-tag green">已成交</span>
           <h1>{result.lotTitle}</h1>
@@ -735,16 +936,20 @@ export function ResultDetail() {
           { label: '查看办理详情', tone: 'primary', to: `/account/winning-detail?id=${result.id}` },
           { label: '查看拍品信息', to: `/announcements/upcoming/detail?id=${result.lotId}` },
         ]} />
-      </section>
+      </section> : null}
     </PortalLayout>
   );
 }
 
 export function NewsList() {
   const [contents, setContents] = useState<ContentRecord[]>(api.getContents());
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    void api.fetchContents().then(setContents);
+    void api.fetchContents().then(setContents).catch((error) => {
+      setContents([]);
+      setNotice(`资讯接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
 
   return (
@@ -755,6 +960,7 @@ export function NewsList() {
         subtitle="政策法规、交易公告、矿能动态集中公开，便于企业及时了解平台规则和行业动态。"
         title="信息资讯"
       />
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="资讯列表加载失败" /> : null}
       <div className="content-layout portal-news-layout">
         <aside className="category-list news-category-list">
           <h2>分类导航</h2>
@@ -774,6 +980,14 @@ export function NewsList() {
                 <button className="link-btn" onClick={() => navigateTo(`/news/detail?id=${content.id}`)} type="button">查看详情</button>
               </article>
             ))}
+            {contents.length === 0 ? (
+              <EmptyState
+                compact
+                description="平台暂未发布政策资讯或交易动态，请稍后再试。"
+                primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
+                title="暂无资讯"
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -782,18 +996,28 @@ export function NewsList() {
 }
 
 export function NewsDetail() {
-  const [article, setArticle] = useState<ContentRecord>(api.getContents()[0]);
+  const [article, setArticle] = useState<ContentRecord | undefined>(undefined);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     void api.fetchContents().then((items) => {
-      setArticle(items.find((item) => item.id === getQueryId()) ?? items[0] ?? api.getContents()[0]);
-    });
+      const queryId = getQueryId();
+      setArticle(queryId ? items.find((item) => item.id === queryId) : items[0]);
+    }).catch((error) => setNotice(`资讯详情接口读取失败：${getErrorMessage(error)}`));
   }, []);
 
   return (
     <PortalLayout active="信息资讯">
       <PortalBreadcrumb items={['首页', '信息资讯', '资讯详情']} />
-      <article className="article-page portal-article-page">
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '返回列表', to: '/news' }} title="资讯详情加载失败" /> : null}
+      {!notice && !article ? (
+        <EmptyState
+          description="暂未找到可展示的资讯详情。"
+          primaryAction={{ label: '返回列表', to: '/news' }}
+          title="暂无资讯详情"
+        />
+      ) : null}
+      {article ? <article className="article-page portal-article-page">
         <header>
           <span className="category-pill">{article.category}</span>
           <h1>{article.title}</h1>
@@ -811,23 +1035,36 @@ export function NewsDetail() {
           </aside>
         </div>
         <ButtonRow actions={[{ label: '返回列表', to: '/news' }]} />
-      </article>
+      </article> : null}
     </PortalLayout>
   );
 }
 
 export function DisclosurePage() {
   const [disclosures, setDisclosures] = useState<ContentRecord[]>(api.getContents());
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    void api.fetchContents().then(setDisclosures);
+    void api.fetchContents().then(setDisclosures).catch((error) => {
+      setDisclosures([]);
+      setNotice(`公开说明接口读取失败：${getErrorMessage(error)}`);
+    });
   }, []);
   const disclosure = disclosures[0];
 
   return (
     <PortalLayout active="公开说明">
       <PortalBreadcrumb items={['首页', '公开说明']} />
-      <div className="content-layout disclosure-layout">
+      {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="公开说明加载失败" /> : null}
+      {!notice && disclosures.length === 0 ? (
+        <EmptyState
+          compact
+          description="平台暂未发布公开说明内容，请稍后再试。"
+          primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
+          title="暂无公开说明"
+        />
+      ) : null}
+      {disclosure ? <div className="content-layout disclosure-layout">
         <aside className="category-list disclosure-directory">
           <h2>说明目录</h2>
           {['用户黑名单管理说明', '信息发布审核机制', '竞拍规则说明', '保证金缴纳与退还说明'].map((x, index) => <button className={index === 2 ? 'active' : ''} key={x} type="button">{x}</button>)}
@@ -856,7 +1093,7 @@ export function DisclosurePage() {
             <p>未成交企业的保证金按平台公示流程退还；违约、失信或被列入黑名单的企业按相关规则处理。</p>
           </section>
         </article>
-      </div>
+      </div> : null}
     </PortalLayout>
   );
 }
@@ -949,10 +1186,69 @@ export function LoginPage() {
 
 export function EnterpriseRegisterPage() {
   const [notice, setNotice] = useState('请填写企业资料后提交审核。');
+  const [uploads, setUploads] = useState<Record<EnterpriseUploadKey, EnterpriseUploadStatus>>(() => createEnterpriseUploadStatuses());
+  const uploadInputRefs = useRef<Record<EnterpriseUploadKey, HTMLInputElement | null>>({
+    authorizationMaterialUrl: null,
+    businessLicenseFileUrl: null,
+    qualificationFileUrl: null,
+  });
+
+  const uploadEnterpriseMaterial = async (key: EnterpriseUploadKey, file?: File) => {
+    if (!file) {
+      return;
+    }
+
+    setUploads((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        fileName: file.name,
+        message: '正在上传，请勿关闭页面。',
+        progress: 55,
+        state: 'uploading',
+      },
+    }));
+
+    try {
+      const target = ENTERPRISE_UPLOAD_ITEMS.find((item) => item.key === key);
+      const uploaded = await api.uploadFile(file, target?.category ?? 'DEPOSIT_VOUCHER');
+
+      setUploads((current) => ({
+        ...current,
+        [key]: {
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          message: `${formatFileSize(uploaded.fileSize)}，上传成功。`,
+          progress: 100,
+          state: 'success',
+        },
+      }));
+    } catch (error) {
+      setUploads((current) => ({
+        ...current,
+        [key]: {
+          ...current[key],
+          message: getErrorMessage(error),
+          progress: 0,
+          state: 'error',
+        },
+      }));
+    }
+  };
+
   const submitRegister = async () => {
     const form = document.querySelector<HTMLFormElement>('#enterprise-register-form');
 
     if (!form) {
+      return;
+    }
+
+    const missingRequired = ENTERPRISE_UPLOAD_ITEMS
+      .filter((item) => item.required)
+      .filter((item) => !uploads[item.key].fileUrl);
+
+    if (missingRequired.length > 0) {
+      setNotice(`请先上传${missingRequired.map((item) => item.label).join('、')}。`);
       return;
     }
 
@@ -968,24 +1264,53 @@ export function EnterpriseRegisterPage() {
     <PortalLayout active="企业入驻">
       <div className="register-page">
         <header className="register-head">
+          <span className="register-kicker">企业认证材料提交</span>
           <h1>企业入驻</h1>
+          <p>请上传营业执照、企业资质和授权材料。系统会展示上传中、成功、失败和重新上传状态。</p>
           <RegisterSteps />
         </header>
         <p className="register-notice">{notice}</p>
-        <LongForm
-          formId="enterprise-register-form"
-          groups={[
-            ['账号信息', [['username', '用户名'], ['password', '设置密码'], ['confirmPassword', '确认密码']]],
-            ['企业基础信息', [['avatar', '企业头像'], ['name', '企业名'], ['unifiedSocialCreditCode', '统一社会信用代码'], ['registeredCapital', '注册资本'], ['mainCategory', '主营分类'], ['userCategory', '用户类别'], ['userType', '用户类型'], ['region', '所属区域'], ['address', '详细地址']]],
-            ['法人及联系人', [['contactPerson', '联系人'], ['contactPhone', '联系电话'], ['legalRepresentative', '法人代表'], ['legalRepresentativeIdNo', '身份证号'], ['email', '电子邮件']]],
-            ['经营信息', [['companyProfile', '公司简介'], ['businessScope', '经营范围']]],
-            ['附件材料', [['businessLicenseFileUrl', '营业执照'], ['qualificationFileUrl', '企业资质']]],
-            ['付款银行账户', [['paymentBankAccount', '付款银行账户'], ['paymentAccountName', '付款账户名称'], ['paymentBankName', '付款账户开户行'], ['paymentBankLineNo', '付款人行行号'], ['paymentIsBankOfChina', '付款账户是否中行']]],
-            ['收款银行账户', [['receivingBankAccount', '收款银行账户'], ['receivingAccountName', '收款账户名称'], ['receivingBankName', '收款账户开户行'], ['receivingBankLineNo', '收款人行行号'], ['receivingIsBankOfChina', '收款账户是否中行']]],
-            ['协议确认', [['captcha', '图形验证码'], ['agreementAccepted', '入驻协议确认']]],
-          ]}
-          onSubmit={submitRegister}
-        />
+        <div className="register-workspace">
+          <LongForm
+            formId="enterprise-register-form"
+            groups={[
+              ['账号信息', [['username', '用户名'], ['password', '设置密码'], ['confirmPassword', '确认密码']]],
+              ['企业基础信息', [['name', '企业名'], ['unifiedSocialCreditCode', '统一社会信用代码'], ['registeredCapital', '注册资本'], ['mainCategory', '主营分类'], ['userCategory', '用户类别'], ['userType', '用户类型'], ['region', '所属区域'], ['address', '详细地址']]],
+              ['法人及联系人', [['contactPerson', '联系人'], ['contactPhone', '联系电话'], ['legalRepresentative', '法人代表'], ['legalRepresentativeIdNo', '身份证号'], ['email', '电子邮件']]],
+              ['经营信息', [['companyProfile', '公司简介'], ['businessScope', '经营范围']]],
+              ['付款银行账户', [['paymentBankAccount', '付款银行账户'], ['paymentAccountName', '付款账户名称'], ['paymentBankName', '付款账户开户行'], ['paymentBankLineNo', '付款人行行号'], ['paymentIsBankOfChina', '付款账户是否中行']]],
+              ['收款银行账户', [['receivingBankAccount', '收款银行账户'], ['receivingAccountName', '收款账户名称'], ['receivingBankName', '收款账户开户行'], ['receivingBankLineNo', '收款人行行号'], ['receivingIsBankOfChina', '收款账户是否中行']]],
+              ['协议确认', [['captcha', '图形验证码'], ['agreementAccepted', '入驻协议确认']]],
+            ]}
+            hiddenFields={{
+              businessLicenseFileUrl: uploads.businessLicenseFileUrl.fileUrl,
+              qualificationFileUrl: uploads.qualificationFileUrl.fileUrl,
+            }}
+            onSubmit={submitRegister}
+          />
+          <aside className="register-upload-panel">
+            <div>
+              <h2>附件材料</h2>
+              <p>上传接口当前仅支持既有分类。企业材料分类与授权材料入库字段需后端确认，当前页面标记 NEEDS_REVIEW。</p>
+            </div>
+            {ENTERPRISE_UPLOAD_ITEMS.map((item) => (
+              <EnterpriseUploadCard
+                inputRef={(node) => {
+                  uploadInputRefs.current[item.key] = node;
+                }}
+                item={item}
+                key={item.key}
+                onSelect={() => uploadInputRefs.current[item.key]?.click()}
+                onUpload={(file) => void uploadEnterpriseMaterial(item.key, file)}
+                status={uploads[item.key]}
+              />
+            ))}
+            <div className="register-review-gap">
+              <strong>NEEDS_REVIEW</strong>
+              <span>POST /api/enterprises/register 当前 payload 仅接收营业执照与企业资质 URL，授权材料字段和企业材料上传分类需后端总控确认。</span>
+            </div>
+          </aside>
+        </div>
       </div>
     </PortalLayout>
   );
@@ -1524,14 +1849,19 @@ function getPublicityEnd(publicityPeriod: string) {
 function LongForm({
   formId,
   groups,
+  hiddenFields,
   onSubmit,
 }: {
   formId: string;
   groups: Array<[string, Array<[string, string]>]>;
+  hiddenFields?: Record<string, string>;
   onSubmit: () => void;
 }) {
   return (
     <form className="long-form" id={formId}>
+      {hiddenFields ? Object.entries(hiddenFields).map(([name, value]) => (
+        <input key={name} name={name} type="hidden" value={value} />
+      )) : null}
       {groups.map(([title, fields]) => (
         <fieldset key={title}>
           <legend>{title}</legend>
@@ -1554,28 +1884,6 @@ function LongForm({
 }
 
 function RegisterField({ label, name }: { label: string; name: string }) {
-  if (name === 'avatar') {
-    return (
-      <label className="field register-upload compact-upload">
-        <span>{label}</span>
-        <input name={name} type="hidden" value={getEnterpriseDefault(name)} />
-        <button type="button">上传头像</button>
-        <small>建议尺寸 200x200px，支持 JPG/PNG</small>
-      </label>
-    );
-  }
-
-  if (name === 'businessLicenseFileUrl' || name === 'qualificationFileUrl') {
-    return (
-      <label className="field register-upload">
-        <span>{label}</span>
-        <input name={name} type="hidden" value={getEnterpriseDefault(name)} />
-        <button type="button">选择文件</button>
-        <small>支持 JPG/PNG/PDF，文件大小不超过 5MB</small>
-      </label>
-    );
-  }
-
   if (name === 'agreementAccepted') {
     return (
       <label className="field register-agreement">
@@ -1593,6 +1901,112 @@ function RegisterField({ label, name }: { label: string; name: string }) {
       <input defaultValue={getEnterpriseDefault(name)} name={name} placeholder={`请输入${label}`} type={inputType} />
     </label>
   );
+}
+
+const ENTERPRISE_UPLOAD_ITEMS: EnterpriseUploadItem[] = [
+  {
+    key: 'businessLicenseFileUrl',
+    label: '营业执照',
+    required: true,
+    helper: '需上传清晰原件扫描件或加盖公章复印件，支持 JPG/PNG/PDF。',
+    category: 'DEPOSIT_VOUCHER',
+  },
+  {
+    key: 'qualificationFileUrl',
+    label: '企业资质',
+    required: true,
+    helper: '上传采矿、贸易、供应链等相关资质证明材料。',
+    category: 'DEPOSIT_VOUCHER',
+  },
+  {
+    key: 'authorizationMaterialUrl',
+    label: '授权材料',
+    required: false,
+    helper: '法定代表人授权委托书或经办人授权说明；当前注册接口未提供入库字段。',
+    category: 'DEPOSIT_VOUCHER',
+  },
+];
+
+function EnterpriseUploadCard({
+  inputRef,
+  item,
+  onSelect,
+  onUpload,
+  status,
+}: {
+  inputRef: (node: HTMLInputElement | null) => void;
+  item: EnterpriseUploadItem;
+  onSelect: () => void;
+  onUpload: (file?: File) => void;
+  status: EnterpriseUploadStatus;
+}) {
+  const isUploading = status.state === 'uploading';
+  const stateLabel = status.state === 'success'
+    ? '上传成功'
+    : status.state === 'error'
+      ? '上传失败'
+      : status.state === 'uploading'
+        ? '上传中'
+        : item.required
+          ? '待上传'
+          : '可选上传';
+
+  return (
+    <section className={`enterprise-upload-card ${status.state}`}>
+      <input
+        accept=".jpg,.jpeg,.png,.pdf"
+        className="sr-only-file"
+        onChange={(event) => onUpload(event.currentTarget.files?.[0])}
+        ref={inputRef}
+        type="file"
+      />
+      <div className="enterprise-upload-card-head">
+        <div>
+          <h3>{item.label}{item.required ? <span>*</span> : null}</h3>
+          <p>{item.helper}</p>
+        </div>
+        <StatusTag value={stateLabel} tone={status.state === 'success' ? 'green' : status.state === 'error' ? 'red' : status.state === 'uploading' ? 'blue' : 'gray'} />
+      </div>
+      {status.fileName ? (
+        <div className="enterprise-upload-file">
+          <span>{status.state === 'success' ? '✓' : status.state === 'error' ? '!' : '↑'}</span>
+          <div>
+            <strong>{status.fileName}</strong>
+            <small>{status.message}</small>
+            {isUploading ? <i style={{ width: `${status.progress}%` }} /> : null}
+          </div>
+        </div>
+      ) : (
+        <button className="enterprise-upload-empty" onClick={onSelect} type="button">
+          <strong>选择文件</strong>
+          <small>支持 jpg、png、pdf</small>
+        </button>
+      )}
+      {status.fileName ? (
+        <button className="enterprise-upload-retry" disabled={isUploading} onClick={onSelect} type="button">
+          {status.state === 'success' ? '重新上传' : status.state === 'error' ? '重新上传' : '上传中...'}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function createEnterpriseUploadStatuses(): Record<EnterpriseUploadKey, EnterpriseUploadStatus> {
+  return {
+    authorizationMaterialUrl: createEnterpriseUploadStatus(),
+    businessLicenseFileUrl: createEnterpriseUploadStatus(),
+    qualificationFileUrl: createEnterpriseUploadStatus(),
+  };
+}
+
+function createEnterpriseUploadStatus(): EnterpriseUploadStatus {
+  return {
+    state: 'empty',
+    fileName: '',
+    fileUrl: '',
+    message: '',
+    progress: 0,
+  };
 }
 
 function buildEnterprisePayload(formData: FormData): EnterpriseRegisterPayload {
@@ -1633,7 +2047,6 @@ function getEnterpriseDefault(name: string): string {
     username: 'enterprise_demo',
     password: 'password',
     confirmPassword: 'password',
-    avatar: 'https://files.example.com/avatar.png',
     name: 'T14华宁验收企业',
     mainCategory: '矿产品贸易',
     userCategory: '企业',
@@ -1649,8 +2062,6 @@ function getEnterpriseDefault(name: string): string {
     email: 'enterprise@example.com',
     companyProfile: 'T14 验收企业资料。',
     businessScope: '矿产品采购、销售与相关服务。',
-    qualificationFileUrl: 'https://files.example.com/qualification.pdf',
-    businessLicenseFileUrl: 'https://files.example.com/license.pdf',
     paymentBankAccount: '6217000000000000001',
     paymentAccountName: 'T14华宁验收企业',
     paymentBankName: '中国银行华宁支行',
@@ -1676,6 +2087,18 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '未知错误';
 }
 
+function formatFileSize(size: number): string {
+  if (!Number.isFinite(size) || size <= 0) {
+    return '文件大小待返回';
+  }
+
+  if (size >= 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  return `${Math.ceil(size / 1024)} KB`;
+}
+
 function createCaptcha() {
   const left = Math.floor(Math.random() * 8) + 2;
   const right = Math.floor(Math.random() * 8) + 1;
@@ -1686,8 +2109,76 @@ function createCaptcha() {
   };
 }
 
+function getInitialLot(id?: string): Lot | undefined {
+  return id ? api.getLots().find((lot) => lot.id === id) : undefined;
+}
+
 function isLocalMockLot(lot: Lot): boolean {
   return api.getLots().some((mockLot) => mockLot.id === lot.id);
+}
+
+function getBidQualificationNotice({
+  bidEligibility,
+  isRealLot,
+  lot,
+  notice,
+  profile,
+}: {
+  bidEligibility: BidEligibility;
+  isRealLot: boolean;
+  lot?: Lot;
+  notice: string;
+  profile: ReturnType<typeof getAuthProfile>;
+}): string {
+  if (!lot?.id) {
+    return '未加载到真实竞价标的，不能提交报价。';
+  }
+
+  if (!isRealLot) {
+    return notice;
+  }
+
+  if (!profile) {
+    return '请先登录企业账号后参与竞价。';
+  }
+
+  if (profile.roleCode !== 'ENTERPRISE') {
+    return '当前账号不是企业账号，不能参与企业竞价。';
+  }
+
+  if (profile.enterprise?.isBlacklisted) {
+    return '当前企业账号已被限制，不能参与竞价。';
+  }
+
+  if (profile.enterprise?.certificationStatusCode !== 'APPROVED') {
+    return '企业认证通过后，才可提交报价。';
+  }
+
+  if (bidEligibility !== 'approved') {
+    return getBidEligibilityMessage(bidEligibility);
+  }
+
+  return notice;
+}
+
+function getBidEligibilityMessage(status: BidEligibility): string {
+  if (status === 'pending') {
+    return '意向金凭证已提交但尚未审核通过，暂不能报价。';
+  }
+
+  if (status === 'rejected') {
+    return '意向金凭证审核驳回，请重新上传并通过审核后再报价。';
+  }
+
+  if (status === 'missing') {
+    return '当前企业尚未获得该拍品竞价资格，请先在公告详情提交意向金付款凭证。';
+  }
+
+  if (status === 'error') {
+    return '竞价资格接口读取失败，暂不能提交报价。';
+  }
+
+  return '正在核验竞价资格，通过后方可报价。';
 }
 
 function isPositiveInteger(value: string): boolean {

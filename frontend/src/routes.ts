@@ -18,6 +18,7 @@ export const routeCatalog = [
   '/admin/lots',
   '/admin/lots/edit',
   '/admin/lots/progress',
+  '/admin/auction-closing',
   '/admin/reviews/lots',
   '/admin/reviews/enterprises',
   '/admin/reviews/deposits',

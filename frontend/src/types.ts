@@ -9,7 +9,7 @@ export type Stat = {
 
 export type TableColumn<T extends object> = {
   key: keyof T | string;
-  label: string;
+  label: React.ReactNode;
   width?: string;
   render?: (row: T) => React.ReactNode;
 };

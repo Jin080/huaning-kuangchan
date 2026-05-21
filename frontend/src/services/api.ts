@@ -260,6 +260,12 @@ type AdminTodoCounts = {
   depositReviews: number;
 };
 
+export type AuctionClosingRunSummary = {
+  processed: number;
+  succeeded: number;
+  failed: number;
+};
+
 type ApiAdminBid = {
   id: string;
   sequenceNo: number;
@@ -510,6 +516,7 @@ export type ContractWorkflowRecord = ContractRecord & {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 const ACCEPTANCE_MODE = import.meta.env.VITE_ACCEPTANCE_MODE === 'true';
+const MOCK_FALLBACK_ENABLED = import.meta.env.VITE_ENABLE_MOCK_FALLBACK === 'true';
 const DEV_AUTH_HEADERS_ENABLED = import.meta.env.VITE_DEV_AUTH_HEADERS_ENABLED === 'true';
 const CONTENT_CATEGORY_LABELS: Record<string, string> = {
   POLICY: '政策法规',
@@ -520,6 +527,39 @@ const CONTENT_CATEGORY_LABELS: Record<string, string> = {
   AUCTION_RULES: '竞拍规则说明',
   DEPOSIT_RULES: '保证金缴纳与退还说明',
 };
+
+const emptyLot: Lot = {
+  id: '',
+  title: '',
+  startPrice: '-',
+  currentPrice: '-',
+  quantity: '-',
+  category: '-',
+  supplier: '-',
+  origin: '-',
+  deposit: '-',
+  publicityPeriod: '-',
+  auctionTime: '-',
+  countdown: '-',
+  status: '草稿',
+  updatedAt: '-',
+};
+
+function devFixtureRows<T>(rows: T[]): T[] {
+  return MOCK_FALLBACK_ENABLED ? rows : [];
+}
+
+function devFixtureItem<T>(item: T): T | undefined {
+  return MOCK_FALLBACK_ENABLED ? item : undefined;
+}
+
+function createBlockedFallbackError(error: unknown): Error {
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    return error;
+  }
+
+  return new Error('真实 API 请求失败，mock fallback 默认关闭。仅本地开发可设置 VITE_ENABLE_MOCK_FALLBACK=true 启用 dev fixture。', { cause: error });
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getAuthToken();
@@ -561,9 +601,9 @@ function listItems<T>(data: MaybeListResponse<T>): T[] {
 async function withFallback<T>(load: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await load();
-  } catch {
-    if (ACCEPTANCE_MODE) {
-      throw new Error('验收模式下真实 API 请求失败，已阻止 mock fallback。');
+  } catch (error) {
+    if (ACCEPTANCE_MODE || !MOCK_FALLBACK_ENABLED) {
+      throw createBlockedFallbackError(error);
     }
 
     return fallback;
@@ -579,7 +619,11 @@ async function withPublicFallback<T>(load: () => Promise<T>, fallback: T): Promi
     }
 
     if (ACCEPTANCE_MODE) {
-      throw new Error('验收模式下真实 API 请求失败，已阻止 mock fallback。', { cause: error });
+      throw createBlockedFallbackError(error);
+    }
+
+    if (!MOCK_FALLBACK_ENABLED) {
+      throw createBlockedFallbackError(error);
     }
 
     return fallback;
@@ -1078,20 +1122,20 @@ function mapAdminLog(log: ApiAdminLog): LogRecord {
 }
 
 export const api = {
-  getStats: () => stats,
-  getLots: () => lots,
-  getLot: (id?: string) => lots.find((lot) => lot.id === id) ?? lots[0],
-  getEnterprises: () => enterprises,
-  getDeposits: () => deposits,
-  getBids: () => bids,
-  getResults: () => results,
-  getContracts: () => contracts,
-  getRefunds: () => refunds,
-  getContents: () => contents,
-  getNotifications: () => notifications,
-  getBlacklist: () => blacklist,
-  getFiles: () => files,
-  getLogs: () => logs,
+  getStats: () => devFixtureRows(stats),
+  getLots: () => devFixtureRows(lots),
+  getLot: (id?: string) => devFixtureItem(lots.find((lot) => lot.id === id) ?? lots[0]) ?? emptyLot,
+  getEnterprises: () => devFixtureRows(enterprises),
+  getDeposits: () => devFixtureRows(deposits),
+  getBids: () => devFixtureRows(bids),
+  getResults: () => devFixtureRows(results),
+  getContracts: () => devFixtureRows(contracts),
+  getRefunds: () => devFixtureRows(refunds),
+  getContents: () => devFixtureRows(contents),
+  getNotifications: () => devFixtureRows(notifications),
+  getBlacklist: () => devFixtureRows(blacklist),
+  getFiles: () => devFixtureRows(files),
+  getLogs: () => devFixtureRows(logs),
   login: async (username: string, password: string) => {
     const result = await request<LoginResult>('/auth/login', {
       method: 'POST',
@@ -1161,8 +1205,8 @@ export const api = {
     withPublicFallback(
       async () => mapProfile(await request<ApiAccountProfile>('/account/profile', { headers: getEnterpriseHeaders() })),
       {
-        id: 'mock-account',
-        username: 'mock',
+        id: 'dev-fixture-account',
+        username: 'dev-fixture',
         enterpriseName: enterprises[0]?.name ?? '示例企业',
         certificationStatus: enterprises[0]?.status ?? '未提交',
         isBlacklisted: false,
@@ -1356,6 +1400,7 @@ export const api = {
   markContractSigned: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-signed`),
   markContractCompleted: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-completed`),
   markContractDefaulted: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-defaulted`),
+  runAuctionClosing: () => adminPost<AuctionClosingRunSummary>('/admin/auction-closing/run'),
   markRefundReviewing: (id: string) => adminPost<ApiRefund>(`/admin/refunds/${id}/mark-reviewing`),
   markRefundRefunded: (id: string) => adminPost<ApiRefund>(`/admin/refunds/${id}/mark-refunded`),
   createBlacklist: (payload: BlacklistMutationPayload) => adminPost<ApiBlacklist>('/admin/blacklist', payload),

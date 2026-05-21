@@ -11,6 +11,7 @@ import {
 } from './pages/AccountPages';
 import {
   AdminLoginPage,
+  AuctionClosingPage,
   AdminDashboard,
   BidManagementPage,
   BlacklistManagementPage,
@@ -44,6 +45,7 @@ import {
   UpcomingDetail,
   UpcomingList,
 } from './pages/PortalPages';
+import { NotFoundState } from './components/StatusViews';
 
 const routes: Record<string, () => React.ReactNode> = {
   '/': () => <PortalHome />,
@@ -65,6 +67,7 @@ const routes: Record<string, () => React.ReactNode> = {
   '/admin/lots': () => <LotManagementPage />,
   '/admin/lots/edit': () => <LotEditPage />,
   '/admin/lots/progress': () => <LotProgressPage />,
+  '/admin/auction-closing': () => <AuctionClosingPage />,
   '/admin/reviews/lots': () => <LotReviewPage />,
   '/admin/reviews/enterprises': () => <EnterpriseReviewPage />,
   '/admin/reviews/deposits': () => <DepositReviewPage />,
@@ -101,7 +104,16 @@ function App() {
   }, []);
 
   const path = window.location.pathname;
-  const render = routes[path] ?? routes['/'];
+  const render = routes[path];
+
+  if (!render) {
+    return (
+      <main className="global-status-page" key={location}>
+        <NotFoundState />
+      </main>
+    );
+  }
+
   return <Fragment key={location}>{render()}</Fragment>;
 }
 

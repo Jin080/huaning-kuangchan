@@ -49,6 +49,10 @@ const adminReviewLinks = [
   { label: '企业认证审核', path: '/admin/reviews/enterprises', countKey: 'enterpriseReviews' },
   { label: '意向金凭证审核', path: '/admin/reviews/deposits', countKey: 'depositReviews' },
 ] as const;
+const adminAuditLinks = [
+  { label: '结拍调度', path: '/admin/auction-closing' },
+  { label: '操作日志', path: '/admin/logs' },
+] as const;
 
 const accountPathByNav: Record<string, string> = {
   中心首页: '/account',
@@ -245,6 +249,15 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
                   })}
                 </div>
               ) : null}
+              {item === '系统审计' ? (
+                <div className="sidebar-subnav" aria-label="系统审计入口">
+                  {adminAuditLinks.map((link) => (
+                    <button className={link.label === subActive ? 'active' : ''} key={link.label} onClick={() => navigateTo(link.path)} type="button">
+                      <span>{link.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ))}
         </nav>
@@ -394,6 +407,6 @@ function RoleGuardContent({
   };
 
   return variant === 'forbidden'
-    ? <ForbiddenState {...stateProps} />
-    : <LoginRequiredState {...stateProps} />;
+    ? <div className="auth-guard-content"><ForbiddenState {...stateProps} /></div>
+    : <div className="auth-guard-content"><LoginRequiredState {...stateProps} /></div>;
 }

@@ -17,10 +17,15 @@ export function DataTable<T extends object>({
   return (
     <div className="table-card">
       <table className={tableClassName ? `data-table ${tableClassName}` : 'data-table'}>
+        <colgroup>
+          {columns.map((column) => (
+            <col key={String(column.key)} style={{ width: column.width }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={String(column.key)} style={{ width: column.width }}>
+              <th className={String(column.key) === 'batchSelect' ? 'batch-select-column' : undefined} key={String(column.key)}>
                 {column.label}
               </th>
             ))}
@@ -30,8 +35,13 @@ export function DataTable<T extends object>({
           {rows.map((row, index) => (
             <tr key={String((row as Record<string, unknown>).id ?? index)}>
               {columns.map((column) => {
+                const columnKey = String(column.key);
                 const value = (row as Record<string, unknown>)[String(column.key)];
-                return <td key={String(column.key)}>{column.render ? column.render(row) : String(value ?? '-')}</td>;
+                return (
+                  <td className={columnKey === 'batchSelect' ? 'batch-select-column' : undefined} key={columnKey}>
+                    {column.render ? column.render(row) : String(value ?? '-')}
+                  </td>
+                );
               })}
             </tr>
           ))}

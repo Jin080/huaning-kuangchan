@@ -87,6 +87,26 @@ export function ErrorState({
   );
 }
 
+export function ServiceUnavailableState({
+  title = '服务暂不可用',
+  description = '当前服务连接异常，请稍后重试。页面不会将 mock 或 fallback 数据伪装成真实接口结果。',
+  primaryAction,
+  secondaryAction,
+  compact,
+}: Partial<Pick<StatusViewProps, 'title' | 'description' | 'primaryAction' | 'secondaryAction' | 'compact'>>) {
+  return (
+    <StatusView
+      compact={compact}
+      description={description}
+      icon="503"
+      primaryAction={primaryAction}
+      secondaryAction={secondaryAction}
+      title={title}
+      tone="red"
+    />
+  );
+}
+
 export function ForbiddenState({
   title = '无权访问',
   description = '当前账号没有访问该页面或功能的权限，请切换正确身份后再试。',
@@ -99,6 +119,26 @@ export function ForbiddenState({
       compact={compact}
       description={description}
       icon="盾"
+      primaryAction={primaryAction}
+      secondaryAction={secondaryAction}
+      title={title}
+      tone="orange"
+    />
+  );
+}
+
+export function SessionExpiredState({
+  title = '登录已过期',
+  description = '您的登录状态已失效，请重新登录后继续操作。',
+  primaryAction = { label: '重新登录', tone: 'primary', to: '/login' },
+  secondaryAction,
+  compact,
+}: Partial<Pick<StatusViewProps, 'title' | 'description' | 'primaryAction' | 'secondaryAction' | 'compact'>>) {
+  return (
+    <StatusView
+      compact={compact}
+      description={description}
+      icon="401"
       primaryAction={primaryAction}
       secondaryAction={secondaryAction}
       title={title}
@@ -123,6 +163,26 @@ export function LoginRequiredState({
       secondaryAction={secondaryAction}
       title={title}
       tone="blue"
+    />
+  );
+}
+
+export function NotFoundState({
+  title = '404 - 页面不存在',
+  description = '抱歉，您访问的页面不存在或已被移除。请检查输入的网址是否正确，或返回首页。',
+  primaryAction = { label: '返回首页', tone: 'primary', to: '/' },
+  secondaryAction,
+  compact,
+}: Partial<Pick<StatusViewProps, 'title' | 'description' | 'primaryAction' | 'secondaryAction' | 'compact'>>) {
+  return (
+    <StatusView
+      compact={compact}
+      description={description}
+      icon="404"
+      primaryAction={primaryAction}
+      secondaryAction={secondaryAction}
+      title={title}
+      tone="gray"
     />
   );
 }

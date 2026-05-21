@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ButtonRow } from '../components/Button';
 import { SectionHeader, StatCards } from '../components/Cards';
@@ -6,7 +6,7 @@ import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { AdminLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
-import { ErrorState, TableSkeleton } from '../components/StatusViews';
+import { EmptyState, ErrorState, TableSkeleton } from '../components/StatusViews';
 import { navigateTo } from '../navigation';
 import {
   ApiError,
@@ -18,8 +18,8 @@ import {
   type ResultWorkflowRecord,
   type UploadCategory,
 } from '../services/api';
-import type { Lot } from '../types';
-import { getAuthProfile } from '../services/auth';
+import type { Lot, Stat } from '../types';
+import { getAuthProfile, getAuthToken } from '../services/auth';
 import type { Action, TableColumn } from '../types';
 
 type AdminListConfig = {
@@ -27,8 +27,7 @@ type AdminListConfig = {
   active: string;
   subActive: string;
   filters: string[];
-  summaryCards?: AdminSummaryCard[];
-  fallbackRows: Record<string, unknown>[];
+  summaryCards?: AdminSummaryCard[] | ((rows: Record<string, unknown>[]) => AdminSummaryCard[]);
   loadRows?: () => Promise<Record<string, unknown>[]>;
   columns: TableColumn<Record<string, unknown>>[];
   tableClassName?: string;
@@ -60,6 +59,7 @@ type BatchReviewResult = {
   ok: boolean;
   message?: string;
 };
+type BatchReviewAction = 'approve' | 'reject';
 type AdminSummaryCard = {
   label: string;
   value: string;
@@ -421,47 +421,92 @@ function renderFileNameCell(row: Record<string, unknown>) {
   );
 }
 
-export function AdminDashboard() {
-  const [todoCounts, setTodoCounts] = useState({ lotReviews: '-', enterpriseReviews: '-', depositReviews: '-' });
-  const [todoNotice, setTodoNotice] = useState('正在加载待办审核数量...');
-  const [todoState, setTodoState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const todoItems = [
-    { label: '待发布复核', helper: '矿权上架前终审', value: todoCounts.lotReviews, tone: 'orange', to: '/admin/reviews/lots' },
-    { label: '待企业认证审核', helper: '新增竞买人资质', value: todoCounts.enterpriseReviews, tone: 'blue', to: '/admin/reviews/enterprises' },
-    { label: '待意向金凭证审核', helper: '线下汇款确认', value: todoCounts.depositReviews, tone: 'red', to: '/admin/reviews/deposits' },
+function buildDashboardStats(results: Record<string, unknown>[], contracts: Record<string, unknown>[]): Stat[] {
+  const completedContracts = contracts.filter((row) => getStringValue(row, 'status') === '已完成');
+  const publishedResults = results.filter((row) => getStringValue(row, 'status') === '已公示');
+  const pendingResults = results.filter((row) => getStringValue(row, 'status') === '已生成');
+  const totalCompletedAmount = completedContracts.reduce((sum, row) => sum + parseMoneyValue(getStringValue(row, 'amount')), 0);
+
+  return [
+    { label: '成交结果', value: `${results.length} 宗`, helper: '来自后台成交结果 rows', tone: 'blue' },
+    { label: '已公示结果', value: `${publishedResults.length} 宗`, helper: '成交结果状态为已公示', tone: 'green' },
+    { label: '待发布公示', value: `${pendingResults.length} 宗`, helper: '成交结果状态为已生成', tone: 'orange' },
+    { label: '已完成合同额', value: formatDashboardMoney(totalCompletedAmount), helper: '合同状态已完成 rows 汇总', tone: 'blue' },
   ];
-  const logRows = api.getLogs().slice(0, 4);
+}
+
+export function AdminDashboard() {
+  const [todoCounts, setTodoCounts] = useState({ lotReviews: 0, enterpriseReviews: 0, depositReviews: 0 });
+  const [results, setResults] = useState<Record<string, unknown>[]>([]);
+  const [contracts, setContracts] = useState<Record<string, unknown>[]>([]);
+  const [logRows, setLogRows] = useState<Record<string, unknown>[]>([]);
+  const [notice, setNotice] = useState('正在加载后台看板真实数据...');
+  const [dashboardState, setDashboardState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const todoItems = [
+    { label: '待发布复核', helper: '矿权上架前终审', value: String(todoCounts.lotReviews), tone: 'orange', to: '/admin/reviews/lots' },
+    { label: '待企业认证审核', helper: '新增竞买人资质', value: String(todoCounts.enterpriseReviews), tone: 'blue', to: '/admin/reviews/enterprises' },
+    { label: '待意向金凭证审核', helper: '线下汇款确认', value: String(todoCounts.depositReviews), tone: 'red', to: '/admin/reviews/deposits' },
+  ];
+  const stats = buildDashboardStats(results, contracts);
+  const recentResults = results.slice(0, 5);
+  const recentLogs = logRows.slice(0, 4);
+
+  const loadDashboard = useCallback(async () => {
+    if (!canLoadAdminData()) {
+      setResults([]);
+      setContracts([]);
+      setLogRows([]);
+      setNotice('请先登录管理员账号后访问管理后台。');
+      setDashboardState('error');
+      return;
+    }
+
+    try {
+      const [counts, nextResults, nextContracts, nextLogs] = await Promise.all([
+        api.fetchAdminTodoCounts(),
+        api.fetchAdminResults(),
+        api.fetchAdminContracts(),
+        api.fetchAdminLogs(),
+      ]);
+
+      setTodoCounts(counts);
+      setResults(nextResults as unknown as Record<string, unknown>[]);
+      setContracts(nextContracts as unknown as Record<string, unknown>[]);
+      setLogRows(nextLogs as unknown as Record<string, unknown>[]);
+      setNotice('已加载后台看板真实数据；统计由成交结果、合同和日志 rows 计算。');
+      setDashboardState('ready');
+    } catch (error) {
+      setTodoCounts({ lotReviews: 0, enterpriseReviews: 0, depositReviews: 0 });
+      setResults([]);
+      setContracts([]);
+      setLogRows([]);
+      setNotice(`后台看板真实接口暂不可用：${getErrorMessage(error)}`);
+      setDashboardState('error');
+    }
+  }, []);
 
   useEffect(() => {
-    void api.fetchAdminTodoCounts().then((counts) => {
-      setTodoCounts({
-        lotReviews: String(counts.lotReviews),
-        enterpriseReviews: String(counts.enterpriseReviews),
-        depositReviews: String(counts.depositReviews),
-      });
-      setTodoNotice('待办审核数量已从真实接口加载。');
-      setTodoState('ready');
-    }).catch(() => {
-      setTodoCounts({ lotReviews: '-', enterpriseReviews: '-', depositReviews: '-' });
-      setTodoNotice('待办加载失败，请刷新。');
-      setTodoState('error');
-    });
-  }, []);
+    const timer = window.setTimeout(() => {
+      void loadDashboard();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadDashboard]);
 
   return (
     <AdminLayout active="首页看板">
       <PageHead title="后台首页/数据看板" subtitle="查看成交统计、审核待办与最近操作。" />
       <SectionHeader title="待办审核" subtitle="管理员登录后优先处理发布复核、企业认证和意向金凭证。" />
-      <p className="admin-api-notice">{todoNotice}</p>
-      {todoState === 'loading' ? <TableSkeleton columns={3} rows={3} /> : null}
-      {todoState === 'error' ? (
+      <p className="admin-api-notice">{notice}</p>
+      {dashboardState === 'loading' ? <TableSkeleton columns={3} rows={3} /> : null}
+      {dashboardState === 'error' ? (
         <ErrorState
-          description="网络连接异常或服务器响应错误，待办审核数量暂时无法加载。"
-          primaryAction={{ label: '重试', onClick: () => window.location.reload() }}
+          description={notice}
+          primaryAction={{ label: '重试', onClick: () => void loadDashboard() }}
           secondaryAction={{ label: '联系技术支持', to: '/admin/logs' }}
         />
       ) : null}
-      {todoState === 'ready' ? (
+      {dashboardState === 'ready' ? (
         <section className="admin-todo-grid" aria-label="待办事项">
           {todoItems.map((item) => (
             <button className={`admin-todo-card ${item.tone}`} key={item.label} onClick={() => navigateTo(item.to)} type="button">
@@ -475,33 +520,44 @@ export function AdminDashboard() {
         </section>
       ) : null}
       <SectionHeader title="交易数据看板" />
-      <StatCards stats={api.getStats()} />
-      <section className="admin-dashboard-grid">
-        <div className="admin-panel admin-panel-wide">
-          <SectionHeader action="查看全部" actionTo="/admin/results" title="最近成交结果公示" />
-          <DataTable
-            columns={[
-              { key: 'lotTitle', label: '矿权名称', width: '38%' },
-              { key: 'finalPrice', label: '成交价' },
-              { key: 'winner', label: '竞得人' },
-              { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
-            ]}
-            rows={api.getResults().slice(0, 5) as unknown as Record<string, unknown>[]}
-          />
-        </div>
-        <aside className="admin-panel admin-log-panel">
-          <SectionHeader action="完整审计" actionTo="/admin/logs" title="系统操作日志" />
-          <div className="admin-log-list">
-            {logRows.map((log) => (
-              <article key={log.id}>
-                <span aria-hidden="true" />
-                <small>{log.operatedAt} · {log.operator}</small>
-                <p>{log.action}：{log.objectName}</p>
-              </article>
-            ))}
-          </div>
-        </aside>
-      </section>
+      {dashboardState === 'loading' ? <TableSkeleton columns={4} rows={2} /> : null}
+      {dashboardState === 'ready' ? (
+        <>
+          <StatCards stats={stats} />
+          <section className="admin-dashboard-grid">
+            <div className="admin-panel admin-panel-wide">
+              <SectionHeader action="查看全部" actionTo="/admin/results" title="最近成交结果公示" />
+              <DataTable
+                columns={[
+                  { key: 'lotTitle', label: '矿权名称', width: '38%' },
+                  { key: 'finalPrice', label: '成交价' },
+                  { key: 'winner', label: '竞得人' },
+                  { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
+                ]}
+                emptyText="暂无成交结果"
+                emptyDescription="真实成交结果接口当前未返回记录。"
+                rows={recentResults}
+              />
+            </div>
+            <aside className="admin-panel admin-log-panel">
+              <SectionHeader action="完整审计" actionTo="/admin/logs" title="系统操作日志" />
+              {recentLogs.length ? (
+                <div className="admin-log-list">
+                  {recentLogs.map((log) => (
+                    <article key={String(log.id)}>
+                      <span aria-hidden="true" />
+                      <small>{getStringValue(log, 'operatedAt')} · {getStringValue(log, 'operator')}</small>
+                      <p>{getStringValue(log, 'action')}：{getStringValue(log, 'objectName')}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState compact description="真实操作日志接口当前未返回记录。" title="暂无操作日志" />
+              )}
+            </aside>
+          </section>
+        </>
+      ) : null}
     </AdminLayout>
   );
 }
@@ -518,7 +574,6 @@ export function LotManagementPage() {
     active: '拍品管理',
     subActive: '拍品管理',
     filters: ['关键词', '拍品状态', '竞拍时间', '供应商'],
-    fallbackRows: api.getLots() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLots() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     tableClassName: 'lot-management-table',
     columns: [
@@ -731,7 +786,6 @@ export function LotReviewPage() {
     active: '审核管理',
     subActive: '标的发布复核',
     filters: ['关键词', '审核状态', '提交时间'],
-    fallbackRows: api.getLots().filter((x) => ['待发布复核', '公示中', '发布驳回'].includes(x.status)) as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLotReviews() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'title', label: '拍品信息', width: '28%', render: renderLotCell },
@@ -764,7 +818,6 @@ export function EnterpriseReviewPage() {
     active: '审核管理',
     subActive: '企业认证审核',
     filters: ['企业名称', '审核状态', '提交时间'],
-    fallbackRows: api.getEnterprises() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminEnterpriseReviews() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'name', label: '企业资料', width: '26%', render: renderEnterpriseCell },
@@ -827,12 +880,11 @@ export function BidManagementPage() {
     active: '交易管理',
     subActive: '竞价记录管理',
     filters: ['拍品名称', '企业名称', '出价时间', '是否当前最高价'],
-    summaryCards: [
-      { label: '出价记录', value: String(api.getBids().length), helper: '保留完整竞价留痕', tone: 'blue' },
-      { label: '当前最高价', value: String(api.getBids().filter((row) => row.isHighest).length), helper: '按拍品最高价标记', tone: 'orange' },
+    summaryCards: (rows) => [
+      { label: '出价记录', value: String(rows.length), helper: '保留完整竞价留痕', tone: 'blue' },
+      { label: '当前最高价', value: String(rows.filter((row) => Boolean(row.isHighest)).length), helper: '按拍品最高价标记', tone: 'orange' },
       { label: '删除操作', value: '0', helper: '页面不提供删除入口', tone: 'green' },
     ],
-    fallbackRows: api.getBids() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminBids() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'id', label: '出价序号', width: '12%', render: renderBidSequenceCell },
@@ -869,12 +921,11 @@ export function ResultManagementPage() {
     active: '交易管理',
     subActive: '成交结果管理',
     filters: ['拍品名称', '中标企业', '成交时间', '公示状态'],
-    summaryCards: [
-      { label: '成交结果', value: String(api.getResults().length), helper: '竞拍结束自动生成', tone: 'blue' },
-      { label: '已公示', value: String(api.getResults().filter((row) => row.status === '已公示').length), helper: '已展示至前台成交公示', tone: 'green' },
-      { label: '待发布', value: String(api.getResults().filter((row) => row.status === '已生成').length), helper: '需核对后发布公示', tone: 'orange' },
+    summaryCards: (rows) => [
+      { label: '成交结果', value: String(rows.length), helper: '竞拍结束自动生成', tone: 'blue' },
+      { label: '已公示', value: String(rows.filter((row) => getStringValue(row, 'status') === '已公示').length), helper: '已展示至前台成交公示', tone: 'green' },
+      { label: '待发布', value: String(rows.filter((row) => getStringValue(row, 'status') === '已生成').length), helper: '需核对后发布公示', tone: 'orange' },
     ],
-    fallbackRows: api.getResults() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminResults() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'lotTitle', label: '成交拍品', width: '34%', render: renderBusinessTitleCell },
@@ -903,9 +954,10 @@ export function ResultManagementPage() {
 }
 
 export function ContractManagementPage() {
-  const fallbackRows = useMemo(() => api.getContracts() as unknown as Record<string, unknown>[], []);
-  const [rows, setRows] = useState<Record<string, unknown>[]>(fallbackRows);
-  const [selectedRow, setSelectedRow] = useState<Record<string, unknown>>(fallbackRows[0] ?? {});
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [selectedRow, setSelectedRow] = useState<Record<string, unknown>>({});
+  const [pendingAction, setPendingAction] = useState<{ label: string; row: Record<string, unknown> } | null>(null);
+  const [defaultReason, setDefaultReason] = useState('逾期未签署合同或未按约完成尾款支付。');
   const [notice, setNotice] = useState('正在尝试读取后台合同真实接口。');
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
 
@@ -925,16 +977,12 @@ export function ContractManagementPage() {
         return;
       }
 
-      if (error instanceof Error && error.message.includes('验收模式下真实 API 请求失败')) {
-        throw error;
-      }
-
-      setRows(fallbackRows);
-      setSelectedRow(fallbackRows[0] ?? {});
-      setNotice('后台合同真实接口暂不可用，已回退 mock 数据。');
-      setListState('ready');
+      setRows([]);
+      setSelectedRow({});
+      setNotice(`后台合同真实接口暂不可用：${getErrorMessage(error)}`);
+      setListState('error');
     }
-  }, [fallbackRows]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -944,6 +992,11 @@ export function ContractManagementPage() {
     return () => window.clearTimeout(timer);
   }, [loadRows]);
 
+  const requestAction = (label: string, row: Record<string, unknown>) => {
+    setSelectedRow(row);
+    setPendingAction({ label, row });
+  };
+
   const runAction = async (label: string, row: Record<string, unknown>) => {
     const id = getRowId(row);
 
@@ -952,12 +1005,9 @@ export function ContractManagementPage() {
       return;
     }
 
-    if (label === '确认尾款已线下支付并完成') {
-      const ok = window.confirm('系统不处理线上资金，仅记录管理员已核验线下尾款支付凭证，请确认是否继续？');
-
-      if (!ok) {
-        return;
-      }
+    if (label === '标记违约' && !defaultReason.trim()) {
+      window.alert('请填写违约确认原因。');
+      return;
     }
 
     const action = label === '标记已签约'
@@ -969,6 +1019,7 @@ export function ContractManagementPage() {
     try {
       await action(id);
       await loadRows();
+      setPendingAction(null);
       window.alert(`${label}已提交。`);
     } catch (error) {
       window.alert(`${label}调用后台接口失败：${getErrorMessage(error)}。页面数据已保持不变。`);
@@ -977,7 +1028,7 @@ export function ContractManagementPage() {
 
   return (
     <AdminLayout active="交易管理" subActive="合同状态管理">
-      <PageHead title="合同状态管理页" subtitle="管理全平台线下签约、尾款确认等流程状态。" />
+      <PageHead title="合同履约核验" subtitle="管理全平台线下签约、尾款确认等流程状态。系统仅记录管理员已线下核验相关凭证。" />
       <p className="admin-api-notice">{notice}</p>
       <AdminSummaryStrip cards={[
         { label: '待签约', value: String(rows.filter((row) => getStringValue(row, 'status') === '待签约').length), helper: '需跟进线下合同', tone: 'orange' },
@@ -1010,12 +1061,14 @@ export function ContractManagementPage() {
                     <div className="inline-actions">
                       <button className="link-btn" onClick={() => setSelectedRow(row)} type="button">详情</button>
                       {['标记已签约', '确认尾款已线下支付并完成', '标记违约'].map((label) => (
-                        <button className={label.includes('违约') ? 'danger-link' : 'link-btn'} key={label} onClick={() => void runAction(label, row)} type="button">{label}</button>
+                        <button className={label.includes('违约') ? 'danger-link' : 'link-btn'} key={label} onClick={() => requestAction(label, row)} type="button">{label}</button>
                       ))}
                     </div>
                   ),
                 },
               ]}
+              emptyText="暂无合同记录"
+              emptyDescription="真实合同接口当前未返回记录。"
               rows={rows}
             />
           ) : null}
@@ -1034,6 +1087,15 @@ export function ContractManagementPage() {
           <ContractDetailDrawerContent row={selectedRow} />
         </AdminDetailDrawer>
       </section>
+      {pendingAction ? (
+        <ContractActionModal
+          defaultReason={defaultReason}
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => void runAction(pendingAction.label, pendingAction.row)}
+          onDefaultReasonChange={setDefaultReason}
+          pendingAction={pendingAction}
+        />
+      ) : null}
     </AdminLayout>
   );
 }
@@ -1049,12 +1111,11 @@ export function RefundManagementPage() {
     active: '交易管理',
     subActive: '退款状态管理',
     filters: ['拍品名称', '企业名称', '退款状态'],
-    summaryCards: [
-      { label: '未退款', value: String(api.getRefunds().filter((row) => row.status === '未退款').length), helper: '待线下处理', tone: 'orange' },
-      { label: '审核中', value: String(api.getRefunds().filter((row) => row.status === '审核中').length), helper: '财务复核中', tone: 'blue' },
-      { label: '已退款', value: String(api.getRefunds().filter((row) => row.status === '已退款').length), helper: '仅记录状态', tone: 'green' },
+    summaryCards: (rows) => [
+      { label: '未退款', value: String(rows.filter((row) => getStringValue(row, 'status') === '未退款').length), helper: '待线下处理', tone: 'orange' },
+      { label: '审核中', value: String(rows.filter((row) => getStringValue(row, 'status') === '审核中').length), helper: '财务复核中', tone: 'blue' },
+      { label: '已退款', value: String(rows.filter((row) => getStringValue(row, 'status') === '已退款').length), helper: '仅记录状态', tone: 'green' },
     ],
-    fallbackRows: api.getRefunds() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminRefunds() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'enterprise', label: '企业名称' },
@@ -1085,9 +1146,9 @@ export function RefundManagementPage() {
 }
 
 export function LotProgressPage() {
-  const [lots, setLots] = useState<Lot[]>(api.getLots());
-  const [results, setResults] = useState<ResultWorkflowRecord[]>(api.getResults() as ResultWorkflowRecord[]);
-  const [contracts, setContracts] = useState<ContractWorkflowRecord[]>(api.getContracts() as ContractWorkflowRecord[]);
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [results, setResults] = useState<ResultWorkflowRecord[]>([]);
+  const [contracts, setContracts] = useState<ContractWorkflowRecord[]>([]);
   const [notice, setNotice] = useState('正在读取拍品、成交和合同数据，节点为根据当前业务状态生成。');
   const queryId = getQueryParam('id');
 
@@ -1107,7 +1168,10 @@ export function LotProgressPage() {
         return;
       }
 
-      setNotice('后台真实接口暂不可用，已回退 mock 数据；节点仍为根据当前业务状态生成。');
+      setLots([]);
+      setResults([]);
+      setContracts([]);
+      setNotice(`后台流程真实接口暂不可用：${getErrorMessage(error)}`);
     });
   }, []);
 
@@ -1177,6 +1241,145 @@ export function LotProgressPage() {
   );
 }
 
+export function AuctionClosingPage() {
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [results, setResults] = useState<ResultWorkflowRecord[]>([]);
+  const [notice, setNotice] = useState('正在读取拍品列表并以前端筛选推导待结拍队列。');
+  const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [running, setRunning] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [runResult, setRunResult] = useState('');
+
+  useEffect(() => {
+    void Promise.all([
+      api.fetchAdminLots(),
+      api.fetchAdminResults(),
+    ]).then(([nextLots, nextResults]) => {
+      setLots(nextLots);
+      setResults(nextResults as ResultWorkflowRecord[]);
+      setNotice('已加载拍品列表；待结拍队列根据当前拍品数据推导。NEEDS_REVIEW：后端暂无独立待结拍列表接口。');
+      setListState('ready');
+    }).catch((error) => {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        setLots([]);
+        setResults([]);
+        setNotice(`无法读取拍品列表：${error.message}`);
+        setListState('error');
+        return;
+      }
+
+      setLots([]);
+      setResults([]);
+      setNotice(`后台拍品真实接口暂不可用：${getErrorMessage(error)} NEEDS_REVIEW：后端暂无独立待结拍列表接口。`);
+      setListState('error');
+    });
+  }, []);
+
+  const closedLotIds = new Set(results.map((result) => result.lotId));
+  const pendingLots = lots.filter((lot) => isPendingAuctionClosingLot(lot, closedLotIds));
+  const latestClosedAt = getLatestClosingTime(lots);
+  const runClosing = async () => {
+    try {
+      setRunning(true);
+      const result = await api.runAuctionClosing();
+      setRunResult(`结拍调度已执行：处理 ${result.processed} 宗，成功 ${result.succeeded} 宗，失败 ${result.failed} 宗。`);
+      setConfirmOpen(false);
+      const [nextLots, nextResults] = await Promise.all([api.fetchAdminLots(), api.fetchAdminResults()]);
+      setLots(nextLots);
+      setResults(nextResults as ResultWorkflowRecord[]);
+    } catch (error) {
+      setRunResult(`结拍调度执行失败：${getErrorMessage(error)}。`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <AdminLayout active="系统审计" subActive="结拍调度">
+      <PageHead
+        title="结拍调度"
+        subtitle="运维任务入口仅触发既有结拍服务，不新增后端接口。"
+        actions={[{ label: '返回流程进度', to: '/admin/lots/progress' }]}
+      />
+      <p className="admin-api-notice">{notice}</p>
+      {runResult ? <p className="admin-api-notice">{runResult}</p> : null}
+      <section className="closing-warning">
+        <strong>执行逻辑提示</strong>
+        <span>待结拍队列根据当前拍品数据推导；结拍逻辑由运维定时任务自动触发。手动执行前请确认竞价已完全停止，且业务数据同步完成。</span>
+      </section>
+      <AdminSummaryStrip cards={[
+        { label: '当前待结拍标的', value: String(pendingLots.length), helper: '拍品列表前端筛选', tone: pendingLots.length > 0 ? 'orange' : 'green' },
+        { label: '已有成交结果', value: String(results.length), helper: '来自成交结果接口', tone: 'blue' },
+        { label: '最近竞拍结束时间', value: latestClosedAt, helper: '按拍品竞拍时间推导', tone: 'green' },
+      ]} />
+      <section className="closing-layout">
+        <div className="admin-workspace-main">
+          <div className="closing-section-head">
+            <div>
+              <h2>待处理结拍队列</h2>
+              <p>若字段不足以判断是否待结拍，页面会保守显示 NEEDS_REVIEW。</p>
+            </div>
+            <button className="btn primary" disabled={running} onClick={() => setConfirmOpen(true)} type="button">
+              {running ? '执行中...' : '手动执行结拍'}
+            </button>
+          </div>
+          {listState === 'loading' ? <TableSkeleton columns={5} rows={5} /> : null}
+          {listState === 'error' ? (
+            <ErrorState
+              description={notice}
+              primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
+              secondaryAction={{ label: '返回后台首页', to: '/admin/dashboard' }}
+            />
+          ) : null}
+          {listState === 'ready' ? (
+            <DataTable
+              columns={[
+                { key: 'id', label: '项目编号', width: '18%' },
+                { key: 'title', label: '拍品名称', width: '30%' },
+                { key: 'auctionTime', label: '竞拍时间' },
+                { key: 'currentPrice', label: '当前最高价' },
+                { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} tone={String(row.status) === '已结束' ? 'orange' : 'blue'} /> },
+              ]}
+              emptyText="暂无待结拍标的"
+              emptyDescription="当前没有从拍品列表推导出的待结拍标的。若线上仍有待结拍任务，需要后端提供独立待结拍列表接口确认。"
+              rows={pendingLots as unknown as Record<string, unknown>[]}
+            />
+          ) : null}
+        </div>
+        <aside className="closing-ops-panel">
+          <h2>运维任务说明</h2>
+          <dl>
+            <div><dt>执行接口</dt><dd>POST /api/admin/auction-closing/run</dd></div>
+            <div><dt>权限口径</dt><dd>沿用 Authorization: Bearer &lt;accessToken&gt;</dd></div>
+            <div><dt>资金边界</dt><dd>只生成成交/流转状态，不处理线上资金。</dd></div>
+            <div><dt>数据缺口</dt><dd>NEEDS_REVIEW：暂无待结拍列表/最近调度记录接口。</dd></div>
+          </dl>
+        </aside>
+      </section>
+      {confirmOpen ? (
+        <div className="admin-modal-backdrop" role="presentation">
+          <section className="admin-modal-panel" role="dialog" aria-modal="true" aria-label="执行结拍确认">
+            <header>
+              <span>拍</span>
+              <div>
+                <h2>执行结拍确认</h2>
+                <p>将触发后台结拍服务处理所有符合条件的标的。</p>
+              </div>
+            </header>
+            <div className="admin-modal-body">
+              <p className="modal-warning danger">执行后可能生成成交结果并推进业务状态。请确认竞价已完全停止，此操作不涉及线上资金划拨。</p>
+            </div>
+            <footer>
+              <button className="btn secondary" disabled={running} onClick={() => setConfirmOpen(false)} type="button">取消</button>
+              <button className="btn primary" disabled={running} onClick={() => void runClosing()} type="button">{running ? '执行中...' : '确认执行'}</button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+    </AdminLayout>
+  );
+}
+
 export function BlacklistManagementPage() {
   const handleAction = useAdminRowAction({
     解除拉黑: (id) => api.releaseBlacklist(id, BLACKLIST_RELEASE_REASON),
@@ -1189,12 +1392,11 @@ export function BlacklistManagementPage() {
         active: '企业管理',
         subActive: '黑名单管理',
         filters: ['企业名称', '黑名单状态', '操作时间'],
-        summaryCards: [
-          { label: '已拉黑企业', value: String(api.getBlacklist().filter((row) => row.status === '已拉黑').length), helper: '禁止继续参与竞拍', tone: 'red' },
+        summaryCards: (rows) => [
+          { label: '已拉黑企业', value: String(rows.filter((row) => getStringValue(row, 'status') === '已拉黑').length), helper: '禁止继续参与竞拍', tone: 'red' },
           { label: '解除入口', value: '行内', helper: '保留既有解除拉黑操作', tone: 'blue' },
           { label: '人工拉黑', value: '真实接口', helper: '提交企业 ID、拍品 ID 与原因', tone: 'orange' },
         ],
-        fallbackRows: api.getBlacklist() as unknown as Record<string, unknown>[],
         loadRows: () => api.fetchAdminBlacklist() as Promise<unknown> as Promise<Record<string, unknown>[]>,
         columns: [
           { key: 'enterprise', label: '企业名称' },
@@ -1230,21 +1432,23 @@ export function BlacklistManagementPage() {
 }
 
 export function ContentManagementPage() {
-  const fallbackRows = useMemo(() => api.getContents() as unknown as Record<string, unknown>[], []);
-  const [rows, setRows] = useState(fallbackRows);
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | undefined>();
-  const [notice, setNotice] = useState('正在尝试读取后台内容真实接口，失败时保留 mock 数据。');
+  const [notice, setNotice] = useState('正在尝试读取后台内容真实接口。');
+  const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
 
   const loadRows = useCallback(async () => {
     try {
       const nextRows = await api.fetchAdminContents() as unknown as Record<string, unknown>[];
       setRows(nextRows);
       setNotice('已加载后台内容列表；保存会调用真实内容接口。');
+      setListState('ready');
     } catch (error) {
-      setRows(fallbackRows);
+      setRows([]);
       setNotice(`后台内容真实接口不可用：${getErrorMessage(error)}`);
+      setListState('error');
     }
-  }, [fallbackRows]);
+  }, []);
 
   const handleAction = useAdminRowAction({
     发布: (id) => api.publishContent(id),
@@ -1327,17 +1531,29 @@ export function ContentManagementPage() {
         </aside>
         <div className="admin-workspace-main">
           <FilterBar fields={['分类', '状态', '关键词']} />
-          <DataTable
-            columns={[
-              { key: 'title', label: '标题', width: '34%', render: renderContentTitleCell },
-              { key: 'category', label: '分类' },
-              { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
-              { key: 'publishedAt', label: '发布时间' },
-              { key: 'updatedBy', label: '更新人' },
-              rowActions(handleContentAction, ['编辑', '发布', '下架']),
-            ]}
-            rows={rows}
-          />
+          {listState === 'loading' ? <TableSkeleton columns={6} rows={6} /> : null}
+          {listState === 'error' ? (
+            <ErrorState
+              description={notice}
+              primaryAction={{ label: '重试', onClick: () => void loadRows() }}
+              secondaryAction={{ label: '返回后台首页', to: '/admin/dashboard' }}
+            />
+          ) : null}
+          {listState === 'ready' ? (
+            <DataTable
+              columns={[
+                { key: 'title', label: '标题', width: '34%', render: renderContentTitleCell },
+                { key: 'category', label: '分类' },
+                { key: 'status', label: '状态', render: (row) => <StatusTag value={String(row.status)} /> },
+                { key: 'publishedAt', label: '发布时间' },
+                { key: 'updatedBy', label: '更新人' },
+                rowActions(handleContentAction, ['编辑', '发布', '下架']),
+              ]}
+              emptyText="暂无内容记录"
+              emptyDescription="真实内容接口当前未返回记录。"
+              rows={rows}
+            />
+          ) : null}
         </div>
         <aside className="drawer-preview content-editor-drawer">
           <div className="drawer-preview-head">
@@ -1387,12 +1603,11 @@ export function NotificationManagementPage() {
     active: '内容运营',
     subActive: '通知管理',
     filters: ['通知类型', '通知渠道', '接收企业', '发送状态', '发送时间'],
-    summaryCards: [
-      { label: '发送成功', value: String(api.getNotifications().filter((row) => row.status === '发送成功').length), helper: '网关/站内投递成功', tone: 'green' },
-      { label: '发送失败', value: String(api.getNotifications().filter((row) => row.status === '发送失败').length), helper: '需人工关注业务结果', tone: 'red' },
-      { label: '通知类型', value: '2', helper: '成交通知与失败通知', tone: 'blue' },
+    summaryCards: (rows) => [
+      { label: '发送成功', value: String(rows.filter((row) => getStringValue(row, 'status') === '发送成功').length), helper: '网关/站内投递成功', tone: 'green' },
+      { label: '发送失败', value: String(rows.filter((row) => getStringValue(row, 'status') === '发送失败').length), helper: '需人工关注业务结果', tone: 'red' },
+      { label: '通知类型', value: String(new Set(rows.map((row) => getStringValue(row, 'type')).filter(Boolean)).size), helper: '按真实通知记录统计', tone: 'blue' },
     ],
-    fallbackRows: api.getNotifications() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminNotifications() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'type', label: '通知类型' },
@@ -1423,12 +1638,11 @@ export function FileManagementPage() {
     active: '内容运营',
     subActive: '文件管理',
     filters: ['文件类型', '来源业务', '上传人', '上传时间'],
-    summaryCards: [
-      { label: '文件记录', value: String(api.getFiles().length), helper: '平台上传文件引用', tone: 'blue' },
+    summaryCards: (rows) => [
+      { label: '文件记录', value: String(rows.length), helper: '平台上传文件引用', tone: 'blue' },
       { label: '权限控制', value: '敏感附件', helper: '检测报告/凭证按权限查看', tone: 'orange' },
       { label: '只读盘点', value: '无删除', helper: '本页仅查看与引用追踪', tone: 'green' },
     ],
-    fallbackRows: api.getFiles() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminFiles() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'name', label: '文件名', width: '28%', render: renderFileNameCell },
@@ -1459,12 +1673,11 @@ export function OperationLogPage() {
     active: '系统审计',
     subActive: '操作日志',
     filters: ['操作人', '操作动作', '对象类型', '操作时间'],
-    summaryCards: [
-      { label: '审计记录', value: String(api.getLogs().length), helper: '关键操作留痕', tone: 'blue' },
-      { label: '成功操作', value: String(api.getLogs().filter((row) => row.result === '成功').length), helper: '按后端日志结果展示', tone: 'green' },
+    summaryCards: (rows) => [
+      { label: '审计记录', value: String(rows.length), helper: '关键操作留痕', tone: 'blue' },
+      { label: '成功操作', value: String(rows.filter((row) => getStringValue(row, 'result') === '成功').length), helper: '按后端日志结果展示', tone: 'green' },
       { label: '删除按钮', value: '0', helper: '操作日志不可删除', tone: 'red' },
     ],
-    fallbackRows: api.getLogs() as unknown as Record<string, unknown>[],
     loadRows: () => api.fetchAdminLogs() as Promise<unknown> as Promise<Record<string, unknown>[]>,
     columns: [
       { key: 'operator', label: '操作人' },
@@ -1490,23 +1703,31 @@ export function OperationLogPage() {
 }
 
 function AdminListPage({ config, extraContent }: { config: AdminListConfig; extraContent?: ReactNode }) {
-  const [rows, setRows] = useState(config.fallbackRows);
-  const [notice, setNotice] = useState('正在尝试读取后台真实接口，失败时保留 mock 数据。');
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [notice, setNotice] = useState('正在尝试读取后台真实接口。');
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [feedback, setFeedback] = useState<AdminActionFeedback | null>(null);
+  const summaryCards = typeof config.summaryCards === 'function' ? config.summaryCards(rows) : config.summaryCards;
 
   const loadRows = useCallback(async () => {
+    if (!canLoadAdminData()) {
+      setRows([]);
+      setNotice('请先登录管理员账号后访问管理后台。');
+      setListState('error');
+      return;
+    }
+
     if (!config.loadRows) {
-      setRows(config.fallbackRows);
-      setNotice('当前页面暂未纳入本阶段真实接口接入。');
-      setListState('ready');
+      setRows([]);
+      setNotice('NEEDS_REVIEW：当前页面缺少可复用的后台真实列表接口。');
+      setListState('error');
       return;
     }
 
     try {
       const nextRows = await config.loadRows();
       setRows(nextRows);
-      setNotice('已加载后台列表；真实接口不可用时页面会保留 mock 数据。');
+      setNotice('已加载后台列表。');
       setListState('ready');
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
@@ -1523,13 +1744,9 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
         return;
       }
 
-      if (error instanceof Error && error.message.includes('验收模式下真实 API 请求失败')) {
-        throw error;
-      }
-
-      setRows(config.fallbackRows);
-      setNotice('后台真实接口暂不可用，已回退 mock 数据。');
-      setListState('ready');
+      setRows([]);
+      setNotice(`后台真实接口暂不可用：${getErrorMessage(error)}`);
+      setListState('error');
     }
   }, [config]);
   const batchReview = useBatchReview({
@@ -1563,11 +1780,11 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
 
   return (
     <AdminLayout active={config.active} subActive={config.subActive}>
-      <PageHead title={config.title} subtitle="真实接口优先加载；接口不可用时保留 mock 数据，状态操作失败不改变当前页面。" actions={config.topActions} />
+      <PageHead title={config.title} subtitle="真实接口优先加载；接口不可用时显示错误状态，状态操作失败不改变当前页面。" actions={config.topActions} />
       <p className="admin-api-notice">{notice}</p>
       {feedback ? <AdminActionFeedbackPanel feedback={feedback} onClose={() => setFeedback(null)} /> : null}
       {extraContent}
-      {config.summaryCards ? <AdminSummaryStrip cards={config.summaryCards} /> : null}
+      {listState === 'ready' && summaryCards ? <AdminSummaryStrip cards={summaryCards} /> : null}
       <section className="admin-workspace">
         <div className="admin-workspace-main">
           <FilterBar fields={config.filters} />
@@ -1583,15 +1800,13 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
             <BatchReviewToolbar
               disabled={!batchReview.selectableRows.length}
               itemLabel={config.batchReview.itemLabel}
-              onApprove={() => void batchReview.run('approve')}
-              onReject={() => void batchReview.run('reject')}
+              onApprove={() => batchReview.requestRun('approve')}
+              onReject={() => batchReview.requestRun('reject')}
               onSelectAll={batchReview.selectAll}
               onSelectNone={batchReview.clearSelection}
               processing={batchReview.processing}
-              rejectReason={batchReview.rejectReason}
               selectedCount={batchReview.selectedRows.length}
               selectableCount={batchReview.selectableRows.length}
-              setRejectReason={batchReview.setRejectReason}
             />
           ) : null}
           {listState === 'ready' ? (
@@ -1600,8 +1815,22 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
                 createBatchSelectionColumn(batchReview),
                 ...config.columns,
               ] : config.columns}
+              emptyText="暂无相关数据"
+              emptyDescription="真实后台接口当前未返回记录。"
               rows={rows}
               tableClassName={config.tableClassName}
+            />
+          ) : null}
+          {config.batchReview ? (
+            <BatchReviewConfirmDialog
+              action={batchReview.pendingAction}
+              itemLabel={config.batchReview.itemLabel}
+              onCancel={batchReview.cancelRun}
+              onConfirm={() => void batchReview.confirmRun()}
+              processing={batchReview.processing}
+              rejectReason={batchReview.rejectReason}
+              selectedCount={batchReview.selectedRows.length}
+              setRejectReason={batchReview.setRejectReason}
             />
           ) : null}
         </div>
@@ -1619,7 +1848,7 @@ function AdminListPage({ config, extraContent }: { config: AdminListConfig; extr
 }
 
 function DepositReviewWorkspace({ batchReview: batchReviewConfig, handleAction }: { batchReview: AdminBatchReviewConfig; handleAction: RowActionHandler }) {
-  const [rows, setRows] = useState<Record<string, unknown>[]>(api.getDeposits() as unknown as Record<string, unknown>[]);
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [notice, setNotice] = useState('正在加载意向金凭证审核列表。');
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [keyword, setKeyword] = useState('');
@@ -1627,6 +1856,13 @@ function DepositReviewWorkspace({ batchReview: batchReviewConfig, handleAction }
   const [feedback, setFeedback] = useState<AdminActionFeedback | null>(null);
 
   const loadRows = useCallback(async () => {
+    if (!canLoadAdminData()) {
+      setRows([]);
+      setNotice('请先登录管理员账号后访问管理后台。');
+      setListState('error');
+      return;
+    }
+
     try {
       const nextRows = await api.fetchAdminDepositReviews() as unknown as Record<string, unknown>[];
       setRows(nextRows);
@@ -1647,13 +1883,9 @@ function DepositReviewWorkspace({ batchReview: batchReviewConfig, handleAction }
         return;
       }
 
-      if (error instanceof Error && error.message.includes('验收模式下真实 API 请求失败')) {
-        throw error;
-      }
-
-      setRows(api.getDeposits() as unknown as Record<string, unknown>[]);
-      setNotice('意向金审核真实接口暂不可用，已回退 mock 数据。');
-      setListState('ready');
+      setRows([]);
+      setNotice(`意向金审核真实接口暂不可用：${getErrorMessage(error)}`);
+      setListState('error');
     }
   }, []);
   useEffect(() => {
@@ -1749,15 +1981,13 @@ function DepositReviewWorkspace({ batchReview: batchReviewConfig, handleAction }
             <BatchReviewToolbar
               disabled={!batchReview.selectableRows.length}
               itemLabel={batchReviewConfig.itemLabel}
-              onApprove={() => void batchReview.run('approve')}
-              onReject={() => void batchReview.run('reject')}
+              onApprove={() => batchReview.requestRun('approve')}
+              onReject={() => batchReview.requestRun('reject')}
               onSelectAll={batchReview.selectAll}
               onSelectNone={batchReview.clearSelection}
               processing={batchReview.processing}
-              rejectReason={batchReview.rejectReason}
               selectedCount={batchReview.selectedRows.length}
               selectableCount={batchReview.selectableRows.length}
-              setRejectReason={batchReview.setRejectReason}
             />
           ) : null}
           {listState === 'ready' ? (
@@ -1777,6 +2007,16 @@ function DepositReviewWorkspace({ batchReview: batchReviewConfig, handleAction }
               rows={filteredRows}
             />
           ) : null}
+          <BatchReviewConfirmDialog
+            action={batchReview.pendingAction}
+            itemLabel={batchReviewConfig.itemLabel}
+            onCancel={batchReview.cancelRun}
+            onConfirm={() => void batchReview.confirmRun()}
+            processing={batchReview.processing}
+            rejectReason={batchReview.rejectReason}
+            selectedCount={batchReview.selectedRows.length}
+            setRejectReason={batchReview.setRejectReason}
+          />
         </div>
         <AdminDetailDrawer
           detailItems={getDepositReviewDetailItems(filteredRows[0] ?? {})}
@@ -1886,10 +2126,8 @@ function BatchReviewToolbar({
   onSelectAll,
   onSelectNone,
   processing,
-  rejectReason,
   selectedCount,
   selectableCount,
-  setRejectReason,
 }: {
   disabled: boolean;
   itemLabel: string;
@@ -1898,36 +2136,92 @@ function BatchReviewToolbar({
   onSelectAll: () => void;
   onSelectNone: () => void;
   processing: boolean;
-  rejectReason: string;
   selectedCount: number;
   selectableCount: number;
-  setRejectReason: (value: string) => void;
 }) {
   return (
-    <section className="admin-action-feedback" aria-label={`${itemLabel}批量操作`}>
+    <section className="admin-batch-toolbar" aria-label={`${itemLabel}批量操作`}>
       <div>
         <strong>{itemLabel}批量处理</strong>
         <span>已选 {selectedCount} 条，可选 {selectableCount} 条。</span>
       </div>
-      <label className="field">
-        <span>统一驳回原因</span>
-        <input
-          disabled={processing}
-          onChange={(event) => setRejectReason(event.currentTarget.value)}
-          value={rejectReason}
-        />
-      </label>
       <div className="button-row">
         <button disabled={disabled || processing} onClick={onSelectAll} type="button">全选当前页</button>
         <button disabled={!selectedCount || processing} onClick={onSelectNone} type="button">清空选择</button>
         <button className="btn primary" disabled={!selectedCount || processing} onClick={onApprove} type="button">
           {processing ? '操作中...' : '批量通过'}
         </button>
-        <button className="btn danger" disabled={!selectedCount || processing || !rejectReason.trim()} onClick={onReject} type="button">
+        <button className="btn danger" disabled={!selectedCount || processing} onClick={onReject} type="button">
           {processing ? '操作中...' : '批量驳回'}
         </button>
       </div>
     </section>
+  );
+}
+
+function BatchReviewConfirmDialog({
+  action,
+  itemLabel,
+  onCancel,
+  onConfirm,
+  processing,
+  rejectReason,
+  selectedCount,
+  setRejectReason,
+}: {
+  action: BatchReviewAction | null;
+  itemLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  processing: boolean;
+  rejectReason: string;
+  selectedCount: number;
+  setRejectReason: (value: string) => void;
+}) {
+  if (!action) {
+    return null;
+  }
+
+  const isReject = action === 'reject';
+  const title = isReject ? '批量驳回确认' : '批量通过确认';
+  const confirmLabel = processing ? '执行中...' : isReject ? '确认驳回' : '确认通过';
+
+  return (
+    <div className="admin-modal-backdrop" role="presentation">
+      <section aria-modal="true" className="admin-modal" role="dialog">
+        <div className="admin-modal-head">
+          <span aria-hidden="true">{isReject ? '!' : '✓'}</span>
+          <div>
+            <h3>{title}</h3>
+            <p>将对已选择的 {selectedCount} 条{itemLabel}逐条调用现有单条接口。</p>
+          </div>
+        </div>
+        {isReject ? (
+          <label className="field">
+            <span>统一驳回原因</span>
+            <textarea
+              disabled={processing}
+              onChange={(event) => setRejectReason(event.currentTarget.value)}
+              rows={4}
+              value={rejectReason}
+            />
+          </label>
+        ) : (
+          <p className="admin-modal-note">确认后将依次执行审核通过。若部分记录失败，失败项会保留选择，便于重试。</p>
+        )}
+        <div className="button-row">
+          <button className="btn secondary" disabled={processing} onClick={onCancel} type="button">取消</button>
+          <button
+            className={isReject ? 'btn danger' : 'btn primary'}
+            disabled={processing || (isReject && !rejectReason.trim())}
+            onClick={onConfirm}
+            type="button"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1941,6 +2235,10 @@ function ContractDetailDrawerContent({ row }: { row: Record<string, unknown> }) 
 
   return (
     <div className="contract-drawer-content">
+      <section className="contract-drawer-notice">
+        <h4>核验口径</h4>
+        <p>系统仅记录管理员已线下核验合同、银行回单和相关凭证，不处理线上资金、不发起付款或扣款。</p>
+      </section>
       <section>
         <h4>拍品信息</h4>
         <dl>
@@ -1981,6 +2279,68 @@ function ContractDetailDrawerContent({ row }: { row: Record<string, unknown> }) 
             </article>
           ))}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function ContractActionModal({
+  defaultReason,
+  onCancel,
+  onConfirm,
+  onDefaultReasonChange,
+  pendingAction,
+}: {
+  defaultReason: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onDefaultReasonChange: (value: string) => void;
+  pendingAction: { label: string; row: Record<string, unknown> };
+}) {
+  const isDefault = pendingAction.label === '标记违约';
+  const isComplete = pendingAction.label === '确认尾款已线下支付并完成';
+  const title = isDefault
+    ? '确认标记违约'
+    : isComplete
+      ? '确认尾款线下核验'
+      : '确认标记已签约';
+
+  return (
+    <div className="admin-modal-backdrop" role="presentation">
+      <section className={`admin-modal-panel ${isDefault ? 'danger' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+        <header>
+          <span>{isDefault ? '!' : '核'}</span>
+          <div>
+            <h2>{title}</h2>
+            <p>{getStringValue(pendingAction.row, 'lotTitle') || '当前合同记录'}</p>
+          </div>
+        </header>
+        <div className="admin-modal-body">
+          <dl>
+            <div><dt>中标企业</dt><dd>{getStringValue(pendingAction.row, 'enterprise') || '-'}</dd></div>
+            <div><dt>成交价</dt><dd>{getStringValue(pendingAction.row, 'amount') || '-'}</dd></div>
+            <div><dt>当前状态</dt><dd>{getStringValue(pendingAction.row, 'status') || '-'}</dd></div>
+          </dl>
+          <p className={isDefault ? 'modal-warning danger' : 'modal-warning'}>
+            {isComplete
+              ? '系统不处理线上资金，仅记录管理员已线下核验尾款支付凭证。请确认银行回单、合同编号和付款企业名称一致。'
+              : isDefault
+                ? '违约确认会推进合同异常状态。请确认已完成线下事实核验与内部审批。'
+                : '请确认纸质合同已完成线下签署，系统仅记录履约状态。'}
+          </p>
+          {isDefault ? (
+            <label className="field">
+              <span>违约确认原因</span>
+              <textarea onChange={(event) => onDefaultReasonChange(event.currentTarget.value)} rows={3} value={defaultReason} />
+            </label>
+          ) : null}
+        </div>
+        <footer>
+          <button className="btn secondary" onClick={onCancel} type="button">取消</button>
+          <button className={isDefault ? 'btn danger' : 'btn primary'} disabled={isDefault && !defaultReason.trim()} onClick={onConfirm} type="button">
+            {isDefault ? '确认违约' : '确认提交'}
+          </button>
+        </footer>
       </section>
     </div>
   );
@@ -2097,6 +2457,7 @@ function useBatchReview({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rejectReason, setRejectReason] = useState(REVIEW_REJECT_REASON);
   const [processing, setProcessing] = useState(false);
+  const [pendingAction, setPendingAction] = useState<BatchReviewAction | null>(null);
   const selectableRows = useMemo(() => {
     if (!config) {
       return [];
@@ -2123,7 +2484,26 @@ function useBatchReview({
   }, []);
   const selectAll = useCallback(() => setSelectedIds(selectableRows.map(getRowId)), [selectableRows]);
   const clearSelection = useCallback(() => setSelectedIds([]), []);
-  const run = useCallback(async (action: 'approve' | 'reject') => {
+  const requestRun = useCallback((action: BatchReviewAction) => {
+    if (!config || processing || !selectedRows.length) {
+      return;
+    }
+
+    if (action === 'reject' && !rejectReason.trim()) {
+      window.alert('请填写统一驳回原因。');
+      return;
+    }
+
+    setPendingAction(action);
+  }, [config, processing, rejectReason, selectedRows.length]);
+  const cancelRun = useCallback(() => {
+    if (!processing) {
+      setPendingAction(null);
+    }
+  }, [processing]);
+  const confirmRun = useCallback(async () => {
+    const action = pendingAction;
+
     if (!config || processing || !selectedRows.length) {
       return;
     }
@@ -2131,11 +2511,6 @@ function useBatchReview({
     const reason = rejectReason.trim();
     if (action === 'reject' && !reason) {
       window.alert('请填写统一驳回原因。');
-      return;
-    }
-
-    const ok = window.confirm(`确认${action === 'approve' ? '批量通过' : '批量驳回'} ${selectedRows.length} 条${config.itemLabel}？`);
-    if (!ok) {
       return;
     }
 
@@ -2168,15 +2543,19 @@ function useBatchReview({
       await onComplete();
     } finally {
       setProcessing(false);
+      setPendingAction(null);
     }
-  }, [config, onComplete, processing, rejectReason, selectedRows, setFeedback]);
+  }, [config, onComplete, pendingAction, processing, rejectReason, selectedRows, setFeedback]);
 
   return {
+    cancelRun,
     clearSelection,
-    isSelected: (id: string) => selectedRows.some((row) => getRowId(row) === id),
+    confirmRun,
+    isSelected: (id: string) => selectedIds.includes(id),
+    pendingAction,
     processing,
+    requestRun,
     rejectReason,
-    run,
     selectAll,
     selectableRows,
     selectedRows,
@@ -2186,29 +2565,86 @@ function useBatchReview({
 }
 
 function createBatchSelectionColumn(batchReview: ReturnType<typeof useBatchReview>): TableColumn<Record<string, unknown>> {
+  const allSelected = Boolean(batchReview.selectableRows.length) && batchReview.selectedRows.length === batchReview.selectableRows.length;
+  const someSelected = batchReview.selectedRows.length > 0 && !allSelected;
+
   return {
     key: 'batchSelect',
-    label: '选择',
+    label: (
+      <BatchSelectAllCheckbox
+        checked={allSelected}
+        disabled={!batchReview.selectableRows.length || batchReview.processing}
+        indeterminate={someSelected}
+        onChange={(checked) => {
+          if (checked) {
+            batchReview.selectAll();
+            return;
+          }
+
+          batchReview.clearSelection();
+        }}
+      />
+    ),
     width: '64px',
     render: (row) => {
       const id = getRowId(row);
       const selectable = batchReview.selectableRows.some((item) => getRowId(item) === id);
 
       return (
-        <input
-          aria-label={`选择${getBatchReviewTitle(row) || id}`}
-          checked={batchReview.isSelected(id)}
-          disabled={!selectable || batchReview.processing}
-          onChange={(event) => batchReview.toggle(id, event.currentTarget.checked)}
-          type="checkbox"
-        />
+        <label className="batch-check-cell">
+          <input
+            aria-label={`选择${getBatchReviewTitle(row) || id}`}
+            checked={batchReview.isSelected(id)}
+            disabled={!selectable || batchReview.processing}
+            onChange={(event) => batchReview.toggle(id, event.currentTarget.checked)}
+            type="checkbox"
+          />
+        </label>
       );
     },
   };
 }
 
+function BatchSelectAllCheckbox({
+  checked,
+  disabled,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  indeterminate: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const checkboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate]);
+
+  return (
+    <label className="batch-check-cell">
+      <input
+        aria-label="全选当前页"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.checked)}
+        ref={checkboxRef}
+        type="checkbox"
+      />
+    </label>
+  );
+}
+
 function getBatchReviewTitle(row: Record<string, unknown>) {
   return getStringValue(row, 'title') || getStringValue(row, 'name') || getStringValue(row, 'enterprise') || getStringValue(row, 'lotTitle') || getRowId(row);
+}
+
+function canLoadAdminData() {
+  const profile = getAuthProfile();
+  return Boolean(getAuthToken() && profile?.roleCode === 'ADMIN');
 }
 
 function getDepositReviewDetailItems(row: Record<string, unknown>): AdminDetailItem[] {
@@ -2329,6 +2765,46 @@ function selectProgressLot(
   return lots.find((lot) => lot.id === contractLot || lot.id === resultLot) ?? lots[0];
 }
 
+function isPendingAuctionClosingLot(lot: Lot, closedLotIds: Set<string>) {
+  if (closedLotIds.has(lot.id)) {
+    return false;
+  }
+
+  if (lot.status === '已结束') {
+    return true;
+  }
+
+  const biddingEndAt = getLotBiddingEndAt(lot);
+  if (!biddingEndAt) {
+    return false;
+  }
+
+  const endTime = new Date(biddingEndAt).getTime();
+  return lot.status === '竞拍中' && Number.isFinite(endTime) && endTime <= Date.now();
+}
+
+function getLatestClosingTime(lots: Lot[]) {
+  const latest = lots
+    .map(getLotBiddingEndAt)
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a)[0];
+
+  return latest ? new Date(latest).toLocaleString('zh-CN', { hour12: false }) : 'NEEDS_REVIEW';
+}
+
+function getLotBiddingEndAt(lot: Lot) {
+  const value = (lot as Lot & { biddingEndAt?: string }).biddingEndAt;
+
+  if (value) {
+    return value;
+  }
+
+  const parts = lot.auctionTime.split(' 至 ');
+  return parts[1] ?? '';
+}
+
 function getLotManagementTarget(label: string, row: Record<string, unknown>) {
   const id = getRowId(row);
 
@@ -2403,9 +2879,7 @@ function getLotDetailTarget(row: Record<string, unknown>, allowRowId = true) {
 }
 
 function getLotIdByTitle(row: Record<string, unknown>) {
-  const lotTitle = getStringValue(row, 'lotTitle');
-
-  return api.getLots().find((lot) => lot.title === lotTitle)?.id ?? '';
+  return getStringValue(row, 'lotId');
 }
 
 function getRowId(row: Record<string, unknown>) {
@@ -2530,6 +3004,46 @@ function formatLargeMoneyUnit(value: string): string {
   }
 
   return `${formatUnitNumber(amount)} 元`;
+}
+
+function parseMoneyValue(value: string): number {
+  const normalized = value.replace(/,/g, '');
+  const matched = normalized.match(/-?\d+(?:\.\d+)?/);
+
+  if (!matched) {
+    return 0;
+  }
+
+  const amount = Number(matched[0]);
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+
+  if (normalized.includes('亿')) {
+    return amount * 100000000;
+  }
+
+  if (normalized.includes('万')) {
+    return amount * 10000;
+  }
+
+  return amount;
+}
+
+function formatDashboardMoney(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0 元';
+  }
+
+  if (value >= 100000000) {
+    return `${formatUnitNumber(value / 100000000)} 亿元`;
+  }
+
+  if (value >= 10000) {
+    return `${formatUnitNumber(value / 10000)} 万元`;
+  }
+
+  return `${formatUnitNumber(value)} 元`;
 }
 
 function formatUnitNumber(value: number): string {
