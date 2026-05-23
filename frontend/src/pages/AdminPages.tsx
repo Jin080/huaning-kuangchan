@@ -16,11 +16,12 @@ import {
   type BlacklistMutationPayload,
   type ContentMutationPayload,
   type ContractWorkflowRecord,
+  type FileUploadResponse,
   type LotMutationPayload,
   type ResultWorkflowRecord,
   type UploadCategory,
 } from '../services/api';
-import type { BidRecord, Lot, Stat } from '../types';
+import type { BidRecord, ContractAttachment, Lot, Stat } from '../types';
 import { getAuthProfile, getAuthToken } from '../services/auth';
 import type { Action, TableColumn } from '../types';
 
@@ -104,6 +105,9 @@ type AdminImagePreviewState = {
   src: string;
   title: string;
   subtitle?: string;
+};
+type ContractAttachmentDraft = FileUploadResponse & {
+  localPreviewUrl?: string;
 };
 type LotAttachmentFieldName = LotUploadTarget['fieldName'];
 type LotAttachmentRequirement = {
@@ -513,6 +517,226 @@ function buildDashboardStats(results: Record<string, unknown>[], contracts: Reco
   ];
 }
 
+function buildLotWorkflowRows(lots: Lot[], results: ResultWorkflowRecord[], contracts: ContractWorkflowRecord[]): Record<string, unknown>[] {
+  return lots.map((lot) => {
+    const result = results.find((item) => item.lotId === lot.id);
+    const contract = contracts.find((item) => item.lotId === lot.id);
+    const nodes = buildProgressNodes(lot, result, contract);
+    const currentNode = getActiveProgressLabel(nodes);
+
+    return {
+      id: lot.id,
+      lotId: lot.id,
+      title: lot.title,
+      lotTitle: lot.title,
+      status: contract?.status ?? result?.status ?? lot.status,
+      currentNode,
+      nextStep: getWorkflowNextStep(lot, result, contract),
+      ownerRole: getWorkflowOwnerRole(currentNode),
+      updatedAt: contract?.updatedAt ?? result?.updatedAt ?? lot.updatedAt,
+    };
+  });
+}
+
+function buildWorkflowSummaryCards(rows: Record<string, unknown>[]): AdminSummaryCard[] {
+  const countByStatus = (status: string) => rows.filter((row) => getStringValue(row, 'status') === status).length;
+  const abnormalCount = rows.filter((row) => ['违约', '已取消', '发布驳回'].includes(getStringValue(row, 'status'))).length;
+
+  return [
+    { label: '全部拍品', value: String(rows.length), helper: 'fetchAdminLots 汇总', tone: 'blue' },
+    { label: '待发布复核', value: String(countByStatus('待发布复核')), helper: '需审核管理处理', tone: 'orange' },
+    { label: '竞拍中', value: String(countByStatus('竞拍中')), helper: '等待竞价结束', tone: 'blue' },
+    { label: '成交公示中', value: String(countByStatus('成交公示中') + countByStatus('已生成')), helper: '成交结果待公示', tone: 'orange' },
+    { label: '合同履约中', value: String(countByStatus('待签约') + countByStatus('已签约')), helper: '合同/尾款核验', tone: 'blue' },
+    { label: '异常/违约', value: String(abnormalCount), helper: '需人工关注', tone: abnormalCount ? 'red' : 'green' },
+  ];
+}
+
+function buildWorkflowLaneNodes(rows: Record<string, unknown>[]) {
+  const countByNode = (node: string) => rows.filter((row) => getStringValue(row, 'currentNode') === node).length;
+
+  return [
+    { label: '拍品创建', count: countByNode('拍品创建'), helper: '草稿/初始记录', tone: 'gray' },
+    { label: '发布复核', count: countByNode('发布复核'), helper: '待后台复核', tone: 'orange' },
+    { label: '公示中', count: countByNode('公示中'), helper: '公告展示期', tone: 'blue' },
+    { label: '意向金审核', count: countByNode('意向金审核'), helper: '参拍前凭证', tone: 'gray' },
+    { label: '竞价中', count: countByNode('竞价中'), helper: '实时竞价', tone: 'blue' },
+    { label: '竞价结束', count: countByNode('竞价结束'), helper: '生成成交结果', tone: 'orange' },
+    { label: '成交公示', count: countByNode('成交公示'), helper: '结果公示', tone: 'green' },
+    { label: '线下签约', count: countByNode('线下签约'), helper: '合同核验', tone: 'blue' },
+    { label: '尾款确认', count: countByNode('尾款确认'), helper: '财务确认', tone: 'orange' },
+    { label: '完成', count: countByNode('完成'), helper: '履约归档', tone: 'green' },
+  ];
+}
+
+function getWorkflowNextStep(lot?: Lot, result?: ResultWorkflowRecord, contract?: ContractWorkflowRecord) {
+  if (contract?.status === '违约') {
+    return '查看异常归档线索';
+  }
+
+  if (contract?.status === '已完成') {
+    return '归档完成';
+  }
+
+  if (contract?.status === '已签约') {
+    return '确认线下尾款';
+  }
+
+  if (contract?.status === '待签约' || lot?.status === '待签约') {
+    return '推进合同签约';
+  }
+
+  if (result?.status === '已生成') {
+    return '发布成交公示';
+  }
+
+  if (result || lot?.status === '成交公示中') {
+    return '等待合同生成';
+  }
+
+  if (lot?.status === '竞拍中') {
+    return '等待竞拍结束';
+  }
+
+  if (lot?.status === '公示中') {
+    return '等待进入竞价';
+  }
+
+  if (lot?.status === '待发布复核') {
+    return '审核拍品发布';
+  }
+
+  if (lot?.status === '发布驳回' || lot?.status === '已取消') {
+    return '查看驳回/关闭原因';
+  }
+
+  return '补齐拍品资料';
+}
+
+function getWorkflowOwnerRole(currentNode: string) {
+  const roleByNode: Record<string, string> = {
+    拍品创建: '业务员',
+    发布复核: '审核员',
+    公示中: '系统/业务员',
+    意向金提交: '竞买企业',
+    意向金审核: '财务审核员',
+    竞价中: '系统',
+    竞价结束: '结拍服务',
+    成交公示: '交易管理员',
+    线下签约: '法务/竞得人',
+    尾款确认: '财务专员',
+    完成: '系统归档',
+  };
+
+  return roleByNode[currentNode] ?? '管理员';
+}
+
+function buildReviewCenterTasks(
+  todoCounts: { lotReviews: number; enterpriseReviews: number; depositReviews: number },
+  results: ResultWorkflowRecord[],
+  contracts: ContractWorkflowRecord[],
+  closingPending: AuctionClosingPendingLot[],
+): Record<string, unknown>[] {
+  const tasks: Record<string, unknown>[] = [];
+  const pushCountTask = (type: string, count: number, target: string, objectName: string) => {
+    if (count > 0) {
+      tasks.push({ id: type, type, title: objectName, objectName, status: '待处理', waiting: '待办计数接口', risk: count > 10 ? '高风险' : '常规', target });
+    }
+  };
+
+  pushCountTask('拍品发布审核', todoCounts.lotReviews, '/admin/reviews/lots', `${todoCounts.lotReviews} 宗拍品待复核`);
+  pushCountTask('企业认证审核', todoCounts.enterpriseReviews, '/admin/reviews/enterprises', `${todoCounts.enterpriseReviews} 家企业待认证`);
+  pushCountTask('意向金凭证审核', todoCounts.depositReviews, '/admin/reviews/deposits', `${todoCounts.depositReviews} 条凭证待核验`);
+
+  results.filter((row) => row.status === '已生成').slice(0, 3).forEach((row) => {
+    tasks.push({ id: `result-${row.id}`, type: '成交结果确认', title: row.lotTitle, objectName: row.lotTitle, lotId: row.lotId, status: row.status, waiting: row.generatedAt ?? row.publicTime, risk: '常规', target: '/admin/results' });
+  });
+
+  contracts.filter((row) => row.status === '待签约' || row.status === '已签约' || row.status === '违约').slice(0, 4).forEach((row) => {
+    tasks.push({ id: `contract-${row.id}`, type: '合同履约核验', title: row.lotTitle, objectName: row.lotTitle, lotId: row.lotId, status: row.status, waiting: row.updatedAt, risk: row.status === '违约' ? '高风险' : '常规', target: '/admin/contracts' });
+  });
+
+  closingPending.slice(0, 3).forEach((row) => {
+    tasks.push({ id: `closing-${row.lotId}`, type: '异常归档线索', title: row.title, objectName: row.title, lotId: row.lotId, status: '待处理', waiting: formatDateTime(row.endAt), risk: '常规', target: '/admin/reviews/lot-close' });
+  });
+
+  return tasks;
+}
+
+function buildLotCloseRows(
+  lots: Lot[],
+  results: ResultWorkflowRecord[],
+  contracts: ContractWorkflowRecord[],
+  refunds: Record<string, unknown>[],
+  closingPending: AuctionClosingPendingLot[],
+): Record<string, unknown>[] {
+  const lotById = new Map(lots.map((lot) => [lot.id, lot]));
+  const rows: Record<string, unknown>[] = [];
+
+  closingPending.forEach((lot) => {
+    rows.push({
+      id: `CLOSE-${lot.lotId}`,
+      lotId: lot.lotId,
+      title: lot.title,
+      lotTitle: lot.title,
+      type: '正常结拍',
+      enterprise: '-',
+      amount: lot.currentHighestPrice ? `${lot.currentHighestPrice} 元` : '-',
+      risk: '常规',
+      status: lot.status,
+      suggestion: '进入结拍调度确认成交或流拍结果。',
+    });
+  });
+
+  contracts.filter((contract) => contract.status === '违约' || contract.status === '待签约' || contract.status === '已签约').forEach((contract) => {
+    const result = results.find((item) => item.lotId === contract.lotId);
+    rows.push({
+      id: `CONTRACT-${contract.id}`,
+      lotId: contract.lotId,
+      title: contract.lotTitle,
+      lotTitle: contract.lotTitle,
+      type: contract.status === '违约' ? '违约处理' : '履约待确认',
+      enterprise: contract.enterprise || result?.winner || '-',
+      amount: contract.amount || result?.finalPrice || '-',
+      risk: contract.status === '违约' ? '高风险' : '常规',
+      status: contract.status,
+      suggestion: contract.status === '违约' ? '进入合同履约核验查看违约记录。' : '跟进线下合同签署或尾款确认。',
+    });
+  });
+
+  refunds.filter((refund) => getStringValue(refund, 'status') !== '已退款').forEach((refund) => {
+    rows.push({
+      id: `REFUND-${getStringValue(refund, 'id')}`,
+      lotId: getStringValue(refund, 'lotId'),
+      title: getStringValue(refund, 'lotTitle'),
+      lotTitle: getStringValue(refund, 'lotTitle'),
+      type: '退款异常',
+      enterprise: getStringValue(refund, 'enterprise'),
+      amount: getStringValue(refund, 'amount'),
+      risk: getStringValue(refund, 'status') === '未退款' ? '高风险' : '常规',
+      status: getStringValue(refund, 'status'),
+      suggestion: '进入退款状态管理查看线下退款状态。',
+    });
+  });
+
+  lots.filter((lot) => lot.status === '已取消' || lot.status === '发布驳回').forEach((lot) => {
+    rows.push({
+      id: `LOT-${lot.id}`,
+      lotId: lot.id,
+      title: lot.title,
+      lotTitle: lot.title,
+      type: '异常归档',
+      enterprise: '-',
+      amount: lot.currentPrice || lot.startPrice,
+      risk: '常规',
+      status: lot.status,
+      suggestion: '查看拍品全流程并确认是否已完成归档说明。',
+    });
+  });
+
+  return rows.filter((row, index, allRows) => allRows.findIndex((item) => getRowId(item) === getRowId(row)) === index && (getStringValue(row, 'lotId') || lotById.has(getStringValue(row, 'lotId'))));
+}
+
 export function AdminDashboard() {
   const [todoCounts, setTodoCounts] = useState({ lotReviews: 0, enterpriseReviews: 0, depositReviews: 0 });
   const [results, setResults] = useState<Record<string, unknown>[]>([]);
@@ -678,6 +902,255 @@ export function LotManagementPage() {
     drawerTitle: '拍品详情',
     drawerSections: ['基础信息', '竞价规则', '保证金规则', '时间规则', '附件与检测报告'],
   }} />;
+}
+
+export function LotWorkflowPage() {
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [filters, setFilters] = useState<FilterValues>({});
+  const [notice, setNotice] = useState('正在读取拍品、成交结果和合同数据，生成全流程总览。');
+  const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const filteredRows = filterRowsByText(rows, filters);
+
+  const loadRows = useCallback(async () => {
+    try {
+      const [lots, results, contracts] = await Promise.all([
+        api.fetchAdminLots(),
+        api.fetchAdminResults(),
+        api.fetchAdminContracts(),
+      ]);
+      setRows(buildLotWorkflowRows(lots, results as ResultWorkflowRecord[], contracts as ContractWorkflowRecord[]));
+      setNotice('已加载现有后台数据；流程节点、下一步和责任角色均由 lot/result/contract 状态推导。');
+      setListState('ready');
+    } catch (error) {
+      setRows([]);
+      setNotice(`后台流程数据读取失败：${getErrorMessage(error)}`);
+      setListState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadRows();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadRows]);
+
+  const statusCards = buildWorkflowSummaryCards(rows);
+  const laneNodes = buildWorkflowLaneNodes(rows);
+
+  return (
+    <AdminLayout active="拍品管理" subActive="全流程总览">
+      <PageHead
+        title="拍品全流程总览"
+        subtitle="增量接入 Stitch 全景状态看板，复用现有后台真实数据推导每宗拍品当前节点。"
+        actions={[
+          { label: '返回拍品列表', to: '/admin/lots' },
+          { label: '成交后履约推进', tone: 'primary', to: '/admin/lots/progress' },
+        ]}
+      />
+      <p className="admin-api-notice">{notice}</p>
+      {listState === 'ready' ? <AdminSummaryStrip cards={statusCards} /> : null}
+      {listState === 'ready' ? (
+        <section className="workflow-lane-card">
+          <div className="workflow-section-head">
+            <div>
+              <h2>全流程节点泳道</h2>
+              <p>按现有状态映射到创建、复核、公示、竞拍、成交、签约、履约和异常节点。</p>
+            </div>
+            <button className="link-btn" onClick={() => void loadRows()} type="button">刷新数据</button>
+          </div>
+          <div className="workflow-lane-scroll">
+            {laneNodes.map((node, index) => (
+              <article className={`workflow-lane-node ${node.tone}`} key={node.label}>
+                <span>{index + 1}</span>
+                <strong>{node.label}</strong>
+                <b>{node.count}</b>
+                <small>{node.helper}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      <section className="admin-workspace full-width">
+        <div className="admin-workspace-main">
+          <FilterBar fields={['拍品名称', '当前状态', '当前节点', '责任角色']} onSearch={setFilters} />
+          {listState === 'loading' ? <TableSkeleton columns={8} rows={6} /> : null}
+          {listState === 'error' ? (
+            <ErrorState
+              description={notice}
+              primaryAction={{ label: '重试', onClick: () => void loadRows() }}
+              secondaryAction={{ label: '返回拍品列表', to: '/admin/lots' }}
+            />
+          ) : null}
+          {listState === 'ready' ? (
+            <DataTable
+              columns={[
+                { key: 'id', label: '项目编号', width: '13%' },
+                { key: 'title', label: '拍品名称', width: '26%', render: renderBusinessTitleCell },
+                { key: 'status', label: '当前状态', render: (row) => <StatusTag value={String(row.status)} /> },
+                { key: 'currentNode', label: '当前节点' },
+                { key: 'nextStep', label: '下一步' },
+                { key: 'ownerRole', label: '责任角色' },
+                { key: 'updatedAt', label: '更新时间' },
+                {
+                  key: 'actions',
+                  label: '操作',
+                  render: (row) => (
+                    <div className="inline-actions">
+                      <button className="link-btn" onClick={() => navigateTo(`/admin/lots/workflow/detail?id=${encodeURIComponent(getStringValue(row, 'id'))}`)} type="button">查看全流程</button>
+                      <button className="link-btn" onClick={() => navigateTo(getLotProgressTarget(row))} type="button">履约推进</button>
+                    </div>
+                  ),
+                },
+              ]}
+              emptyText="暂无拍品流程数据"
+              emptyDescription="现有后台接口未返回可推导流程的拍品。"
+              rows={filteredRows}
+            />
+          ) : null}
+        </div>
+      </section>
+    </AdminLayout>
+  );
+}
+
+export function LotWorkflowDetailPage() {
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [results, setResults] = useState<ResultWorkflowRecord[]>([]);
+  const [contracts, setContracts] = useState<ContractWorkflowRecord[]>([]);
+  const [notice, setNotice] = useState('正在读取单拍品全流程数据。');
+  const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const queryId = getQueryParam('id');
+
+  useEffect(() => {
+    void Promise.all([
+      api.fetchAdminLots(),
+      api.fetchAdminResults(),
+      api.fetchAdminContracts(),
+    ]).then(([nextLots, nextResults, nextContracts]) => {
+      setLots(nextLots);
+      setResults(nextResults as ResultWorkflowRecord[]);
+      setContracts(nextContracts as ContractWorkflowRecord[]);
+      setNotice('已加载拍品生命周期数据；请从全流程总览选择拍品后查看详情。');
+      setListState('ready');
+    }).catch((error) => {
+      setLots([]);
+      setResults([]);
+      setContracts([]);
+      setNotice(`单拍品全流程数据读取失败：${getErrorMessage(error)}`);
+      setListState('error');
+    });
+  }, []);
+
+  const selectedLot = selectWorkflowDetailLot(lots, results as ResultWorkflowRecord[], queryId);
+  const selectedResult = results.find((result) => result.lotId === selectedLot?.id);
+  const selectedContract = contracts.find((contract) => contract.lotId === selectedLot?.id);
+  const nodes = buildProgressNodes(selectedLot, selectedResult, selectedContract);
+  const activeNode = getActiveProgressLabel(nodes);
+  const emptyDescription = queryId
+    ? '未找到对应拍品，请返回全流程总览重新选择。'
+    : '请从全流程总览选择拍品后查看详情。';
+
+  return (
+    <AdminLayout active="拍品管理" subActive="全流程总览">
+      <PageHead
+        title="单拍品全流程详情"
+        subtitle="展示从创建、发布复核、竞价、成交公示到合同履约的完整生命周期。"
+        actions={[
+          { label: '返回全流程总览', to: '/admin/lots/workflow' },
+          ...(selectedLot ? [{ label: '拍品履约推进', tone: 'primary' as const, to: `/admin/lots/progress?id=${selectedLot.id}` }] : []),
+        ]}
+      />
+      <p className="admin-api-notice">{notice}</p>
+      {listState === 'loading' ? <TableSkeleton columns={4} rows={4} /> : null}
+      {listState === 'error' ? (
+        <ErrorState
+          description={notice}
+          primaryAction={{ label: '重试', onClick: () => window.location.reload() }}
+          secondaryAction={{ label: '返回全流程总览', to: '/admin/lots/workflow' }}
+        />
+      ) : null}
+      {listState === 'ready' && selectedLot ? (
+        <div className="workflow-detail-grid">
+          <section className="lot-progress-summary fulfillment-summary">
+            <div className="fulfillment-summary-main">
+              <div className="fulfillment-summary-title">
+                <StatusTag value={selectedContract?.status ?? selectedLot.status} />
+                <span>当前节点：{activeNode}</span>
+              </div>
+              <h2>{selectedLot.title}</h2>
+              <p>项目编号：{selectedLot.id}；页面只读展示现有接口推导出的业务生命周期，不调用新增写接口。</p>
+            </div>
+            <dl className="fulfillment-summary-grid">
+              <div><dt>起拍价</dt><dd>{selectedLot.startPrice}</dd></div>
+              <div><dt>当前价/成交价</dt><dd className="money">{selectedResult?.finalPrice ?? selectedLot.currentPrice}</dd></div>
+              <div><dt>中标企业</dt><dd>{selectedResult?.winner ?? selectedContract?.enterprise ?? '-'}</dd></div>
+              <div><dt>合同状态</dt><dd>{selectedContract?.status ?? '未生成'}</dd></div>
+              <div><dt>公示期</dt><dd>{selectedLot.publicityPeriod}</dd></div>
+              <div><dt>竞拍期</dt><dd>{selectedLot.auctionTime}</dd></div>
+              <div><dt>成交公示</dt><dd>{selectedResult?.publicTime ?? selectedResult?.generatedAt ?? '-'}</dd></div>
+              <div><dt>更新时间</dt><dd>{selectedContract?.updatedAt ?? selectedLot.updatedAt}</dd></div>
+            </dl>
+          </section>
+          <aside className="workflow-side-panel">
+            <h2>当前待办与摘要</h2>
+            <dl>
+              <div><dt>下一步</dt><dd>{getWorkflowNextStep(selectedLot, selectedResult, selectedContract)}</dd></div>
+              <div><dt>成交结果</dt><dd>{selectedResult ? `${selectedResult.status} / ${selectedResult.finalPrice}` : '暂无成交结果'}</dd></div>
+              <div><dt>合同履约</dt><dd>{selectedContract ? `${selectedContract.status} / ${selectedContract.operator}` : '暂无合同记录'}</dd></div>
+              <div><dt>日志摘要</dt><dd>节点说明来自 lot/result/contract 字段推导，完整审计请进入操作日志。</dd></div>
+            </dl>
+            <div className="button-row">
+              <button className="btn" onClick={() => navigateTo(`/admin/lots/bids?id=${selectedLot.id}`)} type="button">查看出价</button>
+              <button className="btn primary" onClick={() => navigateTo('/admin/logs')} type="button">系统审计</button>
+            </div>
+          </aside>
+          <section className="workflow-timeline-card">
+            <h2>全生命周期流转图</h2>
+            <div className="workflow-timeline">
+              {nodes.map((node) => (
+                <article className={`workflow-timeline-node ${node.state}`} key={node.label}>
+                  <span>{node.state === 'done' ? '✓' : node.state === 'danger' ? '!' : '•'}</span>
+                  <div>
+                    <header>
+                      <strong>{node.label}</strong>
+                      <StatusTag value={node.state === 'done' ? '已完成' : node.state === 'active' ? '进行中' : node.state === 'danger' ? '异常' : '待流转'} tone={node.state === 'danger' ? 'red' : node.state === 'done' ? 'green' : node.state === 'active' ? 'blue' : 'gray'} />
+                    </header>
+                    <small>{node.time} · {node.operator}</small>
+                    <p>{node.note}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="flow-record-panel">
+            <h2>节点表</h2>
+            <DataTable
+              columns={[
+                { key: 'label', label: '节点' },
+                { key: 'stateLabel', label: '状态', render: (row) => <StatusTag value={String(row.stateLabel)} /> },
+                { key: 'time', label: '时间' },
+                { key: 'operator', label: '来源/操作人' },
+                { key: 'note', label: '说明', width: '34%' },
+              ]}
+              rows={nodes.map((node) => ({
+                ...node,
+                stateLabel: node.state === 'done' ? '已完成' : node.state === 'active' ? '进行中' : node.state === 'danger' ? '异常' : '待流转',
+              }))}
+            />
+          </section>
+        </div>
+      ) : null}
+      {listState === 'ready' && !selectedLot ? (
+        <EmptyState
+          description={emptyDescription}
+          primaryAction={{ label: '返回全流程总览', to: '/admin/lots/workflow' }}
+          title="请选择拍品"
+        />
+      ) : null}
+    </AdminLayout>
+  );
 }
 
 export function LotEditPage() {
@@ -1827,15 +2300,24 @@ export function ContractManagementPage() {
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown>>({});
   const [pendingAction, setPendingAction] = useState<{ label: string; row: Record<string, unknown> } | null>(null);
   const [defaultReason, setDefaultReason] = useState('逾期未签署合同或未按约完成尾款支付。');
+  const [contractAttachmentDrafts, setContractAttachmentDrafts] = useState<ContractAttachmentDraft[]>([]);
+  const [isSigningSubmitting, setIsSigningSubmitting] = useState(false);
   const [notice, setNotice] = useState('正在尝试读取后台合同真实接口。');
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const contractDraftPreviewUrlsRef = useRef(new Set<string>());
+  const queryContractId = getQueryParam('id');
+  const queryLotId = getQueryParam('lotId');
   const filteredRows = filterRowsByText(rows, filters);
 
   const loadRows = useCallback(async () => {
     try {
       const nextRows = await api.fetchAdminContracts() as unknown as Record<string, unknown>[];
       setRows(nextRows);
-      setSelectedRow((current) => nextRows.find((row) => getRowId(row) === getRowId(current)) ?? nextRows[0] ?? {});
+      setSelectedRow((current) => nextRows.find((row) => queryContractId && getRowId(row) === queryContractId)
+        ?? nextRows.find((row) => queryLotId && getStringValue(row, 'lotId') === queryLotId)
+        ?? nextRows.find((row) => getRowId(row) === getRowId(current))
+        ?? nextRows[0]
+        ?? {});
       setNotice('已加载合同列表，详情抽屉展示当前选中合同。');
       setListState('ready');
     } catch (error) {
@@ -1852,7 +2334,7 @@ export function ContractManagementPage() {
       setNotice(`后台合同真实接口暂不可用：${getErrorMessage(error)}`);
       setListState('error');
     }
-  }, []);
+  }, [queryContractId, queryLotId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1862,9 +2344,22 @@ export function ContractManagementPage() {
     return () => window.clearTimeout(timer);
   }, [loadRows]);
 
+  useEffect(() => () => {
+    contractDraftPreviewUrlsRef.current.forEach((previewUrl) => window.URL.revokeObjectURL(previewUrl));
+    contractDraftPreviewUrlsRef.current.clear();
+  }, []);
+
   const requestAction = (label: string, row: Record<string, unknown>) => {
     setSelectedRow(row);
+    setContractAttachmentDrafts([]);
     setPendingAction({ label, row });
+  };
+
+  const cancelPendingAction = () => {
+    contractDraftPreviewUrlsRef.current.forEach((previewUrl) => window.URL.revokeObjectURL(previewUrl));
+    contractDraftPreviewUrlsRef.current.clear();
+    setContractAttachmentDrafts([]);
+    setPendingAction(null);
   };
 
   const runAction = async (label: string, row: Record<string, unknown>) => {
@@ -1880,24 +2375,31 @@ export function ContractManagementPage() {
       return;
     }
 
-    const action = label === '标记已签约'
-      ? api.markContractSigned
-      : label === '确认尾款已线下支付并完成'
-        ? api.markContractCompleted
-        : api.markContractDefaulted;
-
     try {
-      await action(id);
+      setIsSigningSubmitting(true);
+      const attachmentIds = label === '标记已签约'
+        ? contractAttachmentDrafts.map((attachment) => attachment.id)
+        : [];
+
+      if (label === '标记已签约') {
+        await api.markContractSigned(id, attachmentIds.length ? { attachmentIds } : undefined);
+      } else if (label === '确认尾款已线下支付并完成') {
+        await api.markContractCompleted(id);
+      } else {
+        await api.markContractDefaulted(id);
+      }
       await loadRows();
-      setPendingAction(null);
+      cancelPendingAction();
       window.alert(`${label}已提交。`);
     } catch (error) {
       window.alert(`${label}调用后台接口失败：${getErrorMessage(error)}。页面数据已保持不变。`);
+    } finally {
+      setIsSigningSubmitting(false);
     }
   };
 
   return (
-    <AdminLayout active="交易管理" subActive="合同状态管理">
+    <AdminLayout active="交易管理" subActive="合同履约核验">
       <PageHead title="合同履约核验" subtitle="管理全平台线下签约、尾款确认等流程状态。系统仅记录管理员已线下核验相关凭证。" />
       <p className="admin-api-notice">{notice}</p>
       <AdminSummaryStrip cards={[
@@ -1958,12 +2460,31 @@ export function ContractManagementPage() {
         </AdminDetailDrawer>
       </section>
       {pendingAction ? (
-        <ContractActionModal
+          <ContractActionModal
+          attachments={contractAttachmentDrafts}
           defaultReason={defaultReason}
-          onCancel={() => setPendingAction(null)}
+          onCancel={cancelPendingAction}
           onConfirm={() => void runAction(pendingAction.label, pendingAction.row)}
           onDefaultReasonChange={setDefaultReason}
+          onRemoveAttachment={(id) => setContractAttachmentDrafts((current) => current.filter((attachment) => attachment.id !== id))}
+          onUploadAttachments={(files) => {
+            const selectedFiles = Array.from(files);
+
+            return Promise.all(selectedFiles.map(async (file) => {
+              const uploaded = await api.uploadFile(file, 'OTHER');
+              const localPreviewUrl = isImageFile(uploaded) ? window.URL.createObjectURL(file) : undefined;
+
+              if (localPreviewUrl) {
+                contractDraftPreviewUrlsRef.current.add(localPreviewUrl);
+              }
+
+              return { ...uploaded, localPreviewUrl };
+            })).then((uploadedFiles) => {
+              setContractAttachmentDrafts((current) => [...current, ...uploadedFiles]);
+            });
+          }}
           pendingAction={pendingAction}
+          submitting={isSigningSubmitting}
         />
       ) : null}
     </AdminLayout>
@@ -2022,28 +2543,36 @@ export function LotProgressPage() {
   const [notice, setNotice] = useState('正在读取拍品、成交和合同数据，节点为根据当前业务状态生成。');
   const queryId = getQueryParam('id');
 
-  useEffect(() => {
-    void Promise.all([
+  const loadProgressData = useCallback(async () => {
+    const [nextLots, nextResults, nextContracts] = await Promise.all([
       api.fetchAdminLots(),
       api.fetchAdminResults(),
       api.fetchAdminContracts(),
-    ]).then(([nextLots, nextResults, nextContracts]) => {
-      setLots(nextLots);
-      setResults(nextResults as ResultWorkflowRecord[]);
-      setContracts(nextContracts as ContractWorkflowRecord[]);
-      setNotice('已加载真实业务数据；下方流程节点为根据当前拍品、成交、合同状态生成。');
-    }).catch((error) => {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        setNotice(`无法读取后台流程数据：${error.message}`);
-        return;
-      }
-
-      setLots([]);
-      setResults([]);
-      setContracts([]);
-      setNotice(`后台流程真实接口暂不可用：${getErrorMessage(error)}`);
-    });
+    ]);
+    setLots(nextLots);
+    setResults(nextResults as ResultWorkflowRecord[]);
+    setContracts(nextContracts as ContractWorkflowRecord[]);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadProgressData().then(() => {
+        setNotice('已加载真实业务数据；下方流程节点为根据当前拍品、成交、合同状态生成。');
+      }).catch((error) => {
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+          setNotice(`无法读取后台流程数据：${error.message}`);
+          return;
+        }
+
+        setLots([]);
+        setResults([]);
+        setContracts([]);
+        setNotice(`后台流程真实接口暂不可用：${getErrorMessage(error)}`);
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadProgressData]);
 
   const selectedLot = selectProgressLot(lots, results, contracts, queryId);
   const selectedResult = results.find((result) => result.lotId === selectedLot?.id);
@@ -2057,11 +2586,49 @@ export function LotProgressPage() {
   const dealAmount = selectedResult?.finalPrice ?? selectedContract?.amount ?? '-';
   const contractStatus = selectedContract?.status ?? '未生成';
   const paymentStatus = selectedContract?.status === '已完成' ? '已确认到账' : selectedContract?.status === '已签约' ? '待财务确认' : '待合同签署';
+  const fulfillmentDeadline = selectedLot ? getProgressField(selectedLot, ['deadlineAt', 'deadline', 'fulfillmentDeadline', 'deliveryDeadline']) : '-';
+  const specialRemark = selectedContract?.remark || (selectedLot ? getProgressField(selectedLot, ['remark', 'note', 'customerNotice']) : '-');
   const fulfillmentHint = selectedContract?.status === '已完成'
     ? '合同签署与尾款确认均已完成，可进入履约完结归档。'
     : selectedContract?.status === '违约'
       ? '该项目已进入违约状态，请结合线下材料和监管要求处理。'
       : '请确认纸质合同签署、尾款到账等线下凭据后，再推进履约状态。';
+  const contractAction = async (action: 'signed' | 'completed' | 'defaulted') => {
+    if (!selectedContract) {
+      return;
+    }
+
+    if (action === 'completed' && !window.confirm('系统不处理线上资金，仅记录管理员已核验线下尾款支付凭证，请确认是否继续？')) {
+      return;
+    }
+
+    if (action === 'defaulted' && !window.confirm('确认触发违约处理？系统将记录该合同违约并同步拍品状态，请确认线下材料已核验。')) {
+      return;
+    }
+
+    const actionApi = action === 'signed'
+      ? api.markContractSigned
+      : action === 'completed'
+        ? api.markContractCompleted
+        : api.markContractDefaulted;
+    const successMessage = action === 'signed'
+      ? '已确认线下签约，合同与拍品状态已刷新。'
+      : action === 'completed'
+        ? '已确认尾款到账并完成履约核验，合同完成即拍品履约完成归档。'
+        : '已触发违约处理，合同与拍品状态已刷新。';
+
+    try {
+      await actionApi(selectedContract.id);
+      await loadProgressData();
+      setNotice(successMessage);
+      window.alert(successMessage);
+    } catch (error) {
+      window.alert(`合同履约操作失败：${getErrorMessage(error)}。页面数据已保持不变。`);
+    }
+  };
+  const completeButtonLabel = selectedContract?.status === '已完成' ? '已完成履约核验' : '完成履约核验';
+  const completeButtonDisabled = !selectedContract || selectedContract.status !== '已签约';
+  const completeButtonTitle = selectedContract?.status === '待签约' ? '需先确认线下签约' : undefined;
 
   return (
     <AdminLayout active="拍品管理" subActive="全流程操作进度">
@@ -2121,6 +2688,83 @@ export function LotProgressPage() {
               <div><dt>合同签署</dt><dd>{selectedContract?.signedAt ? '已记录签署时间' : '待线下签署确认'}</dd></div>
               <div><dt>尾款确认</dt><dd>{selectedContract?.completedAt ? '已记录完成时间' : '待管理员确认'}</dd></div>
             </dl>
+          </section>
+          <section className="fulfillment-workbench" aria-label="合同尾款核验工作台">
+            <header className="fulfillment-workbench-head">
+              <div>
+                <span>合同/尾款核验工作台</span>
+                <h2>成交后履约推进</h2>
+              </div>
+              {selectedContract ? (
+                <button className="btn ghost" onClick={() => navigateTo(`/admin/contracts?lotId=${encodeURIComponent(selectedLot.id)}`)} type="button">查看合同履约</button>
+              ) : null}
+            </header>
+            <dl className="fulfillment-project-brief">
+              <div><dt>应缴尾款</dt><dd className="money">{selectedContract?.amount ?? selectedResult?.finalPrice ?? '-'}</dd></div>
+              <div><dt>履约截止日期</dt><dd>{fulfillmentDeadline}</dd></div>
+              <div><dt>专项备注</dt><dd>{specialRemark}</dd></div>
+            </dl>
+            {selectedContract ? (
+              <>
+                <div className="fulfillment-check-grid">
+                  <article className="fulfillment-check-card">
+                    <div className="fulfillment-check-title">
+                      <span>01</span>
+                      <div>
+                        <h3>出让合同签署核验</h3>
+                        <p>核对纸质合同、合同编号和签署记录。</p>
+                      </div>
+                    </div>
+                    <dl>
+                      <div><dt>合同状态</dt><dd><StatusTag value={selectedContract.status} /></dd></div>
+                      <div><dt>签约时间</dt><dd>{selectedContract.signedAt ?? '-'}</dd></div>
+                      <div><dt>合同编号/记录 ID</dt><dd>{selectedContract.id}</dd></div>
+                    </dl>
+                    {selectedContract.status === '待签约' ? (
+                      <button className="btn primary" onClick={() => void contractAction('signed')} type="button">确认线下签约</button>
+                    ) : (
+                      <p className="fulfillment-check-done">已核验合同签署状态。</p>
+                    )}
+                  </article>
+                  <article className="fulfillment-check-card">
+                    <div className="fulfillment-check-title">
+                      <span>02</span>
+                      <div>
+                        <h3>尾款缴纳核验</h3>
+                        <p>系统仅记录管理员已核验线下尾款支付凭证。</p>
+                      </div>
+                    </div>
+                    <dl>
+                      <div><dt>尾款核验状态</dt><dd>{paymentStatus}</dd></div>
+                      <div><dt>完成时间</dt><dd>{selectedContract.completedAt ?? '-'}</dd></div>
+                      <div><dt>成交价/合同金额</dt><dd className="money">{selectedResult?.finalPrice ?? selectedContract.amount ?? '-'}</dd></div>
+                    </dl>
+                    {selectedContract.status === '已签约' ? (
+                      <button className="btn primary" onClick={() => void contractAction('completed')} type="button">确认尾款已到账并完成</button>
+                    ) : selectedContract.status === '已完成' ? (
+                      <p className="fulfillment-check-done">已完成归档。</p>
+                    ) : (
+                      <p className="fulfillment-check-muted">需先完成合同签署核验。</p>
+                    )}
+                  </article>
+                </div>
+                <div className="fulfillment-workbench-actions">
+                  <button className="btn danger" disabled={selectedContract.status === '已完成'} onClick={() => void contractAction('defaulted')} type="button">触发违约处理</button>
+                  <button className="btn primary" disabled={completeButtonDisabled} onClick={() => void contractAction('completed')} title={completeButtonTitle} type="button">{completeButtonLabel}</button>
+                  {selectedContract.status === '待签约' ? <span>需先确认线下签约。</span> : null}
+                  {selectedContract.status === '已完成' ? <span>合同完成即拍品履约完成归档。</span> : null}
+                </div>
+              </>
+            ) : (
+              <div className="fulfillment-contract-empty">
+                <strong>暂无合同记录，请先发布成交结果或等待合同生成。</strong>
+                <p>当前工作台不会调用任何写接口；可前往成交结果或合同履约核验页面继续处理。</p>
+                <div className="button-row">
+                  <button className="btn" onClick={() => navigateTo('/admin/results')} type="button">进入成交结果</button>
+                  <button className="btn primary" onClick={() => navigateTo('/admin/contracts')} type="button">进入合同履约</button>
+                </div>
+              </div>
+            )}
           </section>
           <section className="flow-record-panel">
             <h2>节点表 / 推导记录</h2>
@@ -2298,6 +2942,256 @@ export function AuctionClosingPage() {
           </section>
         </div>
       ) : null}
+    </AdminLayout>
+  );
+}
+
+export function ReviewCenterPage() {
+  const [todoCounts, setTodoCounts] = useState({ lotReviews: 0, enterpriseReviews: 0, depositReviews: 0 });
+  const [results, setResults] = useState<ResultWorkflowRecord[]>([]);
+  const [contracts, setContracts] = useState<ContractWorkflowRecord[]>([]);
+  const [closingPending, setClosingPending] = useState<AuctionClosingPendingLot[]>([]);
+  const [notice, setNotice] = useState('正在聚合审核中心待办数据。');
+  const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
+
+  const loadReviewCenter = useCallback(async () => {
+    try {
+      const [nextTodoCounts, nextResults, nextContracts, nextClosingPending] = await Promise.all([
+        api.fetchAdminTodoCounts(),
+        api.fetchAdminResults(),
+        api.fetchAdminContracts(),
+        api.fetchAuctionClosingPending(),
+      ]);
+      setTodoCounts(nextTodoCounts);
+      setResults(nextResults as ResultWorkflowRecord[]);
+      setContracts(nextContracts as ContractWorkflowRecord[]);
+      setClosingPending(nextClosingPending);
+      setNotice('已聚合现有待办、成交结果、合同和结拍队列接口数据。');
+      setListState('ready');
+    } catch (error) {
+      setResults([]);
+      setContracts([]);
+      setClosingPending([]);
+      setNotice(`审核中心数据读取失败：${getErrorMessage(error)}`);
+      setListState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadReviewCenter();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadReviewCenter]);
+
+  const recentTasks = buildReviewCenterTasks(todoCounts, results, contracts, closingPending);
+  const pendingResults = results.filter((row) => row.status === '已生成');
+  const pendingContracts = contracts.filter((row) => row.status === '待签约' || row.status === '已签约');
+  const defaultedContracts = contracts.filter((row) => row.status === '违约');
+
+  return (
+    <AdminLayout active="审核管理" subActive="审核管理中心">
+      <PageHead
+        title="审核管理中心"
+        subtitle="集中展示审核待办，并保留交易管理跨模块待办入口，避免在审核侧边栏重复挂载交易页面。"
+        actions={[{ label: '异常归档线索', tone: 'primary', to: '/admin/reviews/lot-close' }]}
+      />
+      <p className="admin-api-notice">{notice}</p>
+      {listState === 'loading' ? <TableSkeleton columns={6} rows={4} /> : null}
+      {listState === 'error' ? (
+        <ErrorState
+          description={notice}
+          primaryAction={{ label: '重试', onClick: () => void loadReviewCenter() }}
+          secondaryAction={{ label: '返回后台首页', to: '/admin/dashboard' }}
+        />
+      ) : null}
+      {listState === 'ready' ? (
+        <>
+          <AdminSummaryStrip cards={[
+            { label: '待拍品发布审核', value: String(todoCounts.lotReviews), helper: 'todoCounts.lotReviews', tone: todoCounts.lotReviews ? 'orange' : 'green' },
+            { label: '待企业认证审核', value: String(todoCounts.enterpriseReviews), helper: 'todoCounts.enterpriseReviews', tone: todoCounts.enterpriseReviews ? 'orange' : 'green' },
+            { label: '待意向金核验', value: String(todoCounts.depositReviews), helper: 'todoCounts.depositReviews', tone: todoCounts.depositReviews ? 'orange' : 'green' },
+            { label: '待成交结果确认', value: String(pendingResults.length), helper: '成交结果状态为已生成', tone: pendingResults.length ? 'orange' : 'green' },
+            { label: '待合同履约核验', value: String(pendingContracts.length), helper: '待签约/已签约合同', tone: pendingContracts.length ? 'orange' : 'green' },
+            { label: '异常归档线索', value: String(closingPending.length + defaultedContracts.length), helper: '结拍队列 + 违约合同', tone: closingPending.length + defaultedContracts.length ? 'red' : 'green' },
+          ]} />
+          <section className="review-entry-grid">
+            {[
+              { title: '拍品发布审核', text: '上架前复核拍品资料、时间规则和附件。', count: todoCounts.lotReviews, to: '/admin/reviews/lots', tone: 'orange' },
+              { title: '企业认证审核', text: '核验竞买企业入驻资质和材料。', count: todoCounts.enterpriseReviews, to: '/admin/reviews/enterprises', tone: 'blue' },
+              { title: '意向金凭证审核', text: '核验企业参拍前缴纳凭证。', count: todoCounts.depositReviews, to: '/admin/reviews/deposits', tone: 'orange' },
+              { title: '成交结果确认', text: '跨模块入口：进入交易管理核对成交公示。', count: pendingResults.length, to: '/admin/results', tone: 'green' },
+              { title: '合同履约核验', text: '跨模块入口：进入交易管理跟进签约、尾款和履约。', count: pendingContracts.length, to: '/admin/contracts', tone: 'blue' },
+              { title: '异常归档线索', text: '只读查看结拍待关闭、违约和异常归档线索。', count: closingPending.length + defaultedContracts.length, to: '/admin/reviews/lot-close', tone: 'red' },
+            ].map((item) => (
+              <button className={`review-entry-card ${item.tone}`} key={item.title} onClick={() => navigateTo(item.to)} type="button">
+                <span>{item.title}</span>
+                <strong>{item.count}</strong>
+                <small>{item.text}</small>
+              </button>
+            ))}
+          </section>
+          <section className="admin-workspace full-width">
+            <div className="admin-workspace-main">
+              <DataTable
+                columns={[
+                  { key: 'type', label: '事项类型' },
+                  { key: 'objectName', label: '关联对象', width: '30%', render: renderBusinessTitleCell },
+                  { key: 'status', label: '当前状态', render: (row) => <StatusTag value={String(row.status)} /> },
+                  { key: 'waiting', label: '等待时长/来源' },
+                  { key: 'risk', label: '风险评估', render: (row) => <StatusTag value={String(row.risk)} tone={String(row.risk).includes('高') ? 'red' : 'gray'} /> },
+                  {
+                    key: 'actions',
+                    label: '操作',
+                    render: (row) => (
+                      <button className="link-btn" onClick={() => navigateTo(getStringValue(row, 'target'))} type="button">去处理</button>
+                    ),
+                  },
+                ]}
+                emptyText="暂无最近审核事项"
+                emptyDescription="当前聚合接口未返回待处理记录。"
+                rows={recentTasks}
+              />
+            </div>
+          </section>
+        </>
+      ) : null}
+    </AdminLayout>
+  );
+}
+
+export function LotCloseReviewPage() {
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [filters, setFilters] = useState<FilterValues>({});
+  const [selectedRow, setSelectedRow] = useState<Record<string, unknown>>({});
+  const [notice, setNotice] = useState('正在读取异常归档线索相关数据。');
+  const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const filteredRows = filterRowsByText(rows, filters);
+
+  const loadRows = useCallback(async () => {
+    try {
+      const [lots, results, contracts, refunds, closingPending] = await Promise.all([
+        api.fetchAdminLots(),
+        api.fetchAdminResults(),
+        api.fetchAdminContracts(),
+        api.fetchAdminRefunds(),
+        api.fetchAuctionClosingPending(),
+      ]);
+      const nextRows = buildLotCloseRows(
+        lots,
+        results as ResultWorkflowRecord[],
+        contracts as ContractWorkflowRecord[],
+        refunds as unknown as Record<string, unknown>[],
+        closingPending,
+      );
+      setRows(nextRows);
+      setSelectedRow(nextRows[0] ?? {});
+      setNotice('已从现有 lots/results/contracts/refunds/closing pending 接口推导异常归档线索。');
+      setListState('ready');
+    } catch (error) {
+      setRows([]);
+      setSelectedRow({});
+      setNotice(`异常归档线索数据读取失败：${getErrorMessage(error)}`);
+      setListState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadRows();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadRows]);
+
+  const selected = getRowId(selectedRow)
+    ? filteredRows.find((row) => getRowId(row) === getRowId(selectedRow)) ?? selectedRow
+    : filteredRows[0] ?? {};
+
+  return (
+    <AdminLayout active="审核管理" subActive="异常归档线索">
+      <PageHead
+        title="异常归档线索"
+        subtitle="只读线索页，真正状态处理仍进入结拍调度、合同履约或退款管理。"
+        actions={[
+          { label: '审核管理中心', to: '/admin/reviews' },
+          { label: '结拍调度', tone: 'primary', to: '/admin/auction-closing' },
+        ]}
+      />
+      <p className="admin-api-notice">{notice}</p>
+      {listState === 'ready' ? <AdminSummaryStrip cards={[
+        { label: '待处理总数', value: String(rows.length), helper: '推导事项总数', tone: rows.length ? 'orange' : 'green' },
+        { label: '违约风险', value: String(rows.filter((row) => getStringValue(row, 'risk') === '高风险').length), helper: '合同违约/逾期待判定', tone: 'red' },
+        { label: '结拍线索', value: String(rows.filter((row) => getStringValue(row, 'type') === '正常结拍').length), helper: '结拍 pending 队列', tone: 'blue' },
+        { label: '退款异常', value: String(rows.filter((row) => getStringValue(row, 'type') === '退款异常').length), helper: '退款状态非已退款', tone: 'orange' },
+      ]} /> : null}
+      <section className="closing-warning">
+        <strong>只读线索提示</strong>
+        <span>按钮仅用于查看线索、跳转全流程或进入结拍调度/合同履约/退款管理；不会调用违约裁定、没收保证金或重新上拍接口。</span>
+      </section>
+      <section className="admin-workspace">
+        <div className="admin-workspace-main">
+          <FilterBar fields={['拍品名称', '事项类型', '风险等级', '企业名称']} onSearch={setFilters} />
+          {listState === 'loading' ? <TableSkeleton columns={7} rows={6} /> : null}
+          {listState === 'error' ? (
+            <ErrorState
+              description={notice}
+              primaryAction={{ label: '重试', onClick: () => void loadRows() }}
+              secondaryAction={{ label: '返回审核中心', to: '/admin/reviews' }}
+            />
+          ) : null}
+          {listState === 'ready' ? (
+            <DataTable
+              columns={[
+                { key: 'id', label: '业务编号', width: '14%' },
+                { key: 'title', label: '拍品名称', width: '28%', render: renderBusinessTitleCell },
+                { key: 'type', label: '事项类型' },
+                { key: 'enterprise', label: '关联企业' },
+                { key: 'amount', label: '金额' },
+                { key: 'risk', label: '风险等级', render: (row) => <StatusTag value={String(row.risk)} tone={String(row.risk).includes('高') ? 'red' : 'gray'} /> },
+                {
+                  key: 'actions',
+                  label: '操作',
+                  render: (row) => (
+                    <div className="inline-actions">
+                      <button className="link-btn" onClick={() => setSelectedRow(row)} type="button">查看详情</button>
+                      <button className="link-btn" onClick={() => navigateTo(`/admin/lots/workflow/detail?id=${encodeURIComponent(getStringValue(row, 'lotId'))}`)} type="button">查看全流程</button>
+                    </div>
+                  ),
+                },
+              ]}
+              emptyText="暂无异常归档线索"
+              emptyDescription="现有接口未推导出待关闭、违约或异常归档记录。"
+              rows={filteredRows}
+            />
+          ) : null}
+        </div>
+        <AdminDetailDrawer
+          confirmPanel={{
+            title: '只读线索提示',
+            body: '本页不提供裁定提交；请进入结拍调度、合同履约或退款管理执行既有流程。',
+            note: '如需真正改变业务状态，请使用现有交易管理或结拍调度入口。',
+            tone: 'orange',
+          }}
+          detailItems={[
+            { label: '事项类型', value: getStringValue(selected, 'type') },
+            { label: '拍品名称', value: getStringValue(selected, 'title') },
+            { label: '关联企业', value: getStringValue(selected, 'enterprise') },
+            { label: '金额', value: getStringValue(selected, 'amount') },
+            { label: '风险等级', value: getStringValue(selected, 'risk') },
+            { label: '处理建议', value: getStringValue(selected, 'suggestion') },
+          ]}
+          sections={[]}
+          title="异常归档线索详情"
+        >
+          <div className="readonly-groups">
+            <button className="btn primary" onClick={() => navigateTo('/admin/contracts')} type="button">进入合同履约核验</button>
+            <button className="btn" onClick={() => navigateTo('/admin/auction-closing')} type="button">查看结拍调度</button>
+            <button className="btn" onClick={() => navigateTo('/admin/refunds')} type="button">查看退款管理</button>
+          </div>
+        </AdminDetailDrawer>
+      </section>
     </AdminLayout>
   );
 }
@@ -3486,6 +4380,14 @@ function BatchReviewConfirmDialog({
 
 function ContractDetailDrawerContent({ row }: { row: Record<string, unknown> }) {
   const status = getStringValue(row, 'status') || '待签约';
+  const [imagePreview, setImagePreview] = useState<AdminImagePreviewState | null>(null);
+  const closeImagePreview = () => {
+    if (imagePreview?.src.startsWith('blob:')) {
+      window.URL.revokeObjectURL(imagePreview.src);
+    }
+
+    setImagePreview(null);
+  };
   const records = [
     { label: '竞拍成功', time: getStringValue(row, 'createdAt') || getStringValue(row, 'updatedAt'), done: true },
     { label: '线下签约', time: getStringValue(row, 'signedAt'), done: status === '已签约' || status === '已完成' },
@@ -3493,76 +4395,111 @@ function ContractDetailDrawerContent({ row }: { row: Record<string, unknown> }) 
   ];
 
   return (
-    <div className="contract-drawer-content">
-      <section className="contract-drawer-notice">
-        <h4>核验口径</h4>
-        <p>系统仅记录管理员已线下核验合同、银行回单和相关凭证，不处理线上资金、不发起付款或扣款。</p>
-      </section>
-      <section>
-        <h4>拍品信息</h4>
-        <dl>
-          <div><dt>合同编号</dt><dd>{getStringValue(row, 'id') || '-'}</dd></div>
-          <div><dt>拍品名称</dt><dd>{getStringValue(row, 'lotTitle') || '-'}</dd></div>
-          <div><dt>拍品 ID</dt><dd>{getStringValue(row, 'lotId') || '-'}</dd></div>
-          <div><dt>合同状态</dt><dd><StatusTag value={status} /></dd></div>
-        </dl>
-      </section>
-      <section>
-        <h4>资金及成交详情</h4>
-        <dl>
-          <div><dt>成交价</dt><dd className="money">{getStringValue(row, 'amount') || '-'}</dd></div>
-          <div><dt>待付尾款</dt><dd className="money">{getStringValue(row, 'amount') || '-'}</dd></div>
-          <div><dt>中标企业</dt><dd>{getStringValue(row, 'enterprise') || '-'}</dd></div>
-          <div><dt>资金处理</dt><dd>系统不处理线上资金，仅记录线下核验状态。</dd></div>
-        </dl>
-      </section>
-      <section>
-        <h4>线下签约指引</h4>
-        <dl>
-          <div><dt>签约地址</dt><dd>华宁县宁州街道矿产资源交易服务中心二楼合同办理窗口</dd></div>
-          <div><dt>办理时间</dt><dd>工作日 09:00-12:00，14:00-17:30</dd></div>
-          <div><dt>联系人</dt><dd>交易服务窗口</dd></div>
-          <div><dt>联系电话</dt><dd>0877-5012345</dd></div>
-        </dl>
-      </section>
-      <section>
-        <h4>状态流转记录</h4>
-        <div className="contract-timeline">
-          {records.map((record) => (
-            <article className={record.done ? 'done' : 'todo'} key={record.label}>
-              <span>{record.done ? '✓' : '•'}</span>
-              <div>
-                <strong>{record.label}</strong>
-                <small>{record.time && record.time !== '-' ? record.time : '待记录'}</small>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
+    <>
+      <AdminImagePreviewModal preview={imagePreview} onClose={closeImagePreview} />
+      <div className="contract-drawer-content">
+        <section className="contract-drawer-notice">
+          <h4>核验口径</h4>
+          <p>系统仅记录管理员已线下核验合同、银行回单和相关凭证，不处理线上资金、不发起付款或扣款。</p>
+        </section>
+        <section>
+          <h4>拍品信息</h4>
+          <dl>
+            <div><dt>合同编号</dt><dd>{getStringValue(row, 'id') || '-'}</dd></div>
+            <div><dt>拍品名称</dt><dd>{getStringValue(row, 'lotTitle') || '-'}</dd></div>
+            <div><dt>拍品 ID</dt><dd>{getStringValue(row, 'lotId') || '-'}</dd></div>
+            <div><dt>合同状态</dt><dd><StatusTag value={status} /></dd></div>
+          </dl>
+        </section>
+        <ContractAttachmentList attachments={getContractAttachments(row)} authRole="ADMIN" onPreviewImage={setImagePreview} />
+        <section>
+          <h4>资金及成交详情</h4>
+          <dl>
+            <div><dt>成交价</dt><dd className="money">{getStringValue(row, 'amount') || '-'}</dd></div>
+            <div><dt>待付尾款</dt><dd className="money">{getStringValue(row, 'amount') || '-'}</dd></div>
+            <div><dt>中标企业</dt><dd>{getStringValue(row, 'enterprise') || '-'}</dd></div>
+            <div><dt>资金处理</dt><dd>系统不处理线上资金，仅记录线下核验状态。</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h4>线下签约指引</h4>
+          <dl>
+            <div><dt>签约地址</dt><dd>华宁县宁州街道矿产资源交易服务中心二楼合同办理窗口</dd></div>
+            <div><dt>办理时间</dt><dd>工作日 09:00-12:00，14:00-17:30</dd></div>
+            <div><dt>联系人</dt><dd>交易服务窗口</dd></div>
+            <div><dt>联系电话</dt><dd>0877-5012345</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h4>状态流转记录</h4>
+          <div className="contract-timeline">
+            {records.map((record) => (
+              <article className={record.done ? 'done' : 'todo'} key={record.label}>
+                <span>{record.done ? '✓' : '•'}</span>
+                <div>
+                  <strong>{record.label}</strong>
+                  <small>{record.time && record.time !== '-' ? record.time : '待记录'}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
   );
 }
 
 function ContractActionModal({
+  attachments,
   defaultReason,
   onCancel,
   onConfirm,
   onDefaultReasonChange,
+  onRemoveAttachment,
+  onUploadAttachments,
   pendingAction,
+  submitting,
 }: {
+  attachments: ContractAttachmentDraft[];
   defaultReason: string;
   onCancel: () => void;
   onConfirm: () => void;
   onDefaultReasonChange: (value: string) => void;
+  onRemoveAttachment: (id: string) => void;
+  onUploadAttachments: (files: FileList) => Promise<void>;
   pendingAction: { label: string; row: Record<string, unknown> };
+  submitting: boolean;
 }) {
   const isDefault = pendingAction.label === '标记违约';
   const isComplete = pendingAction.label === '确认尾款已线下支付并完成';
+  const isSigning = pendingAction.label === '标记已签约';
+  const [uploading, setUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState('');
   const title = isDefault
     ? '确认标记违约'
     : isComplete
       ? '确认尾款线下核验'
       : '确认标记已签约';
+
+  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.currentTarget.files;
+
+    if (!files?.length) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadNotice('');
+      await onUploadAttachments(files);
+      setUploadNotice(`已上传 ${files.length} 个附件，可继续添加或直接确认。`);
+      event.currentTarget.value = '';
+    } catch (error) {
+      setUploadNotice(`合同附件上传失败：${getErrorMessage(error)}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="admin-modal-backdrop" role="presentation">
@@ -3587,6 +4524,30 @@ function ContractActionModal({
                 ? '违约确认会推进合同异常状态。请确认已完成线下事实核验与内部审批。'
                 : '请确认纸质合同已完成线下签署，系统仅记录履约状态。'}
           </p>
+          {isSigning ? (
+            <section className="contract-sign-attachments" aria-label="合同附件上传">
+              <div>
+                <strong>合同图片/附件</strong>
+                <small>可选上传多张图片或 PDF，未上传也可直接确认签约。</small>
+              </div>
+              <label className="contract-upload-action">
+                <input accept="image/*,application/pdf" disabled={uploading || submitting} multiple onChange={(event) => void handleUpload(event)} type="file" />
+                <span>{uploading ? '上传中...' : '上传合同附件'}</span>
+              </label>
+              {uploadNotice ? <p>{uploadNotice}</p> : null}
+              {attachments.length ? (
+                <div className="contract-attachment-drafts">
+                  {attachments.map((attachment) => (
+                    <div className="contract-attachment-draft" key={attachment.id}>
+                      {isImageFile(attachment) && attachment.localPreviewUrl ? <img alt={attachment.fileName} src={attachment.localPreviewUrl} /> : <span>{isPdfFile(attachment) ? 'PDF' : 'FILE'}</span>}
+                      <strong title={attachment.fileName}>{attachment.fileName}</strong>
+                      <button className="link-btn" disabled={submitting} onClick={() => onRemoveAttachment(attachment.id)} type="button">移除</button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           {isDefault ? (
             <label className="field">
               <span>违约确认原因</span>
@@ -3595,14 +4556,95 @@ function ContractActionModal({
           ) : null}
         </div>
         <footer>
-          <button className="btn secondary" onClick={onCancel} type="button">取消</button>
-          <button className={isDefault ? 'btn danger' : 'btn primary'} disabled={isDefault && !defaultReason.trim()} onClick={onConfirm} type="button">
-            {isDefault ? '确认违约' : '确认提交'}
+          <button className="btn secondary" disabled={submitting || uploading} onClick={onCancel} type="button">取消</button>
+          <button className={isDefault ? 'btn danger' : 'btn primary'} disabled={submitting || uploading || (isDefault && !defaultReason.trim())} onClick={onConfirm} type="button">
+            {submitting ? '提交中...' : isDefault ? '确认违约' : '确认提交'}
           </button>
         </footer>
       </section>
     </div>
   );
+}
+
+function ContractAttachmentList({
+  attachments,
+  authRole,
+  onPreviewImage,
+}: {
+  attachments: ContractAttachment[];
+  authRole: 'ADMIN' | 'ENTERPRISE';
+  onPreviewImage: (preview: AdminImagePreviewState) => void;
+}) {
+  if (!attachments.length) {
+    return (
+      <section className="contract-attachments-section">
+        <h4>合同附件</h4>
+        <p className="contract-attachments-empty">暂无合同附件。</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="contract-attachments-section">
+      <h4>合同附件</h4>
+      <div className="contract-attachment-list">
+        {attachments.map((attachment) => (
+          <ContractAttachmentItem attachment={attachment} authRole={authRole} key={attachment.id} onPreviewImage={onPreviewImage} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ContractAttachmentItem({
+  attachment,
+  authRole,
+  onPreviewImage,
+}: {
+  attachment: ContractAttachment;
+  authRole: 'ADMIN' | 'ENTERPRISE';
+  onPreviewImage: (preview: AdminImagePreviewState) => void;
+}) {
+  const isImage = isImageFile(attachment);
+  const handleOpen = async () => {
+    try {
+      if (isImage) {
+        const src = await api.createFileObjectUrl(attachment.fileUrl, attachment.id, authRole);
+        onPreviewImage({ src, title: attachment.fileName });
+        return;
+      }
+
+      await api.openFileUrl(attachment.fileUrl, attachment.id, authRole);
+    } catch (error) {
+      window.alert(`合同附件暂无法打开：${getErrorMessage(error)}`);
+    }
+  };
+
+  return (
+    <button className="contract-attachment-item" onClick={() => void handleOpen()} type="button">
+      <span>{isImage ? 'IMG' : isPdfFile(attachment) ? 'PDF' : 'FILE'}</span>
+      <strong title={attachment.fileName}>{attachment.fileName}</strong>
+      <small>{isImage ? '站内预览' : '查看附件'}</small>
+    </button>
+  );
+}
+
+function getContractAttachments(row: Record<string, unknown>): ContractAttachment[] {
+  const attachments = row.attachments;
+
+  return Array.isArray(attachments) ? attachments.filter(isContractAttachment) : [];
+}
+
+function isContractAttachment(value: unknown): value is ContractAttachment {
+  return Boolean(value && typeof value === 'object' && 'id' in value && 'fileName' in value && 'fileUrl' in value);
+}
+
+function isImageFile(file: { fileName?: string; mimeType?: string | null }) {
+  return Boolean(file.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.fileName ?? ''));
+}
+
+function isPdfFile(file: { fileName?: string; mimeType?: string | null }) {
+  return Boolean(file.mimeType === 'application/pdf' || /\.pdf$/i.test(file.fileName ?? ''));
 }
 
 function BlacklistForm() {
@@ -4061,6 +5103,14 @@ function selectProgressLot(
   return lots.find((lot) => lot.id === contractLot || lot.id === resultLot) ?? lots[0];
 }
 
+function selectWorkflowDetailLot(lots: Lot[], results: ResultWorkflowRecord[], queryId?: string) {
+  if (!queryId) {
+    return undefined;
+  }
+
+  return lots.find((lot) => lot.id === queryId) ?? lots.find((lot) => results.some((result) => result.id === queryId && result.lotId === lot.id));
+}
+
 function selectBidDetailLot(lots: Lot[], bids: BidRecord[], queryId?: string) {
   if (queryId) {
     const byId = lots.find((lot) => lot.id === queryId);
@@ -4313,6 +5363,12 @@ function getRowId(row: Record<string, unknown>) {
 
 function getQueryParam(key: string) {
   return new URLSearchParams(window.location.search).get(key) ?? undefined;
+}
+
+function getProgressField(row: object, keys: string[]) {
+  const source = row as Record<string, unknown>;
+
+  return keys.map((key) => getStringValue(source, key)).find(Boolean) ?? '-';
 }
 
 function getStringValue(row: Record<string, unknown>, key: string) {

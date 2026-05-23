@@ -38,16 +38,29 @@ const portalPathByNav: Record<string, string> = {
 const adminPathByNav: Record<string, string> = {
   首页看板: '/admin/dashboard',
   拍品管理: '/admin/lots',
-  审核管理: '/admin/reviews/lots',
+  审核管理: '/admin/reviews',
   交易管理: '/admin/bids',
   企业管理: '/admin/blacklist',
   内容运营: '/admin/content',
   系统审计: '/admin/logs',
 };
+const adminLotLinks = [
+  { label: '拍品列表', path: '/admin/lots' },
+  { label: '全流程总览', path: '/admin/lots/workflow' },
+  { label: '履约推进', path: '/admin/lots/progress' },
+] as const;
 const adminReviewLinks = [
+  { label: '审核管理中心', path: '/admin/reviews', countKey: undefined },
   { label: '拍品发布审核', path: '/admin/reviews/lots', countKey: 'lotReviews' },
   { label: '企业认证审核', path: '/admin/reviews/enterprises', countKey: 'enterpriseReviews' },
   { label: '意向金凭证审核', path: '/admin/reviews/deposits', countKey: 'depositReviews' },
+  { label: '异常归档线索', path: '/admin/reviews/lot-close', countKey: undefined },
+] as const;
+const adminTransactionLinks = [
+  { label: '竞价记录管理', path: '/admin/bids' },
+  { label: '成交结果管理', path: '/admin/results' },
+  { label: '合同履约核验', path: '/admin/contracts' },
+  { label: '退款状态管理', path: '/admin/refunds' },
 ] as const;
 const ADMIN_LIST_REFRESH_EVENT = 'admin-list-refresh';
 const adminAuditLinks = [
@@ -243,10 +256,19 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
                 <span className="nav-dot">{adminIconByNav[item]}</span>
                 {item}
               </button>
-              {item === '审核管理' ? (
+              {item === active && item === '拍品管理' ? (
+                <div className="sidebar-subnav" aria-label="拍品管理入口">
+                  {adminLotLinks.map((link) => (
+                    <button className={link.label === subActive ? 'active' : ''} key={link.label} onClick={() => navigateTo(link.path)} type="button">
+                      <span>{link.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {item === active && item === '审核管理' ? (
                 <div className="sidebar-subnav" aria-label="审核管理入口">
                   {adminReviewLinks.map((link) => {
-                    const count = reviewCounts[link.countKey];
+                    const count = link.countKey ? reviewCounts[link.countKey] : 0;
 
                     return (
                       <button className={link.label === subActive ? 'active' : ''} key={link.label} onClick={() => navigateTo(link.path)} type="button">
@@ -257,7 +279,16 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
                   })}
                 </div>
               ) : null}
-              {item === '系统审计' ? (
+              {item === active && item === '交易管理' ? (
+                <div className="sidebar-subnav" aria-label="交易管理入口">
+                  {adminTransactionLinks.map((link) => (
+                    <button className={link.label === subActive ? 'active' : ''} key={link.label} onClick={() => navigateTo(link.path)} type="button">
+                      <span>{link.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {item === active && item === '系统审计' ? (
                 <div className="sidebar-subnav" aria-label="系统审计入口">
                   {adminAuditLinks.map((link) => (
                     <button className={link.label === subActive ? 'active' : ''} key={link.label} onClick={() => navigateTo(link.path)} type="button">

@@ -20,6 +20,7 @@ import { EnterprisesService } from '../enterprises/enterprises.service';
 import { AccountService } from './account.service';
 import {
   AccountBidRecordResponse,
+  AccountContractResponse,
   AccountDepositVoucherResponse,
   AccountMessageResponse,
   AccountProfileResponse,
@@ -69,6 +70,14 @@ export class AccountController {
     @Query() query: AccountListQueryDto,
   ): Promise<ListResponse<AccountBidRecordResponse>> {
     return this.accountService.listBids(user.id, query);
+  }
+
+  @Get('contracts')
+  contracts(
+    @CurrentUser() user: CurrentUser,
+    @Query() query: AccountListQueryDto,
+  ): Promise<ListResponse<AccountContractResponse>> {
+    return this.accountService.listContracts(user.id, query);
   }
 
   @Get('messages')

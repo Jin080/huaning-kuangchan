@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 
 import { AuthGuard } from '../../auth/auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
@@ -8,6 +8,7 @@ import { ListResponse } from '../../common/responses/response.types';
 import { ContractResponse } from './contract.types';
 import { ContractsService } from './contracts.service';
 import { ContractQueryDto } from './dto/contract-query.dto';
+import { MarkSignedDto } from './dto/mark-signed.dto';
 
 @Controller('admin/contracts')
 @UseGuards(AuthGuard, RolesGuard)
@@ -26,8 +27,9 @@ export class ContractsController {
   markSigned(
     @Param('id') id: string,
     @CurrentUser() user: CurrentUser,
+    @Body() dto: MarkSignedDto,
   ): Promise<ContractResponse> {
-    return this.contractsService.markSigned(id, user.id);
+    return this.contractsService.markSigned(id, user.id, dto);
   }
 
   @Post(':id/mark-completed')

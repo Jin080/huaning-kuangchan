@@ -2655,7 +2655,7 @@ function getAuctionCountdown(lot: Lot, now: number): { text: string; ended: bool
   const remaining = endTime - now;
 
   if (remaining <= 0) {
-    return { text: '已结束/等待系统结拍', ended: true };
+    return { text: '竞拍已结束，结果生成中', ended: true };
   }
 
   const totalSeconds = Math.floor(remaining / 1000);

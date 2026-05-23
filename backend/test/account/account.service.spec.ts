@@ -5,6 +5,8 @@ import {
   NotificationSendStatus,
   NotificationType,
   Prisma,
+  ContractStatus,
+  LotStatus,
 } from '@prisma/client';
 
 import { AccountService } from '../../src/modules/account/account.service';
@@ -46,7 +48,7 @@ function createPrismaMock() {
         fileName: '付款凭证.pdf',
         fileUrl: '/api/files/content/attachment-1',
       },
-      lot: { id: 'lot-1', title: '铜精矿竞拍' },
+      lot: { id: 'lot-1', title: '铜精矿竞拍', status: LotStatus.COMPLETED },
     },
     {
       id: 'voucher-2',
@@ -74,7 +76,7 @@ function createPrismaMock() {
       incrementCount: 1,
       bidAt: new Date('2026-05-17T09:00:00.000Z'),
       isCurrentHighest: true,
-      lot: { id: 'lot-1', title: '铜精矿竞拍' },
+      lot: { id: 'lot-1', title: '铜精矿竞拍', status: LotStatus.COMPLETED },
     },
     {
       id: 'bid-2',
@@ -87,7 +89,7 @@ function createPrismaMock() {
       incrementCount: 1,
       bidAt: new Date('2026-05-17T09:30:00.000Z'),
       isCurrentHighest: true,
-      lot: { id: 'lot-2', title: '铅锌矿竞拍' },
+      lot: { id: 'lot-2', title: '铅锌矿竞拍', status: LotStatus.COMPLETED },
     },
   ];
   const notifications = [
@@ -136,6 +138,73 @@ function createPrismaMock() {
       createdAt: new Date('2026-05-17T10:01:00.000Z'),
       updatedAt: new Date('2026-05-17T10:01:00.000Z'),
       lot: { id: 'lot-1', title: '铜精矿竞拍' },
+    },
+  ];
+  const contracts = [
+    {
+      id: 'contract-1',
+      auctionResultId: 'result-1',
+      lotId: 'lot-1',
+      enterpriseId: 'enterprise-1',
+      status: ContractStatus.SIGNED,
+      signedAt: new Date('2026-05-17T11:00:00.000Z'),
+      completedAt: null,
+      defaultedAt: null,
+      remark: null,
+      createdAt: new Date('2026-05-17T10:00:00.000Z'),
+      updatedAt: new Date('2026-05-17T11:00:00.000Z'),
+      lot: { id: 'lot-1', title: '铜精矿竞拍', status: LotStatus.SIGNED },
+      enterprise,
+      auctionResult: {
+        id: 'result-1',
+        finalPrice: decimal('1500'),
+      },
+      attachments: [
+        {
+          id: 'contract-attachment-1',
+          fileName: '合同扫描件.pdf',
+          fileUrl: '/api/files/content/contract-attachment-1',
+          mimeType: 'application/pdf',
+          fileSize: 2048,
+          isSensitive: true,
+          createdAt: new Date('2026-05-17T10:30:00.000Z'),
+        },
+      ],
+    },
+    {
+      id: 'contract-2',
+      auctionResultId: 'result-2',
+      lotId: 'lot-2',
+      enterpriseId: 'enterprise-2',
+      status: ContractStatus.SIGNED,
+      signedAt: new Date('2026-05-17T11:00:00.000Z'),
+      completedAt: null,
+      defaultedAt: null,
+      remark: null,
+      createdAt: new Date('2026-05-17T10:00:00.000Z'),
+      updatedAt: new Date('2026-05-17T11:00:00.000Z'),
+      lot: { id: 'lot-2', title: '铅锌矿竞拍', status: LotStatus.SIGNED },
+      enterprise: {
+        id: 'enterprise-2',
+        name: '易门矿业有限公司',
+        certificationStatus: EnterpriseCertificationStatus.APPROVED,
+        isBlacklisted: false,
+      },
+      auctionResult: {
+        id: 'result-2',
+        finalPrice: decimal('1800'),
+      },
+      attachments: [
+        {
+          id: 'contract-attachment-2',
+          fileName: '其他企业合同.pdf',
+          fileUrl: '/api/files/content/contract-attachment-2',
+          mimeType: 'application/pdf',
+          fileSize: 2048,
+          isSensitive: true,
+          createdAt: new Date('2026-05-17T10:30:00.000Z'),
+        },
+      ],
     },
   ];
 
@@ -224,6 +293,21 @@ function createPrismaMock() {
           return Promise.resolve(item);
         }),
       },
+      contract: {
+        findMany: jest.fn(({ where, skip = 0, take = 10 }) =>
+          Promise.resolve(
+            contracts
+              .filter((item) => item.enterpriseId === where.enterpriseId)
+              .slice(skip, skip + take),
+          ),
+        ),
+        count: jest.fn(({ where }) =>
+          Promise.resolve(
+            contracts.filter((item) => item.enterpriseId === where.enterpriseId)
+              .length,
+          ),
+        ),
+      },
     },
   };
 }
@@ -297,6 +381,8 @@ describe('AccountService', () => {
         id: 'bid-1',
         enterpriseName: '华宁铜业有限公司',
         maskedEnterpriseName: '华***司',
+        lotStatus: '已完成',
+        lotStatusCode: LotStatus.COMPLETED,
       }),
     ]);
   });
@@ -321,6 +407,44 @@ describe('AccountService', () => {
     expect(result.items.map((item: { id: string }) => item.id)).toEqual([
       'message-1',
     ]);
+  });
+
+  it('lists only current enterprise contracts with attachments', async () => {
+    const { prisma } = createPrismaMock();
+    const service = new AccountService(prisma as never);
+
+    const result = await service.listContracts('user-1', {
+      page: 1,
+      pageSize: 10,
+    });
+
+    expect(prisma.contract.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { enterpriseId: 'enterprise-1' },
+        include: {
+          lot: true,
+          enterprise: true,
+          auctionResult: true,
+          attachments: true,
+        },
+      }),
+    );
+    expect(result.items.map((item: { id: string }) => item.id)).toEqual([
+      'contract-1',
+    ]);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'contract-1',
+        lotTitle: '铜精矿竞拍',
+        enterpriseId: 'enterprise-1',
+        attachments: [
+          expect.objectContaining({
+            id: 'contract-attachment-1',
+            fileUrl: '/api/files/content/contract-attachment-1',
+          }),
+        ],
+      }),
+    );
   });
 
   it('marks only current enterprise message as read', async () => {

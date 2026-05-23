@@ -62,38 +62,58 @@ const AUTH_KEYS_BY_ROLE: Record<AuthRole, AuthStorageKeys> = {
 
 export function getAuthToken(role?: AuthRole): string | null {
   if (role) {
-    return localStorage.getItem(AUTH_KEYS_BY_ROLE[role].tokenKey) ?? getLegacyAuthToken(role);
+    return getStoredItem(sessionStorage, AUTH_KEYS_BY_ROLE[role].tokenKey)
+      ?? getStoredItem(localStorage, AUTH_KEYS_BY_ROLE[role].tokenKey)
+      ?? getLegacyAuthToken(role);
   }
 
-  return localStorage.getItem(ENTERPRISE_AUTH_TOKEN_KEY)
-    ?? localStorage.getItem(ADMIN_AUTH_TOKEN_KEY)
-    ?? localStorage.getItem(AUTH_TOKEN_KEY);
+  return getStoredItem(sessionStorage, ENTERPRISE_AUTH_TOKEN_KEY)
+    ?? getStoredItem(sessionStorage, ADMIN_AUTH_TOKEN_KEY)
+    ?? getStoredItem(localStorage, ENTERPRISE_AUTH_TOKEN_KEY)
+    ?? getStoredItem(localStorage, ADMIN_AUTH_TOKEN_KEY)
+    ?? getStoredItem(localStorage, AUTH_TOKEN_KEY);
 }
 
 export function getAuthProfile(role?: AuthRole): AuthProfile | null {
   if (role) {
-    return readAuthProfile(AUTH_KEYS_BY_ROLE[role].profileKey) ?? getLegacyAuthProfile(role);
+    return readAuthProfile(sessionStorage, AUTH_KEYS_BY_ROLE[role].profileKey)
+      ?? readAuthProfile(localStorage, AUTH_KEYS_BY_ROLE[role].profileKey)
+      ?? getLegacyAuthProfile(role);
   }
 
-  return readAuthProfile(ENTERPRISE_AUTH_PROFILE_KEY)
-    ?? readAuthProfile(ADMIN_AUTH_PROFILE_KEY)
-    ?? readAuthProfile(AUTH_PROFILE_KEY);
+  return readAuthProfile(sessionStorage, ENTERPRISE_AUTH_PROFILE_KEY)
+    ?? readAuthProfile(sessionStorage, ADMIN_AUTH_PROFILE_KEY)
+    ?? readAuthProfile(localStorage, ENTERPRISE_AUTH_PROFILE_KEY)
+    ?? readAuthProfile(localStorage, ADMIN_AUTH_PROFILE_KEY)
+    ?? readAuthProfile(localStorage, AUTH_PROFILE_KEY);
 }
 
 function getLegacyAuthToken(role: AuthRole): string | null {
-  const profile = readAuthProfile(AUTH_PROFILE_KEY);
+  const profile = readAuthProfile(localStorage, AUTH_PROFILE_KEY);
 
-  return profile?.roleCode === role ? localStorage.getItem(AUTH_TOKEN_KEY) : null;
+  return profile?.roleCode === role ? getStoredItem(localStorage, AUTH_TOKEN_KEY) : null;
 }
 
 function getLegacyAuthProfile(role: AuthRole): AuthProfile | null {
-  const profile = readAuthProfile(AUTH_PROFILE_KEY);
+  const profile = readAuthProfile(localStorage, AUTH_PROFILE_KEY);
 
   return profile?.roleCode === role ? profile : null;
 }
 
-function readAuthProfile(key: string): AuthProfile | null {
-  const raw = localStorage.getItem(key);
+function getStoredItem(storage: Storage, key: string): string | null {
+  return storage.getItem(key);
+}
+
+function setStoredItem(storage: Storage, key: string, value: string): void {
+  storage.setItem(key, value);
+}
+
+function removeStoredItem(storage: Storage, key: string): void {
+  storage.removeItem(key);
+}
+
+function readAuthProfile(storage: Storage, key: string): AuthProfile | null {
+  const raw = getStoredItem(storage, key);
 
   if (!raw) {
     return null;
@@ -109,38 +129,49 @@ function readAuthProfile(key: string): AuthProfile | null {
 export function saveAuthSession(result: LoginResult): void {
   const profile = normalizeProfile(result.profile);
   const keys = AUTH_KEYS_BY_ROLE[profile.roleCode];
+  const profileValue = JSON.stringify(profile);
 
-  localStorage.setItem(keys.tokenKey, result.accessToken);
-  localStorage.setItem(keys.profileKey, JSON.stringify(profile));
+  setStoredItem(sessionStorage, keys.tokenKey, result.accessToken);
+  setStoredItem(sessionStorage, keys.profileKey, profileValue);
+  setStoredItem(localStorage, keys.tokenKey, result.accessToken);
+  setStoredItem(localStorage, keys.profileKey, profileValue);
   notifyAuthSessionChanged();
 }
 
 export function clearAuthSession(role?: AuthRole): void {
   if (role) {
     const keys = AUTH_KEYS_BY_ROLE[role];
-    localStorage.removeItem(keys.tokenKey);
-    localStorage.removeItem(keys.profileKey);
+    removeStoredItem(sessionStorage, keys.tokenKey);
+    removeStoredItem(sessionStorage, keys.profileKey);
+    removeStoredItem(localStorage, keys.tokenKey);
+    removeStoredItem(localStorage, keys.profileKey);
 
     if (getLegacyAuthProfile(role)) {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      localStorage.removeItem(AUTH_PROFILE_KEY);
+      removeStoredItem(localStorage, AUTH_TOKEN_KEY);
+      removeStoredItem(localStorage, AUTH_PROFILE_KEY);
     }
 
     if (role === 'ENTERPRISE') {
-      localStorage.removeItem('portalEnterpriseLoggedIn');
+      removeStoredItem(localStorage, 'portalEnterpriseLoggedIn');
     }
 
     notifyAuthSessionChanged();
     return;
   }
 
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_PROFILE_KEY);
-  localStorage.removeItem(ADMIN_AUTH_TOKEN_KEY);
-  localStorage.removeItem(ADMIN_AUTH_PROFILE_KEY);
-  localStorage.removeItem(ENTERPRISE_AUTH_TOKEN_KEY);
-  localStorage.removeItem(ENTERPRISE_AUTH_PROFILE_KEY);
-  localStorage.removeItem('portalEnterpriseLoggedIn');
+  removeStoredItem(sessionStorage, AUTH_TOKEN_KEY);
+  removeStoredItem(sessionStorage, AUTH_PROFILE_KEY);
+  removeStoredItem(sessionStorage, ADMIN_AUTH_TOKEN_KEY);
+  removeStoredItem(sessionStorage, ADMIN_AUTH_PROFILE_KEY);
+  removeStoredItem(sessionStorage, ENTERPRISE_AUTH_TOKEN_KEY);
+  removeStoredItem(sessionStorage, ENTERPRISE_AUTH_PROFILE_KEY);
+  removeStoredItem(localStorage, AUTH_TOKEN_KEY);
+  removeStoredItem(localStorage, AUTH_PROFILE_KEY);
+  removeStoredItem(localStorage, ADMIN_AUTH_TOKEN_KEY);
+  removeStoredItem(localStorage, ADMIN_AUTH_PROFILE_KEY);
+  removeStoredItem(localStorage, ENTERPRISE_AUTH_TOKEN_KEY);
+  removeStoredItem(localStorage, ENTERPRISE_AUTH_PROFILE_KEY);
+  removeStoredItem(localStorage, 'portalEnterpriseLoggedIn');
   notifyAuthSessionChanged();
 }
 

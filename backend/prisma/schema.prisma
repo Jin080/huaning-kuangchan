@@ -314,6 +314,8 @@ model Attachment {
   lot          Lot?               @relation(fields: [lotId], references: [id])
   enterpriseId String?            @map("enterprise_id") @db.Uuid
   enterprise   Enterprise?        @relation(fields: [enterpriseId], references: [id])
+  contractId   String?            @map("contract_id") @db.Uuid
+  contract     Contract?          @relation(fields: [contractId], references: [id])
   uploadedById String?            @map("uploaded_by_id") @db.Uuid
   uploadedBy   User?              @relation("AttachmentUploader", fields: [uploadedById], references: [id])
   createdAt    DateTime           @default(now()) @map("created_at")
@@ -322,6 +324,7 @@ model Attachment {
 
   @@index([lotId])
   @@index([enterpriseId])
+  @@index([contractId])
   @@map("attachments")
 }
 
@@ -405,6 +408,8 @@ model Contract {
   remark          String?        @db.Text
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  attachments     Attachment[]
 
   @@index([status, completedAt])
   @@index([lotId])

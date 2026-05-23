@@ -1,11 +1,13 @@
 import {
   DepositVoucherStatus,
   EnterpriseCertificationStatus,
+  LotStatus,
   NotificationChannel,
   NotificationSendStatus,
   NotificationType,
   UserStatus,
 } from '@prisma/client';
+import { ContractResponse } from '../contracts/contract.types';
 
 export interface AccountProfileResponse {
   id: string;
@@ -53,6 +55,8 @@ export interface AccountBidRecordResponse {
   incrementCount: number;
   bidAt: Date;
   isCurrentHighest: boolean;
+  lotStatus: string;
+  lotStatusCode: LotStatus;
 }
 
 export interface AccountMessageResponse {
@@ -72,3 +76,5 @@ export interface AccountMessageResponse {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type AccountContractResponse = ContractResponse;

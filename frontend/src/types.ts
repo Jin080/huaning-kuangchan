@@ -138,6 +138,15 @@ export type ResultRecord = {
   status: '已生成' | '已公示';
 };
 
+export type ContractAttachment = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  isSensitive?: boolean;
+};
+
 export type ContractRecord = {
   id: string;
   lotId: string;
@@ -147,6 +156,7 @@ export type ContractRecord = {
   status: '待签约' | '已签约' | '已完成' | '违约';
   updatedAt: string;
   operator: string;
+  attachments?: ContractAttachment[];
 };
 
 export type RefundRecord = {

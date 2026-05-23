@@ -289,7 +289,7 @@ describe('AuctionClosingService', () => {
     );
   });
 
-  it('starts and stops automatic interval runs', () => {
+  it('starts and stops automatic interval runs without waiting a full minute', () => {
     jest.useFakeTimers();
     const { service } = createService();
     const runSpy = jest.spyOn(service, 'runClosing').mockResolvedValue({
@@ -300,7 +300,7 @@ describe('AuctionClosingService', () => {
     });
 
     service.onModuleInit();
-    jest.advanceTimersByTime(60_000);
+    jest.advanceTimersByTime(5_000);
     service.onModuleDestroy();
     jest.advanceTimersByTime(60_000);
 

@@ -1,5 +1,15 @@
 import { ContractStatus, LotStatus } from '@prisma/client';
 
+export interface ContractAttachmentResponse {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string | null;
+  fileSize: number | null;
+  isSensitive: boolean;
+  createdAt: Date;
+}
+
 export interface ContractResponse {
   id: string;
   auctionResultId: string;
@@ -15,6 +25,7 @@ export interface ContractResponse {
   completedAt: Date | null;
   defaultedAt: Date | null;
   remark: string | null;
+  attachments: ContractAttachmentResponse[];
   createdAt: Date;
   updatedAt: Date;
 }

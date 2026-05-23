@@ -6,8 +6,8 @@ import { AccountLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
 import { CardSkeleton, EmptyState, ErrorState, PendingReviewState, TableSkeleton } from '../components/StatusViews';
 import { navigateTo } from '../navigation';
-import { ApiError, api, type AccountCertificationRecord, type ResultWorkflowRecord } from '../services/api';
-import type { AccountProfile, BidRecord, DepositRecord, NotificationRecord, StatusTone } from '../types';
+import { ApiError, api, type AccountCertificationRecord, type ContractWorkflowRecord, type ResultWorkflowRecord } from '../services/api';
+import type { AccountProfile, BidRecord, ContractAttachment, DepositRecord, NotificationRecord, StatusTone } from '../types';
 
 type DepositRecordWithVoucher = DepositRecord & {
   requiredAmount?: string;
@@ -17,6 +17,10 @@ type DepositRecordWithVoucher = DepositRecord & {
   voucherFileUrl?: string;
 };
 type AccountRequestState = 'loading' | 'ready' | 'error' | 'unauthorized' | 'forbidden';
+type AccountImagePreviewState = {
+  src: string;
+  title: string;
+};
 
 const defaultProfile: AccountProfile = {
   id: '',
@@ -56,6 +60,52 @@ const defaultCertification: AccountCertificationRecord = {
   reviewedAt: '-',
 };
 
+const postAuctionStatuses = new Set(['成交公示中', '待签约', '已签约', '已完成', '违约']);
+
+function isPostAuctionWinningBid(bid: BidRecord) {
+  return bid.isHighest && postAuctionStatuses.has(bid.auctionStatus);
+}
+
+function isActiveAuctionBid(bid: BidRecord) {
+  return bid.auctionStatus === '竞拍中';
+}
+
+function getBidProgressLabel(bid: BidRecord) {
+  if (!bid.isHighest) {
+    return '已出价';
+  }
+
+  if (bid.auctionStatus === '竞拍中') {
+    return '当前领先';
+  }
+
+  if (postAuctionStatuses.has(bid.auctionStatus)) {
+    return bid.auctionStatus === '成交公示中' ? '已中标' : bid.auctionStatus;
+  }
+
+  return bid.auctionStatus || '已出价';
+}
+
+function getBidProgressTone(bid: BidRecord): StatusTone {
+  if (!bid.isHighest) {
+    return 'gray';
+  }
+
+  if (bid.auctionStatus === '违约') {
+    return 'red';
+  }
+
+  if (bid.auctionStatus === '竞拍中' || bid.auctionStatus === '已完成') {
+    return 'green';
+  }
+
+  if (bid.auctionStatus === '待签约') {
+    return 'orange';
+  }
+
+  return 'blue';
+}
+
 export function AccountHome() {
   const [profile, setProfile] = useState<AccountProfile>(defaultProfile);
   const [deposits, setDeposits] = useState<DepositRecord[]>(api.getDeposits());
@@ -64,9 +114,9 @@ export function AccountHome() {
   const [notice, setNotice] = useState('');
   const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const pendingDeposits = deposits.filter((item) => item.status === '待审核' || item.status === '审核驳回' || item.status === '未提交').length;
-  const activeBids = bids.filter((item) => item.auctionStatus !== '已结束').length;
+  const activeBids = bids.filter(isActiveAuctionBid).length;
   const unreadMessages = messages.filter((item) => !item.read).length;
-  const completedBids = bids.filter((item) => item.auctionStatus === '已结束' && item.isHighest).length;
+  const completedBids = bids.filter(isPostAuctionWinningBid).length;
 
   useEffect(() => {
     void Promise.all([
@@ -136,8 +186,8 @@ export function AccountHome() {
               id: item.id,
               title: item.lotTitle,
               meta: `${item.amount} · ${item.bidTime}`,
-              status: item.isHighest ? '当前领先' : '已出价',
-              tone: item.isHighest ? 'green' : 'gray',
+              status: getBidProgressLabel(item),
+              tone: getBidProgressTone(item),
               target: getLotFallbackTarget(item, '/auctions/live/detail'),
             }))}
           />
@@ -337,7 +387,7 @@ export function MyBidsPage() {
   const [notice, setNotice] = useState('');
   const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const highestCount = bids.filter((item) => item.isHighest).length;
+  const highestCount = bids.filter((item) => item.isHighest && item.auctionStatus === '竞拍中').length;
   const visibleBids = bids.filter((bid) => {
     const keyword = String(filters['拍品名称'] ?? '').trim().toLowerCase();
     const bidTime = String(filters['出价时间'] ?? '').trim();
@@ -368,7 +418,7 @@ export function MyBidsPage() {
       {requestState === 'ready' ? <section className="account-summary-strip">
         <AccountSummary label="出价记录" value={`${bids.length} 条`} />
         <AccountSummary label="当前最高价" value={`${highestCount} 个`} tone="green" />
-        <AccountSummary label="进行中竞价" value={`${bids.filter((item) => item.auctionStatus !== '已结束').length} 个`} tone="orange" />
+        <AccountSummary label="进行中竞价" value={`${bids.filter(isActiveAuctionBid).length} 个`} tone="orange" />
       </section> : null}
       {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '出价时间', '当前最高价']} onChange={setFilters} /> : null}
       {requestState === 'ready' ? <DataTable columns={[
@@ -376,8 +426,8 @@ export function MyBidsPage() {
         { key: 'amount', label: '出价金额' },
         { key: 'incrementTimes', label: '加价次数' },
         { key: 'bidTime', label: '出价时间' },
-        { key: 'isHighest', label: '当前最高价', render: (row) => <StatusTag value={row.isHighest ? '是' : '否'} tone={row.isHighest ? 'green' : 'gray'} /> },
-        { key: 'auctionStatus', label: '竞价状态', render: (row) => <StatusTag value={row.auctionStatus || '竞拍中'} tone={row.auctionStatus === '已结束' ? 'gray' : 'blue'} /> },
+        { key: 'isHighest', label: '当前最高价', render: (row) => <StatusTag value={getBidProgressLabel(row)} tone={getBidProgressTone(row)} /> },
+        { key: 'auctionStatus', label: '竞价状态', render: (row) => <StatusTag value={row.auctionStatus || '竞拍中'} /> },
         { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row, '/auctions/live/detail'))} type="button">查看详情</button> },
       ]} rows={visibleBids} emptyDescription="当前筛选条件下没有出价记录。" emptyText="暂无出价记录" /> : null}
     </AccountLayout>
@@ -481,7 +531,9 @@ export function MyMessagesPage() {
 export function WinningDetailPage() {
   const [results, setResults] = useState<ResultWorkflowRecord[]>(api.getResults() as ResultWorkflowRecord[]);
   const [bids, setBids] = useState<BidRecord[]>(api.getBids());
+  const [contracts, setContracts] = useState<ContractWorkflowRecord[]>([]);
   const [profile, setProfile] = useState<AccountProfile>(defaultProfile);
+  const [imagePreview, setImagePreview] = useState<AccountImagePreviewState | null>(null);
   const [notice, setNotice] = useState('');
   const [requestState, setRequestState] = useState<AccountRequestState>('loading');
   const queryId = getQueryId();
@@ -491,14 +543,17 @@ export function WinningDetailPage() {
       api.fetchResults(),
       api.fetchAccountBids(),
       api.fetchAccountProfile(),
-    ]).then(([nextResults, nextBids, nextProfile]) => {
+      api.fetchAccountContracts(),
+    ]).then(([nextResults, nextBids, nextProfile, nextContracts]) => {
       setResults(nextResults as ResultWorkflowRecord[]);
       setBids(nextBids);
       setProfile(nextProfile);
+      setContracts(nextContracts as ContractWorkflowRecord[]);
       setRequestState('ready');
     }).catch((error) => {
       setResults([]);
       setBids([]);
+      setContracts([]);
       setProfile(defaultProfile);
       setNotice(getAccountErrorMessage(error));
       setRequestState(getAccountRequestState(error));
@@ -507,12 +562,21 @@ export function WinningDetailPage() {
 
   const selectedResult = selectWinningResult(results, bids, queryId);
   const selectedBid = bids.find((bid) => bid.lotId === selectedResult?.lotId);
-  const contractStatus = getContractStatusFromResult(selectedResult);
+  const selectedContract = contracts.find((contract) => contract.lotId === selectedResult?.lotId || contract.auctionResultId === selectedResult?.id);
+  const contractStatus = selectedContract?.status ?? getContractStatusFromResult(selectedResult);
   const tailAmount = selectedResult?.finalPrice ?? selectedBid?.amount ?? '-';
   const statusSummary = getWinningStatusSummary(contractStatus);
+  const closeImagePreview = () => {
+    if (imagePreview?.src.startsWith('blob:')) {
+      window.URL.revokeObjectURL(imagePreview.src);
+    }
+
+    setImagePreview(null);
+  };
 
   return (
     <AccountLayout active="中标后办理">
+      <AccountImagePreviewModal preview={imagePreview} onClose={closeImagePreview} />
       <AccountPageHead
         title="中标后办理详情"
         subtitle="查看线下签约、尾款支付说明及完成确认进度。系统不做线上金钱交易。"
@@ -575,6 +639,7 @@ export function WinningDetailPage() {
               <ul className="winning-material-list">
                 {['营业执照复印件并加盖公章', '法定代表人身份证明或授权委托书', '经办人身份证原件及复印件', '平台成交通知或成交公示打印件'].map((item) => <li key={item}>{item}</li>)}
               </ul>
+              <AccountContractAttachmentList attachments={selectedContract?.attachments ?? []} onPreviewImage={setImagePreview} />
             </article>
             <article className="winning-card">
               <header>
@@ -629,6 +694,93 @@ function AccountSummary({ label, value, tone = 'blue' }: { label: string; value:
       <strong>{value}</strong>
     </article>
   );
+}
+
+function AccountImagePreviewModal({ onClose, preview }: { onClose: () => void; preview: AccountImagePreviewState | null }) {
+  useEffect(() => {
+    if (!preview) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, preview]);
+
+  if (!preview) {
+    return null;
+  }
+
+  return (
+    <div className="admin-image-modal-backdrop" onClick={onClose} role="presentation">
+      <section aria-label={preview.title} aria-modal="true" className="admin-image-modal-panel" onClick={(event) => event.stopPropagation()} role="dialog">
+        <header>
+          <div>
+            <span>图片预览</span>
+            <h2>{preview.title}</h2>
+          </div>
+          <button aria-label="关闭图片预览" onClick={onClose} type="button">x</button>
+        </header>
+        <div className="admin-image-modal-body">
+          <img alt={preview.title} src={preview.src} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AccountContractAttachmentList({
+  attachments,
+  onPreviewImage,
+}: {
+  attachments: ContractAttachment[];
+  onPreviewImage: (preview: AccountImagePreviewState) => void;
+}) {
+  return (
+    <section className="account-contract-attachments">
+      <h3>合同附件</h3>
+      {attachments.length ? (
+        <div className="contract-attachment-list">
+          {attachments.map((attachment) => (
+            <button className="contract-attachment-item" key={attachment.id} onClick={() => void openAccountContractAttachment(attachment, onPreviewImage)} type="button">
+              <span>{isAccountImageFile(attachment) ? 'IMG' : isAccountPdfFile(attachment) ? 'PDF' : 'FILE'}</span>
+              <strong title={attachment.fileName}>{attachment.fileName}</strong>
+              <small>{isAccountImageFile(attachment) ? '站内预览' : '查看附件'}</small>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p>暂无合同附件。</p>
+      )}
+    </section>
+  );
+}
+
+async function openAccountContractAttachment(attachment: ContractAttachment, onPreviewImage: (preview: AccountImagePreviewState) => void) {
+  try {
+    if (isAccountImageFile(attachment)) {
+      const src = await api.createFileObjectUrl(attachment.fileUrl, attachment.id, 'ENTERPRISE');
+      onPreviewImage({ src, title: attachment.fileName });
+      return;
+    }
+
+    await api.openFileUrl(attachment.fileUrl, attachment.id, 'ENTERPRISE');
+  } catch (error) {
+    window.alert(`合同附件暂无法打开：${getAccountErrorMessage(error)}`);
+  }
+}
+
+function isAccountImageFile(file: { fileName?: string; mimeType?: string | null }) {
+  return Boolean(file.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.fileName ?? ''));
+}
+
+function isAccountPdfFile(file: { fileName?: string; mimeType?: string | null }) {
+  return Boolean(file.mimeType === 'application/pdf' || /\.pdf$/i.test(file.fileName ?? ''));
 }
 
 function AccountPanel({ title, icon, action, actionTo, wide, children }: { title: string; icon: string; action?: string; actionTo?: string; wide?: boolean; children: React.ReactNode }) {

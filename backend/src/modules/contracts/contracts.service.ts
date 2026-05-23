@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
+  Attachment,
   AuctionResult,
   Contract,
   ContractStatus,
@@ -17,6 +18,7 @@ import { OperationLogService } from '../../logging/operation-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ContractResponse } from './contract.types';
 import { ContractQueryDto } from './dto/contract-query.dto';
+import { MarkSignedDto } from './dto/mark-signed.dto';
 
 const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   [ContractStatus.PENDING_SIGN]: '待签约',
@@ -29,6 +31,16 @@ type ContractWithRelations = Contract & {
   lot: Pick<Lot, 'id' | 'title' | 'status'>;
   enterprise: Pick<Enterprise, 'id' | 'name'>;
   auctionResult: Pick<AuctionResult, 'id' | 'finalPrice'>;
+  attachments: Pick<
+    Attachment,
+    | 'id'
+    | 'fileName'
+    | 'fileUrl'
+    | 'mimeType'
+    | 'fileSize'
+    | 'isSensitive'
+    | 'createdAt'
+  >[];
 };
 
 type PrismaServiceLike = {
@@ -39,6 +51,10 @@ type PrismaServiceLike = {
       args: Prisma.ContractFindUniqueArgs,
     ): Promise<ContractWithRelations | null>;
     update(args: Prisma.ContractUpdateArgs): Promise<ContractWithRelations>;
+  };
+  attachment: {
+    findMany(args: Prisma.AttachmentFindManyArgs): Promise<Attachment[]>;
+    updateMany(args: Prisma.AttachmentUpdateManyArgs): Promise<Prisma.BatchPayload>;
   };
   lot: {
     update(args: Prisma.LotUpdateArgs): Promise<Lot | null>;
@@ -65,7 +81,12 @@ export class ContractsService {
     const [items, total] = await Promise.all([
       this.prisma.contract.findMany({
         where,
-        include: { lot: true, enterprise: true, auctionResult: true },
+        include: {
+          lot: true,
+          enterprise: true,
+          auctionResult: true,
+          attachments: true,
+        },
         orderBy: [{ updatedAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -81,7 +102,11 @@ export class ContractsService {
     );
   }
 
-  markSigned(id: string, actorId?: string): Promise<ContractResponse> {
+  markSigned(
+    id: string,
+    actorId?: string,
+    dto: MarkSignedDto = {},
+  ): Promise<ContractResponse> {
     return this.transition(
       id,
       {
@@ -91,6 +116,7 @@ export class ContractsService {
       LotStatus.SIGNED,
       '标记合同已签约',
       actorId,
+      dto.attachmentIds,
     );
   }
 
@@ -126,11 +152,18 @@ export class ContractsService {
     lotStatus: LotStatus,
     action: string,
     actorId?: string,
+    attachmentIds: string[] = [],
   ): Promise<ContractResponse> {
+    const uniqueAttachmentIds = [...new Set(attachmentIds)];
     const contract = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.contract.findUnique({
         where: { id },
-        include: { lot: true, enterprise: true, auctionResult: true },
+        include: {
+          lot: true,
+          enterprise: true,
+          auctionResult: true,
+          attachments: true,
+        },
       });
 
       if (!existing) {
@@ -141,10 +174,42 @@ export class ContractsService {
         );
       }
 
+      if (uniqueAttachmentIds.length > 0) {
+        const claimableAttachments = await tx.attachment.findMany({
+          where: {
+            id: { in: uniqueAttachmentIds },
+            OR: [{ contractId: null }, { contractId: id }],
+          },
+        });
+
+        if (claimableAttachments.length !== uniqueAttachmentIds.length) {
+          throw new AppError(
+            ERROR_CODES.INTERNAL_ERROR,
+            '合同附件不存在或已关联其他合同',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        await tx.attachment.updateMany({
+          where: { id: { in: uniqueAttachmentIds } },
+          data: {
+            contractId: id,
+            enterpriseId: existing.enterpriseId,
+            lotId: existing.lotId,
+            isSensitive: true,
+          },
+        });
+      }
+
       const updated = await tx.contract.update({
         where: { id },
         data,
-        include: { lot: true, enterprise: true, auctionResult: true },
+        include: {
+          lot: true,
+          enterprise: true,
+          auctionResult: true,
+          attachments: true,
+        },
       });
 
       await tx.lot.update({
@@ -181,6 +246,15 @@ export class ContractsService {
       completedAt: contract.completedAt,
       defaultedAt: contract.defaultedAt,
       remark: contract.remark,
+      attachments: contract.attachments.map((attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        fileUrl: attachment.fileUrl,
+        mimeType: attachment.mimeType,
+        fileSize: attachment.fileSize,
+        isSensitive: attachment.isSensitive,
+        createdAt: attachment.createdAt,
+      })),
       createdAt: contract.createdAt,
       updatedAt: contract.updatedAt,
     };

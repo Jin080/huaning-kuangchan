@@ -39,7 +39,7 @@ type ClosingLot = Pick<
 
 export const AUCTION_CLOSING_NOW = 'AUCTION_CLOSING_NOW';
 const PENDING_LOOKAHEAD_MS = 30 * 60 * 1000;
-const AUTO_RUN_INTERVAL_MS = 60 * 1000;
+const AUTO_RUN_INTERVAL_MS = 5 * 1000;
 const MAX_RECENT_RUNS = 20;
 
 @Injectable()

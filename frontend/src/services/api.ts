@@ -16,6 +16,7 @@ import {
 import type {
   AccountProfile,
   BidRecord,
+  ContractAttachment,
   ContractRecord,
   ContentRecord,
   DepositRecord,
@@ -203,6 +204,8 @@ type ApiAccountBid = {
   id: string;
   lotId: string;
   lotTitle: string | null;
+  lotStatus?: string;
+  lotStatusCode?: Lot['status'] | string;
   enterpriseName: string;
   maskedEnterpriseName: string;
   amount: string;
@@ -362,8 +365,18 @@ type ApiContract = {
   completedAt?: string | null;
   defaultedAt?: string | null;
   remark?: string | null;
+  attachments?: ApiContractAttachment[];
   createdAt?: string;
   updatedAt: string;
+};
+
+type ApiContractAttachment = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  isSensitive?: boolean;
 };
 
 type ApiRefund = {
@@ -570,6 +583,10 @@ export type ContentMutationPayload = {
   body: string;
 };
 
+export type MarkContractSignedPayload = {
+  attachmentIds?: string[];
+};
+
 export type ResultWorkflowRecord = ResultRecord & {
   lotStatusCode?: string;
   generatedAt?: string;
@@ -618,6 +635,33 @@ const emptyLot: Lot = {
   countdown: '-',
   status: '草稿',
   updatedAt: '-',
+};
+
+const LOT_STATUS_LABELS: Record<string, Lot['status']> = {
+  DRAFT: '草稿',
+  PENDING_RELEASE_REVIEW: '待发布复核',
+  RELEASE_REJECTED: '发布驳回',
+  ANNOUNCING: '公示中',
+  BIDDING: '竞拍中',
+  ENDED: '已结束',
+  RESULT_ANNOUNCING: '成交公示中',
+  PENDING_CONTRACT: '待签约',
+  SIGNED: '已签约',
+  COMPLETED: '已完成',
+  DEFAULTED: '违约',
+  CANCELED: '已取消',
+  草稿: '草稿',
+  待发布复核: '待发布复核',
+  发布驳回: '发布驳回',
+  公示中: '公示中',
+  竞拍中: '竞拍中',
+  已结束: '已结束',
+  成交公示中: '成交公示中',
+  待签约: '待签约',
+  已签约: '已签约',
+  已完成: '已完成',
+  违约: '违约',
+  已取消: '已取消',
 };
 
 function devFixtureRows<T>(rows: T[]): T[] {
@@ -955,6 +999,10 @@ function mapDashboard(data: ApiPortalDashboard): Stat[] {
   ];
 }
 
+function mapLotStatus(statusCode?: string | null, status?: string | null): Lot['status'] {
+  return LOT_STATUS_LABELS[String(statusCode ?? '')] ?? LOT_STATUS_LABELS[String(status ?? '')] ?? '竞拍中';
+}
+
 function mapLot(lot: ApiLot): MappedLot {
   const category = [lot.mineralCategory, lot.grade].filter(Boolean).join(' / ') || lot.mineralCategory || '矿产资源';
   const bidIncrement = lot.auctionRule?.bidIncrement ?? lot.bidIncrement;
@@ -1199,7 +1247,7 @@ function mapAccountBid(bid: ApiAccountBid): BidRecord {
     incrementTimes: bid.incrementCount,
     bidTime: formatDate(bid.bidAt),
     isHighest: bid.isCurrentHighest,
-    auctionStatus: '竞拍中',
+    auctionStatus: mapLotStatus(bid.lotStatusCode, bid.lotStatus),
   };
 }
 
@@ -1234,9 +1282,21 @@ function mapContract(contract: ApiContract): ContractWorkflowRecord {
     completedAt: formatDate(contract.completedAt),
     defaultedAt: formatDate(contract.defaultedAt),
     remark: contract.remark ?? undefined,
+    attachments: (contract.attachments ?? []).map(mapContractAttachment),
     createdAt: formatDate(contract.createdAt),
     updatedAt: formatDate(contract.updatedAt),
     operator: '平台管理员',
+  };
+}
+
+function mapContractAttachment(attachment: ApiContractAttachment): ContractAttachment {
+  return {
+    id: attachment.id,
+    fileName: attachment.fileName,
+    fileUrl: resolveApiFileUrl(attachment.fileUrl),
+    mimeType: attachment.mimeType,
+    fileSize: attachment.fileSize,
+    isSensitive: attachment.isSensitive,
   };
 }
 
@@ -1499,6 +1559,14 @@ export const api = {
       },
       bids,
     ),
+  fetchAccountContracts: () =>
+    withPublicFallback(
+      async () => {
+        const data = await request<ListResponse<ApiContract>>('/account/contracts?pageSize=100', { authRole: 'ENTERPRISE', headers: getEnterpriseHeaders() });
+        return data.items.map(mapContract);
+      },
+      contracts,
+    ),
   fetchAccountMessages: () =>
     withPublicFallback(
       async () => {
@@ -1638,7 +1706,7 @@ export const api = {
   approveDepositReview: (id: string) => adminPost<ApiAdminDeposit>(`/admin/reviews/deposits/${id}/approve`),
   rejectDepositReview: (id: string, rejectReason: string) => adminPost<ApiAdminDeposit>(`/admin/reviews/deposits/${id}/reject`, { rejectReason }),
   publishResult: (id: string) => adminPost<ApiResult>(`/admin/results/${id}/publish`),
-  markContractSigned: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-signed`),
+  markContractSigned: (id: string, payload?: MarkContractSignedPayload) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-signed`, payload),
   markContractCompleted: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-completed`),
   markContractDefaulted: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-defaulted`),
   fetchAuctionClosingPending: () => adminGet<AuctionClosingPendingLot[]>('/admin/auction-closing/pending'),

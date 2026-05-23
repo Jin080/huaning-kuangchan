@@ -352,7 +352,19 @@ async function cleanup() {
   await prisma.attachment.deleteMany({ where: { OR: [{ lotId: { in: lotIds } }, { enterpriseId: { in: enterpriseIds } }] } });
   await prisma.lot.deleteMany({ where: { id: { in: lotIds } } });
   await prisma.enterprise.deleteMany({ where: { id: { in: enterpriseIds } } });
-  await prisma.user.deleteMany({ where: { username: { in: ['t14_e2e_admin', 't14_e2e_enterprise_a', 't14_e2e_enterprise_b'] } } });
+  await prisma.user.deleteMany({
+    where: {
+      username: {
+        in: [
+          't14_e2e_admin',
+          't14_e2e_enterprise_a',
+          't14_e2e_enterprise_b',
+          't14_e2e_registered_a',
+          't14_e2e_registered_b',
+        ],
+      },
+    },
+  });
 }
 
 async function get<T>(

@@ -6515,6 +6515,105 @@ legend {
   color: var(--muted);
 }
 
+.account-contract-attachments,
+.contract-sign-attachments {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.account-contract-attachments h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 15px;
+}
+
+.account-contract-attachments p,
+.contract-attachments-empty,
+.contract-sign-attachments p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.contract-upload-action {
+  display: inline-flex;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.contract-upload-action input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.contract-upload-action span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.contract-attachment-drafts,
+.contract-attachment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.contract-attachment-draft,
+.contract-attachment-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.contract-attachment-item {
+  width: 100%;
+  cursor: pointer;
+}
+
+.contract-attachment-draft img,
+.contract-attachment-draft > span,
+.contract-attachment-item > span {
+  width: 44px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 900;
+  object-fit: cover;
+}
+
+.contract-attachment-draft strong,
+.contract-attachment-item strong {
+  overflow: hidden;
+  color: var(--navy);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contract-attachment-item small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .contract-drawer-content {
   display: grid;
   gap: 14px;
@@ -6975,6 +7074,149 @@ legend {
   overflow-wrap: anywhere;
 }
 
+.fulfillment-workbench {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 58%, #eef6ff 100%);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+}
+
+.fulfillment-workbench-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.fulfillment-workbench-head span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.fulfillment-workbench-head h2,
+.fulfillment-check-card h3 {
+  margin: 4px 0 0;
+  color: var(--navy);
+}
+
+.fulfillment-project-brief,
+.fulfillment-check-card dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.fulfillment-project-brief {
+  grid-template-columns: minmax(160px, 0.8fr) minmax(160px, 0.8fr) minmax(240px, 1.4fr);
+}
+
+.fulfillment-project-brief div,
+.fulfillment-check-card dl div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.fulfillment-project-brief dt,
+.fulfillment-check-card dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.fulfillment-project-brief dd,
+.fulfillment-check-card dd {
+  margin: 5px 0 0;
+  color: var(--navy);
+  overflow-wrap: anywhere;
+}
+
+.fulfillment-project-brief .money,
+.fulfillment-check-card .money {
+  color: var(--orange);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-weight: 900;
+}
+
+.fulfillment-check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fulfillment-check-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.fulfillment-check-title {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.fulfillment-check-title > span {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.fulfillment-check-title p,
+.fulfillment-check-done,
+.fulfillment-check-muted,
+.fulfillment-contract-empty p,
+.fulfillment-workbench-actions span {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.fulfillment-check-done {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.fulfillment-workbench-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.fulfillment-contract-empty {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed #bfdbfe;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.fulfillment-contract-empty strong {
+  color: var(--navy);
+}
+
 .flow-node-board {
   display: grid;
   grid-template-columns: repeat(11, minmax(118px, 1fr));
@@ -7047,6 +7289,243 @@ legend {
   gap: 12px;
   padding: 18px;
 }
+
+.workflow-lane-card,
+.workflow-timeline-card,
+.workflow-side-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.workflow-lane-card {
+  margin-bottom: 18px;
+}
+
+.workflow-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+}
+
+.workflow-section-head h2,
+.workflow-side-panel h2,
+.workflow-timeline-card h2 {
+  margin: 0 0 6px;
+  color: var(--navy);
+}
+
+.workflow-section-head p {
+  margin: 0;
+}
+
+.workflow-lane-scroll {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(150px, 1fr);
+  gap: 10px;
+  padding: 18px;
+  overflow-x: auto;
+}
+
+.workflow-lane-node {
+  min-height: 128px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.workflow-lane-node span {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #fff;
+  font-weight: 900;
+}
+
+.workflow-lane-node strong {
+  color: var(--navy);
+}
+
+.workflow-lane-node b {
+  color: var(--navy);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 24px;
+}
+
+.workflow-lane-node small {
+  color: var(--muted);
+}
+
+.workflow-lane-node.blue { border-top-color: var(--primary); }
+.workflow-lane-node.orange { border-top-color: var(--orange); }
+.workflow-lane-node.green { border-top-color: var(--green); }
+.workflow-lane-node.red { border-top-color: var(--red); }
+
+.workflow-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 18px;
+  align-items: start;
+}
+
+.workflow-detail-grid > .lot-progress-summary,
+.workflow-detail-grid > .workflow-timeline-card,
+.workflow-detail-grid > .flow-record-panel {
+  grid-column: 1;
+}
+
+.workflow-side-panel {
+  position: sticky;
+  top: 88px;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.workflow-side-panel dl {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-side-panel dl div {
+  padding: 11px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.workflow-side-panel dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workflow-side-panel dd {
+  margin: 4px 0 0;
+  color: var(--navy);
+}
+
+.workflow-timeline-card {
+  padding: 20px;
+}
+
+.workflow-timeline {
+  display: grid;
+  gap: 14px;
+  padding-left: 18px;
+  border-left: 2px solid var(--line);
+}
+
+.workflow-timeline-node {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.workflow-timeline-node > span {
+  position: absolute;
+  left: -36px;
+  top: 4px;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #e2e8f0;
+  font-weight: 900;
+}
+
+.workflow-timeline-node.done > span {
+  color: #fff;
+  background: var(--green);
+}
+
+.workflow-timeline-node.active > span {
+  color: #fff;
+  background: var(--primary);
+}
+
+.workflow-timeline-node.danger > span {
+  color: #fff;
+  background: var(--red);
+}
+
+.workflow-timeline-node > div {
+  grid-column: 2;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.workflow-timeline-node header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.workflow-timeline-node p {
+  margin: 8px 0 0;
+}
+
+.review-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.review-entry-card {
+  min-height: 132px;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.review-entry-card span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.review-entry-card strong {
+  color: var(--navy);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 28px;
+}
+
+.review-entry-card small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.review-entry-card.orange { border-left-color: var(--orange); }
+.review-entry-card.green { border-left-color: var(--green); }
+.review-entry-card.red { border-left-color: var(--red); }
 
 .readonly-groups {
   display: grid;
@@ -7250,12 +7729,17 @@ legend {
   .winning-detail-grid,
   .winning-info-grid,
   .contract-drawer-content dl,
+  .workflow-detail-grid,
+  .review-entry-grid,
   .lot-progress-summary,
   .lot-progress-summary dl,
   .lot-progress-summary.fulfillment-summary,
   .lot-progress-summary .fulfillment-summary-grid,
   .fulfillment-verify-card,
   .fulfillment-verify-card dl,
+  .fulfillment-workbench-head,
+  .fulfillment-project-brief,
+  .fulfillment-check-grid,
   .lot-bid-summary,
   .lot-bid-summary dl,
   .bid-detail-stat-grid,
@@ -7279,6 +7763,18 @@ legend {
   .bid-detail-stat-grid article,
   .flow-record-panel {
     padding: 16px;
+  }
+
+  .workflow-detail-grid > .lot-progress-summary,
+  .workflow-detail-grid > .workflow-timeline-card,
+  .workflow-detail-grid > .flow-record-panel,
+  .workflow-side-panel {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .workflow-side-panel {
+    position: static;
   }
 
   .bid-detail-filterbar {

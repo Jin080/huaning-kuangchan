@@ -1,12 +1,16 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   BidRecord,
+  Attachment,
+  AuctionResult,
+  Contract,
+  ContractStatus,
   DepositVoucher,
   DepositVoucherStatus,
   Enterprise,
   EnterpriseCertificationStatus,
-  Attachment,
   Lot,
+  LotStatus,
   Notification,
   NotificationChannel,
   NotificationSendStatus,
@@ -24,6 +28,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AccountListQueryDto } from './dto/account-query.dto';
 import {
   AccountBidRecordResponse,
+  AccountContractResponse,
   AccountDepositVoucherResponse,
   AccountMessageResponse,
   AccountProfileResponse,
@@ -43,6 +48,13 @@ const DEPOSIT_STATUS_LABELS: Record<DepositVoucherStatus, string> = {
   [DepositVoucherStatus.REJECTED]: '审核驳回',
 };
 
+const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  [ContractStatus.PENDING_SIGN]: '待签约',
+  [ContractStatus.SIGNED]: '已签约',
+  [ContractStatus.COMPLETED]: '已完成',
+  [ContractStatus.DEFAULTED]: '违约',
+};
+
 const MESSAGE_TYPE_LABELS: Record<NotificationType, string> = {
   [NotificationType.WIN]: '成交通知',
   [NotificationType.LOSE]: '失败通知',
@@ -59,6 +71,21 @@ const MESSAGE_SEND_STATUS_LABELS: Record<NotificationSendStatus, string> = {
   [NotificationSendStatus.FAILED]: '发送失败',
 };
 
+const LOT_STATUS_LABELS: Record<LotStatus, string> = {
+  [LotStatus.DRAFT]: '草稿',
+  [LotStatus.PENDING_RELEASE_REVIEW]: '待发布复核',
+  [LotStatus.RELEASE_REJECTED]: '发布驳回',
+  [LotStatus.ANNOUNCING]: '公示中',
+  [LotStatus.BIDDING]: '竞拍中',
+  [LotStatus.ENDED]: '已结束',
+  [LotStatus.RESULT_ANNOUNCING]: '成交公示中',
+  [LotStatus.PENDING_CONTRACT]: '待签约',
+  [LotStatus.SIGNED]: '已签约',
+  [LotStatus.COMPLETED]: '已完成',
+  [LotStatus.DEFAULTED]: '违约',
+  [LotStatus.CANCELED]: '已取消',
+};
+
 type UserWithRelations = User & {
   role: Pick<Role, 'code' | 'name'>;
   enterprise: Pick<
@@ -73,11 +100,27 @@ type DepositVoucherWithLot = DepositVoucher & {
 };
 
 type BidRecordWithLot = BidRecord & {
-  lot: Pick<Lot, 'id' | 'title'>;
+  lot: Pick<Lot, 'id' | 'title' | 'status'>;
 };
 
 type NotificationWithLot = Notification & {
   lot: Pick<Lot, 'id' | 'title'> | null;
+};
+
+type ContractWithRelations = Contract & {
+  lot: Pick<Lot, 'id' | 'title' | 'status'>;
+  enterprise: Pick<Enterprise, 'id' | 'name'>;
+  auctionResult: Pick<AuctionResult, 'id' | 'finalPrice'>;
+  attachments: Pick<
+    Attachment,
+    | 'id'
+    | 'fileName'
+    | 'fileUrl'
+    | 'mimeType'
+    | 'fileSize'
+    | 'isSensitive'
+    | 'createdAt'
+  >[];
 };
 
 type PrismaServiceLike = {
@@ -97,6 +140,10 @@ type PrismaServiceLike = {
     count(args: Prisma.NotificationCountArgs): Promise<number>;
     findFirst(args: Prisma.NotificationFindFirstArgs): Promise<NotificationWithLot | null>;
     update(args: Prisma.NotificationUpdateArgs): Promise<NotificationWithLot>;
+  };
+  contract: {
+    findMany(args: Prisma.ContractFindManyArgs): Promise<ContractWithRelations[]>;
+    count(args: Prisma.ContractCountArgs): Promise<number>;
   };
 };
 
@@ -229,6 +276,43 @@ export class AccountService {
     );
   }
 
+  async listContracts(
+    userId: string,
+    query: AccountListQueryDto,
+  ): Promise<ListResponse<AccountContractResponse>> {
+    const enterpriseId = await this.getEnterpriseId(userId);
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+
+    if (!enterpriseId) {
+      return createListResponse([], 0, page, pageSize);
+    }
+
+    const where = { enterpriseId };
+    const [items, total] = await Promise.all([
+      this.prisma.contract.findMany({
+        where,
+        include: {
+          lot: true,
+          enterprise: true,
+          auctionResult: true,
+          attachments: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.contract.count({ where }),
+    ]);
+
+    return createListResponse(
+      items.map((item) => this.toContractResponse(item)),
+      total,
+      page,
+      pageSize,
+    );
+  }
+
   async markMessageRead(
     userId: string,
     messageId: string,
@@ -328,6 +412,8 @@ export class AccountService {
       incrementCount: bid.incrementCount,
       bidAt: bid.bidAt,
       isCurrentHighest: bid.isCurrentHighest,
+      lotStatus: LOT_STATUS_LABELS[bid.lot.status],
+      lotStatusCode: bid.lot.status,
     };
   }
 
@@ -350,6 +436,38 @@ export class AccountService {
       readAt: notification.readAt,
       createdAt: notification.createdAt,
       updatedAt: notification.updatedAt,
+    };
+  }
+
+  private toContractResponse(
+    contract: ContractWithRelations,
+  ): AccountContractResponse {
+    return {
+      id: contract.id,
+      auctionResultId: contract.auctionResultId,
+      lotId: contract.lotId,
+      lotTitle: contract.lot.title,
+      lotStatusCode: contract.lot.status,
+      enterpriseId: contract.enterpriseId,
+      enterpriseName: contract.enterprise.name,
+      finalPrice: contract.auctionResult.finalPrice.toString(),
+      status: CONTRACT_STATUS_LABELS[contract.status],
+      statusCode: contract.status,
+      signedAt: contract.signedAt,
+      completedAt: contract.completedAt,
+      defaultedAt: contract.defaultedAt,
+      remark: contract.remark,
+      attachments: contract.attachments.map((attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        fileUrl: attachment.fileUrl,
+        mimeType: attachment.mimeType,
+        fileSize: attachment.fileSize,
+        isSensitive: attachment.isSensitive,
+        createdAt: attachment.createdAt,
+      })),
+      createdAt: contract.createdAt,
+      updatedAt: contract.updatedAt,
     };
   }
 }
