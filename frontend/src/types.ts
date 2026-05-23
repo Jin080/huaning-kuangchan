@@ -39,6 +39,21 @@ export type LotStatus =
 export type Lot = {
   id: string;
   title: string;
+  imageOneUrl?: string;
+  imageTwoUrl?: string;
+  imageUrls?: string[];
+  attachments?: Array<{
+    id: string;
+    category: string;
+    fileName: string;
+    fileUrl: string;
+  }>;
+  inspectionReports?: Array<{
+    id: string;
+    category: string;
+    fileName: string;
+    fileUrl: string;
+  }>;
   startPrice: string;
   currentPrice: string;
   quantity: string;
@@ -69,6 +84,22 @@ export type Enterprise = {
   status: '未提交' | '待审核' | '审核通过' | '审核驳回';
   submittedAt: string;
   rejectReason?: string;
+  businessLicenseFileName?: string;
+  businessLicenseFileUrl?: string;
+  businessLicenseAttachmentId?: string;
+  qualificationFileName?: string;
+  qualificationFileUrl?: string;
+  qualificationAttachmentId?: string;
+  authorizationMaterialFileName?: string;
+  authorizationMaterialUrl?: string;
+  authorizationMaterialAttachmentId?: string;
+  materials?: Array<{
+    id: string;
+    category: string;
+    label: string;
+    fileName: string;
+    fileUrl: string;
+  }>;
 };
 
 export type DepositRecord = {

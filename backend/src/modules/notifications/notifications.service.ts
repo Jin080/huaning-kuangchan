@@ -90,12 +90,26 @@ export class NotificationsService {
       lotId: notification.lotId,
       lotTitle: notification.lot?.title ?? notification.lotTitle,
       content: notification.content,
-      sendStatus: SEND_STATUS_LABELS[notification.sendStatus],
+      sendStatus: this.getSendStatusLabel(notification),
       sendStatusCode: notification.sendStatus,
       sentAt: notification.sentAt,
       readAt: notification.readAt,
       createdAt: notification.createdAt,
       updatedAt: notification.updatedAt,
     };
+  }
+
+  private getSendStatusLabel(
+    notification: NotificationWithRelations,
+  ): string {
+    if (
+      notification.channel === NotificationChannel.SMS &&
+      notification.sendStatus === NotificationSendStatus.FAILED &&
+      notification.content.includes('短信供应商未配置')
+    ) {
+      return '未配置';
+    }
+
+    return SEND_STATUS_LABELS[notification.sendStatus];
   }
 }

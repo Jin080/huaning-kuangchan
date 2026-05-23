@@ -146,4 +146,29 @@ describe('NotificationsService', () => {
       }),
     );
   });
+
+  it('labels skipped sms records as not configured', async () => {
+    const service = new NotificationsService(
+      createPrismaMock([
+        createNotification({
+          channel: NotificationChannel.SMS,
+          sendStatus: NotificationSendStatus.FAILED,
+          content: '短信供应商未配置，未发送。您参与的铜精矿竞拍已结束。',
+        }),
+      ]) as never,
+    );
+
+    const result = await service.list({
+      page: 1,
+      pageSize: 10,
+    });
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        channelCode: NotificationChannel.SMS,
+        sendStatus: '未配置',
+        sendStatusCode: NotificationSendStatus.FAILED,
+      }),
+    );
+  });
 });

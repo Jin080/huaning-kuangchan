@@ -206,7 +206,10 @@ export class AccountService {
       return createListResponse([], 0, page, pageSize);
     }
 
-    const where = { receiverEnterpriseId: enterpriseId };
+    const where = {
+      receiverEnterpriseId: enterpriseId,
+      channel: NotificationChannel.IN_APP,
+    };
     const [items, total] = await Promise.all([
       this.prisma.notification.findMany({
         where,

@@ -129,7 +129,7 @@ function createService(records: LotRecord[] = []) {
   const store = [...records];
   const prisma = {
     lot: {
-      findMany: jest.fn(({ where, skip = 0, take = store.length }) => {
+      findMany: jest.fn(({ where, skip = 0, take = store.length, include }) => {
         const result = store.filter((lot) => {
           if (where?.status?.notIn?.includes(lot.status)) {
             return false;
@@ -142,7 +142,18 @@ function createService(records: LotRecord[] = []) {
           return true;
         });
 
-        return Promise.resolve(result.slice(skip, skip + take));
+        const page = result.slice(skip, skip + take);
+
+        if (!include?.attachments) {
+          return Promise.resolve(page);
+        }
+
+        return Promise.resolve(
+          page.map((lot) => ({
+            ...lot,
+            attachments: lot.attachments ?? [],
+          })),
+        );
       }),
       count: jest.fn(({ where }) =>
         Promise.resolve(
@@ -191,6 +202,28 @@ function createService(records: LotRecord[] = []) {
         store[index] = updated;
         return Promise.resolve(updated);
       }),
+      updateMany: jest.fn(({ where, data }) => {
+        let count = 0;
+        store.forEach((lot, index) => {
+          if (
+            where.status === lot.status &&
+            lot.biddingStartAt <= where.biddingStartAt.lte &&
+            lot.biddingEndAt > where.biddingEndAt.gt
+          ) {
+            store[index] = {
+              ...lot,
+              ...data,
+              updatedAt: new Date('2026-05-17T10:00:00.000Z'),
+            };
+            count += 1;
+          }
+        });
+
+        return Promise.resolve({ count });
+      }),
+    },
+    attachment: {
+      updateMany: jest.fn(() => Promise.resolve({ count: 0 })),
     },
   };
   const logs = { record: jest.fn() };
@@ -240,6 +273,79 @@ describe('LotsService', () => {
           status: LotStatus.DRAFT,
           createdById: 'admin-1',
         }),
+      }),
+    );
+  });
+
+  it('claims uploaded additional lot images after creating a draft', async () => {
+    const { service, prisma } = createService();
+
+    await service.createDraft(
+      {
+        ...mutationDto,
+        additionalImageUrls: [
+          'http://localhost:3000/api/files/content/extra-lot-image',
+          'http://localhost:3000/api/files/content/report-file',
+        ],
+      },
+      'admin-1',
+    );
+
+    expect(prisma.attachment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['extra-lot-image', 'report-file'] },
+        category: AttachmentCategory.LOT_IMAGE,
+      },
+      data: { lotId: 'created-lot' },
+    });
+  });
+
+  it('claims uploaded additional lot images after updating a draft', async () => {
+    const { service, prisma } = createService([createLot({ id: 'lot-1' })]);
+
+    await service.updateDraft('lot-1', {
+      ...mutationDto,
+      additionalImageUrls: ['/api/files/content/updated-extra-image'],
+    });
+
+    expect(prisma.attachment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['updated-extra-image'] },
+        category: AttachmentCategory.LOT_IMAGE,
+      },
+      data: { lotId: 'lot-1' },
+    });
+  });
+
+  it('returns lot image attachments in admin list for editing', async () => {
+    const { service, prisma } = createService([
+      createLot({
+        id: 'draft-with-image',
+        attachments: [
+          createAttachment({
+            id: 'admin-lot-image',
+            category: AttachmentCategory.LOT_IMAGE,
+            fileName: '更多拍品图片.png',
+            fileUrl: '/api/files/content/admin-lot-image',
+            mimeType: 'image/png',
+          }),
+        ],
+      }),
+    ]);
+
+    const result = await service.listAdmin({ page: 1, pageSize: 20 });
+
+    expect(prisma.lot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ include: { attachments: true } }),
+    );
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        attachments: [
+          expect.objectContaining({
+            id: 'admin-lot-image',
+            category: AttachmentCategory.LOT_IMAGE,
+          }),
+        ],
       }),
     );
   });
@@ -306,6 +412,72 @@ describe('LotsService', () => {
       'announcing',
       'bidding',
     ]);
+  });
+
+  it('returns lot image attachments in public list without hiding main image URLs', async () => {
+    const { service, prisma } = createService([
+      createLot({
+        id: 'announcing',
+        status: LotStatus.ANNOUNCING,
+        attachments: [
+          createAttachment({
+            id: 'lot-image-attachment',
+            category: AttachmentCategory.LOT_IMAGE,
+            fileName: '补充图片.png',
+            fileUrl: '/api/files/content/lot-image-attachment',
+            mimeType: 'image/png',
+          }),
+        ],
+      }),
+    ]);
+
+    const result = await service.listPublic({ page: 1, pageSize: 20 });
+
+    expect(prisma.lot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ include: { attachments: true } }),
+    );
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        imageOneUrl: 'https://files.example.com/lot-1-a.jpg',
+        imageTwoUrl: 'https://files.example.com/lot-1-b.jpg',
+        attachments: [
+          expect.objectContaining({
+            id: 'lot-image-attachment',
+            category: AttachmentCategory.LOT_IMAGE,
+            fileUrl: '/api/files/content/lot-image-attachment',
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('automatically exposes due announcing lots as bidding in public list', async () => {
+    const { service, prisma } = createService([
+      createLot({
+        id: 'due-lot',
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: new Date('2000-01-01T00:00:00.000Z'),
+        biddingEndAt: new Date('2999-01-01T00:00:00.000Z'),
+      }),
+    ]);
+
+    const result = await service.listPublic({ page: 1, pageSize: 20 });
+
+    expect(prisma.lot.updateMany).toHaveBeenCalledWith({
+      where: {
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: { lte: expect.any(Date) },
+        biddingEndAt: { gt: expect.any(Date) },
+      },
+      data: { status: LotStatus.BIDDING },
+    });
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'due-lot',
+        status: '竞拍中',
+        statusCode: LotStatus.BIDDING,
+      }),
+    );
   });
 
   it('returns public detail with notices rules deposit info attachments and reports', async () => {

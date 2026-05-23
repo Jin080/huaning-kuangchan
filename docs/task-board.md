@@ -6,15 +6,19 @@
 
 新会话优先读取本区，再按需定点追溯 `docs/agent-handoff.md`，避免把历史流水账全文塞入上下文。
 
-- 当前发布前状态：T47B 与 T48 已完成；T48 最终人工口径验收未发现发布阻塞级 BLOCKER。
+- 当前发布前状态：T47B 与 T48 的历史验收记录已完成；2026-05-23 已完成一轮 T49 式提交范围审计与验证，当前提交候选包含成交后履约推进页、企业授权材料、结拍调度/短信占位、真实图片/附件兜底等既有混合改动。
 - 最新验收事实源：`docs/qa/main-flow-acceptance.md` 的 `T48 Final Manual Flow Acceptance - 2026-05-19 17:19`。
 - 最新交接追溯：优先在 `docs/agent-handoff.md` 中搜索 `T47B`、`T48`、`BLOCKER`、`未完成事项`、`需要总控确认`；通常只读文件尾部或命中段落。
+- 子代理纪律：凡是派出的 subagent / worker，任务完成后必须立即关闭，不保留悬挂 agent，不把旧上下文带到下一轮新会话。
 - 固定入口：后端 `http://127.0.0.1:3101`，前端 `http://127.0.0.1:5173`；前端 Vite dev `/api/**` 代理到 `http://127.0.0.1:3101` 并保留 `/api` 前缀。
 - 认证口径：正式验收使用 `Authorization: Bearer <accessToken>`；开发头 fallback 默认关闭，仅显式设置后端 `DEV_AUTH_HEADERS_ENABLED=true` 且前端 `VITE_DEV_AUTH_HEADERS_ENABLED=true` 时可用。
-- 最新验证摘要：后端 lint/typecheck/test 通过，默认 `npm test` 为 26 suites / 91 tests；前端 lint/build 通过；`git diff -- backend/prisma/schema.prisma` 无输出；`git diff --check` 无 whitespace error，仅既有 LF/CRLF warning。
+- 最新验证摘要：2026-05-23 总控实跑 `frontend npm run lint`、`frontend npm run build`、`backend npm run lint`、`backend npm run typecheck`、`backend npm test` 均通过；后端全量测试为 27 suites / 116 tests。`git diff --check` 无 whitespace error，仅 LF/CRLF warning。
 - T48 浏览器证据：`docs/qa/t48-artifacts/t48-manual-browser-report.json` 记录 console error=0、failedRequests=0、390px 溢出=0、截图 34 张；最终一致性为成交公示 `已公示`、合同 `已完成`、拍品 `已完成`、看板 totals `3 / 330`。
 - 发布前非阻塞缺口：结拍仍通过管理员 HTTP 入口 `POST /api/admin/auction-closing/run` 或运维定时触发；`backend/.env` 仍有旧 `PORT=3000`，裸启动前需显式确认使用 `3101`。
-- 提交纪律：当前工作树仍为大型混合未提交状态，禁止 `git add .`；必须按批次精确 stage，排除 `backend/prisma/schema.prisma`、`.tmp/`、`.playwright-cli/`、`frontend/.playwright-cli/`、`stitch_document_to_webpage_generator/`、`stitch_document_to_webpage_generator (1)/`、未确认首页截图和临时脚本/日志/夹具。
+- 启动项目快速口径：先确保项目独立 PostgreSQL `127.0.0.1:55432` 已启动；如未监听，运行 `C:/Users/JM/.kuangchan/postgres-55432/start-postgres.cmd`，再只读确认 `huaning_mineral_auction|55432`。后端不要裸跑 `.env`，需显式 `PORT=3101` 与固定 `DATABASE_URL`；推荐命令：`cmd /c set "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/huaning_mineral_auction?schema=public"&& set "PORT=3101"&& npm run start`。前端 `frontend npm run dev -- --host 127.0.0.1 --port 5173`。若误起到 `3000`，通常是 `backend/.env` 的旧 `PORT=3000` 生效，仍需另起/改用 `3101` 给 Vite 代理。
+- 启动故障速查：若后端日志出现 Prisma `P1001: Can't reach database server at 127.0.0.1:55432`，不要反复重启 Nest，也不要改 `DATABASE_URL` 到本机 `5432`；先启动项目独立 PostgreSQL 脚本并确认 `55432` 监听，再启动后端。若 `3101` 仍拒绝连接，优先看数据库监听/psql 确认输出，而不是排查前端代理。2026-05-22 排查到一次 PostgreSQL `55432` 自身异常退出并自动恢复，期间后端会表现为启动失败；启动后若 psql 返回 `the database system is starting up`，等数秒再重试。Windows 后台启动后端优先用 `Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','start' ...`，避免 `Start-Process npm` 静默失败。
+- Playwright 速查：本机可用 `playwright-cli`，验证命令 `playwright-cli --version` 或 `npx --yes --package @playwright/cli playwright-cli --version`，打开页面用 `playwright-cli open http://127.0.0.1:5173/admin/bids --json`。不要用 `npx --package playwright node -` / `npm exec --package=playwright -- node -e "require('playwright')"` 这类临时 `require('playwright')` 方式；在当前 Windows/npm 环境下临时包不会进入脚本解析路径，会报 `Cannot find module 'playwright'`。Playwright 产物会写入 `.playwright-cli/`，该目录仍禁止提交。
+- 提交纪律：当前工作树为大型混合未提交状态，禁止 `git add .`；必须按批次精确 stage，排除 `.tmp/`、`.playwright-cli/`、`frontend/.playwright-cli/`、`output/`、`test-results/`、`stitch(4)/`、`stitch_add/`、`stitch_document_to_webpage_generator*/`、未确认首页截图和临时脚本/日志/夹具。`backend/prisma/schema.prisma` 当前含 `ENTERPRISE_AUTHORIZATION`，若提交授权材料功能必须与对应 migration 一起纳入，不能单独排除造成 fresh clone 不一致。
 
 ## 总表
 
@@ -101,6 +105,6 @@
 
 ## 当前必须串行任务
 
-- 当前工作树混有 T33A/T33B/T41/T42/T43/T44/T45/T46/T47/T47B/T48 差异，提交时必须按批次精确 stage，不得使用 `git add .`。
-- 发布提交前先做 T49 提交范围审计：确认每个批次文件/hunk、确认排除项、确认 `backend/prisma/schema.prisma` 无 diff。
+- 当前工作树混有多轮差异，提交时必须按批次精确 stage，不得使用 `git add .`。
+- 2026-05-23 已做 T49 式提交范围审计；本次提交候选必须排除本地参考与临时产物，并将 `backend/prisma/schema.prisma` 的授权材料枚举与两条 migration 成组纳入。
 - T48 非阻塞缺口需进入发布说明：结拍通过管理员 HTTP 入口或运维定时触发；裸启动前确认 `backend/.env` 的 `PORT` 使用 3101。

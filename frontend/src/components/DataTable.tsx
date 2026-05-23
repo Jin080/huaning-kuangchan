@@ -1,5 +1,9 @@
+import { useMemo, useState } from 'react';
+
 import type { TableColumn } from '../types';
 import { EmptyState } from './StatusViews';
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 export function DataTable<T extends object>({
   columns,
@@ -14,6 +18,25 @@ export function DataTable<T extends object>({
   emptyDescription?: string;
   tableClassName?: string;
 }) {
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const effectivePage = Math.min(Math.max(currentPage, 1), totalPages);
+  const pageRows = useMemo(() => {
+    const start = (effectivePage - 1) * pageSize;
+
+    return rows.slice(start, start + pageSize);
+  }, [effectivePage, pageSize, rows]);
+
+  const changePageSize = (value: string) => {
+    const nextPageSize = Number.parseInt(value, 10);
+
+    if (PAGE_SIZE_OPTIONS.includes(nextPageSize)) {
+      setPageSize(nextPageSize);
+      setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(rows.length / nextPageSize))));
+    }
+  };
+
   return (
     <div className="table-card">
       <table className={tableClassName ? `data-table ${tableClassName}` : 'data-table'}>
@@ -32,7 +55,7 @@ export function DataTable<T extends object>({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => (
+          {pageRows.map((row, index) => (
             <tr key={String((row as Record<string, unknown>).id ?? index)}>
               {columns.map((column) => {
                 const columnKey = String(column.key);
@@ -51,19 +74,20 @@ export function DataTable<T extends object>({
       <div className="table-footer">
         <span>共 {rows.length || 0} 条记录</span>
         <div className="pagination">
-          <select aria-label="每页条数" defaultValue="10">
-            <option value="10">10 条/页</option>
-            <option value="20">20 条/页</option>
-            <option value="50">50 条/页</option>
+          <select aria-label="每页条数" onChange={(event) => changePageSize(event.currentTarget.value)} value={pageSize}>
+            {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option} 条/页</option>)}
           </select>
-          <button type="button">‹</button>
-          <button className="active" type="button">
-            1
-          </button>
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <span>...</span>
-          <button type="button">›</button>
+          {rows.length > pageSize ? (
+            <>
+              <button disabled={effectivePage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} type="button">‹</button>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                <button className={page === effectivePage ? 'active' : undefined} key={page} onClick={() => setCurrentPage(page)} type="button">
+                  {page}
+                </button>
+              ))}
+              <button disabled={effectivePage === totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} type="button">›</button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

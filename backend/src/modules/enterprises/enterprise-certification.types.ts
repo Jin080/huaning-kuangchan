@@ -1,3 +1,11 @@
+export interface EnterpriseCertificationMaterialResponse {
+  id: string;
+  category: string;
+  label: string;
+  fileName: string;
+  fileUrl: string;
+}
+
 export interface EnterpriseCertificationResponse {
   id: string;
   name: string;
@@ -32,4 +40,5 @@ export interface EnterpriseCertificationResponse {
   reviewedAt: Date | null;
   reviewerId: string | null;
   rejectReason: string | null;
+  materials: EnterpriseCertificationMaterialResponse[];
 }

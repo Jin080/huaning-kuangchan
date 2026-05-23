@@ -34,14 +34,53 @@ describe('FilesController', () => {
       'roles',
       controller.prototype.listAdmin,
     );
+    const uploadRoles = reflector.get<string[]>(
+      'roles',
+      controller.prototype.upload,
+    );
+    const registerUploadRoles = reflector.get<string[]>(
+      'roles',
+      controller.prototype.uploadRegisterMaterial,
+    );
+    const fileContentRoles = reflector.get<string[]>(
+      'roles',
+      controller.prototype.getFileContent,
+    );
+    const publicFileContentRoles = reflector.get<string[]>(
+      'roles',
+      controller.prototype.getPublicFileContent,
+    );
 
-    expect(controllerRoles).toEqual(['ADMIN', 'ENTERPRISE']);
+    expect(controllerRoles).toBeUndefined();
     expect(listRoles).toEqual(['ADMIN']);
+    expect(uploadRoles).toEqual(['ADMIN', 'ENTERPRISE']);
+    expect(registerUploadRoles).toBeUndefined();
+    expect(fileContentRoles).toEqual(['ADMIN', 'ENTERPRISE']);
+    expect(publicFileContentRoles).toBeUndefined();
   });
 
   it('uses the shared auth and roles guards', async () => {
     const guards = Reflect.getMetadata('__guards__', FilesController);
 
-    expect(guards).toEqual([AuthGuard, RolesGuard]);
+    expect(guards).toBeUndefined();
+    expect(Reflect.getMetadata('__guards__', FilesController.prototype.upload)).toEqual([
+      AuthGuard,
+      RolesGuard,
+    ]);
+    expect(
+      Reflect.getMetadata(
+        '__guards__',
+        FilesController.prototype.uploadRegisterMaterial,
+      ),
+    ).toBeUndefined();
+    expect(
+      Reflect.getMetadata('__guards__', FilesController.prototype.getFileContent),
+    ).toEqual([AuthGuard, RolesGuard]);
+    expect(
+      Reflect.getMetadata(
+        '__guards__',
+        FilesController.prototype.getPublicFileContent,
+      ),
+    ).toBeUndefined();
   });
 });

@@ -1,4 +1,10 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import {
   AuctionResult,
   AuctionResultStatus,
@@ -12,15 +18,36 @@ import {
 } from '@prisma/client';
 
 import { OperationLogService } from '../../logging/operation-log.service';
+import {
+  SMS_PROVIDER,
+  SmsProvider,
+  SmsSendResult,
+} from '../notifications/sms-provider';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AuctionClosingSummary } from './auction-closing.types';
+import {
+  AuctionClosingRunRecord,
+  AuctionClosingRunTrigger,
+  AuctionClosingRunsResponse,
+  AuctionClosingSummary,
+  PendingAuctionClosingLot,
+} from './auction-closing.types';
 
-type ClosingLot = Pick<Lot, 'id' | 'title' | 'status' | 'biddingEndAt'>;
+type ClosingLot = Pick<
+  Lot,
+  'id' | 'title' | 'status' | 'biddingEndAt' | 'currentHighestPrice'
+>;
 
 export const AUCTION_CLOSING_NOW = 'AUCTION_CLOSING_NOW';
+const PENDING_LOOKAHEAD_MS = 30 * 60 * 1000;
+const AUTO_RUN_INTERVAL_MS = 60 * 1000;
+const MAX_RECENT_RUNS = 20;
 
 @Injectable()
-export class AuctionClosingService {
+export class AuctionClosingService implements OnModuleInit, OnModuleDestroy {
+  private readonly recentRuns: AuctionClosingRunRecord[] = [];
+  private autoRunTimer: ReturnType<typeof setInterval> | undefined;
+  private autoRunInFlight = false;
+
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaServiceLike,
@@ -28,7 +55,95 @@ export class AuctionClosingService {
     @Optional()
     @Inject(AUCTION_CLOSING_NOW)
     private readonly now: () => Date = () => new Date(),
+    @Optional()
+    @Inject(SMS_PROVIDER)
+    private readonly smsProvider?: SmsProvider,
   ) {}
+
+  onModuleInit(): void {
+    this.autoRunTimer = setInterval(() => {
+      if (this.autoRunInFlight) {
+        return;
+      }
+
+      this.autoRunInFlight = true;
+      void this.runClosing('auto').finally(() => {
+        this.autoRunInFlight = false;
+      });
+    }, AUTO_RUN_INTERVAL_MS);
+  }
+
+  onModuleDestroy(): void {
+    if (this.autoRunTimer) {
+      clearInterval(this.autoRunTimer);
+      this.autoRunTimer = undefined;
+    }
+  }
+
+  async runClosing(
+    trigger: AuctionClosingRunTrigger,
+  ): Promise<AuctionClosingSummary> {
+    const startedAt = this.now();
+
+    try {
+      const summary = await this.closeEndedAuctions();
+      this.recordRun({
+        id: `${startedAt.getTime()}-${this.recentRuns.length + 1}`,
+        trigger,
+        status: 'SUCCESS',
+        startedAt,
+        finishedAt: this.now(),
+        summary,
+        errorMessage: null,
+      });
+
+      return summary;
+    } catch (error) {
+      const summary: AuctionClosingSummary = {
+        checkedLots: 0,
+        closedLots: 0,
+        endedWithoutBids: 0,
+        skippedLots: 0,
+      };
+      this.recordRun({
+        id: `${startedAt.getTime()}-${this.recentRuns.length + 1}`,
+        trigger,
+        status: 'FAILED',
+        startedAt,
+        finishedAt: this.now(),
+        summary,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
+    }
+  }
+
+  async listPendingLots(): Promise<PendingAuctionClosingLot[]> {
+    const endAt = new Date(this.now().getTime() + PENDING_LOOKAHEAD_MS);
+    const lots = await this.prisma.lot.findMany({
+      where: {
+        status: LotStatus.BIDDING,
+        biddingEndAt: { lte: endAt },
+      },
+      orderBy: { biddingEndAt: 'asc' },
+    });
+
+    return lots.map((lot) => ({
+      lotId: lot.id,
+      title: lot.title,
+      endAt: lot.biddingEndAt,
+      currentHighestPrice: lot.currentHighestPrice?.toString() ?? null,
+      status: lot.status,
+    }));
+  }
+
+  listRecentRuns(): AuctionClosingRunsResponse {
+    return {
+      ephemeral: true,
+      items: [...this.recentRuns],
+    };
+  }
 
   async closeEndedAuctions(): Promise<AuctionClosingSummary> {
     const now = this.now();
@@ -52,6 +167,11 @@ export class AuctionClosingService {
     }
 
     return summary;
+  }
+
+  private recordRun(record: AuctionClosingRunRecord): void {
+    this.recentRuns.unshift(record);
+    this.recentRuns.splice(MAX_RECENT_RUNS);
   }
 
   private async closeLot(
@@ -117,24 +237,78 @@ export class AuctionClosingService {
       orderBy: { bidAt: 'asc' },
     });
 
-    await tx.notification.createMany({
-      data: bidEnterprises.map((bid) => ({
-        type:
+    const data = await Promise.all(
+      bidEnterprises.flatMap(async (bid) => {
+        const type =
           bid.enterpriseId === highestBid.enterpriseId
             ? NotificationType.WIN
-            : NotificationType.LOSE,
-        channel: NotificationChannel.IN_APP,
-        receiverEnterpriseId: bid.enterpriseId,
-        lotId: lot.id,
-        lotTitle: lot.title,
-        content:
+            : NotificationType.LOSE;
+        const content =
           bid.enterpriseId === highestBid.enterpriseId
             ? `您参与的${lot.title}竞拍已结束，已中标，请办理签约与尾款手续。`
-            : `您参与的${lot.title}竞拍已结束，未中标，保证金将退回。`,
-        sendStatus: NotificationSendStatus.PENDING,
-      })),
+            : `您参与的${lot.title}竞拍已结束，未中标，保证金将退回。`;
+        const smsResult = await this.sendSms({
+          receiverEnterpriseId: bid.enterpriseId,
+          lotId: lot.id,
+          content,
+        });
+
+        return [
+          {
+            type,
+            channel: NotificationChannel.IN_APP,
+            receiverEnterpriseId: bid.enterpriseId,
+            lotId: lot.id,
+            lotTitle: lot.title,
+            content,
+            sendStatus: NotificationSendStatus.PENDING,
+          },
+          {
+            type,
+            channel: NotificationChannel.SMS,
+            receiverEnterpriseId: bid.enterpriseId,
+            lotId: lot.id,
+            lotTitle: lot.title,
+            content:
+              smsResult.status === 'SENT'
+                ? content
+                : `${smsResult.message}。${content}`,
+            sendStatus: this.toNotificationSendStatus(smsResult),
+            sentAt: smsResult.sentAt,
+          },
+        ];
+      }),
+    );
+
+    await tx.notification.createMany({
+      data: data.flat(),
       skipDuplicates: true,
     });
+  }
+
+  private async sendSms(args: {
+    receiverEnterpriseId: string;
+    lotId: string;
+    content: string;
+  }): Promise<SmsSendResult> {
+    if (!this.smsProvider) {
+      return {
+        status: 'SKIPPED',
+        message: '短信供应商未配置，未发送',
+      };
+    }
+
+    return this.smsProvider.send(args);
+  }
+
+  private toNotificationSendStatus(
+    result: SmsSendResult,
+  ): NotificationSendStatus {
+    if (result.status === 'SENT') {
+      return NotificationSendStatus.SENT;
+    }
+
+    return NotificationSendStatus.FAILED;
   }
 }
 

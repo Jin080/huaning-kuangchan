@@ -1,5 +1,9 @@
 export const AUTH_TOKEN_KEY = 'huaningAuthToken';
 export const AUTH_PROFILE_KEY = 'huaningAuthProfile';
+export const ADMIN_AUTH_TOKEN_KEY = 'huaningAdminAuthToken';
+export const ADMIN_AUTH_PROFILE_KEY = 'huaningAdminAuthProfile';
+export const ENTERPRISE_AUTH_TOKEN_KEY = 'huaningEnterpriseAuthToken';
+export const ENTERPRISE_AUTH_PROFILE_KEY = 'huaningEnterpriseAuthProfile';
 export const AUTH_SESSION_EVENT = 'huaning-auth-session-change';
 
 export type AuthRole = 'ADMIN' | 'ENTERPRISE';
@@ -40,12 +44,56 @@ type ApiAuthProfile = Omit<AuthProfile, 'enterprise'> & {
   } | null;
 };
 
-export function getAuthToken(): string | null {
-  return localStorage.getItem(AUTH_TOKEN_KEY);
+type AuthStorageKeys = {
+  tokenKey: string;
+  profileKey: string;
+};
+
+const AUTH_KEYS_BY_ROLE: Record<AuthRole, AuthStorageKeys> = {
+  ADMIN: {
+    tokenKey: ADMIN_AUTH_TOKEN_KEY,
+    profileKey: ADMIN_AUTH_PROFILE_KEY,
+  },
+  ENTERPRISE: {
+    tokenKey: ENTERPRISE_AUTH_TOKEN_KEY,
+    profileKey: ENTERPRISE_AUTH_PROFILE_KEY,
+  },
+};
+
+export function getAuthToken(role?: AuthRole): string | null {
+  if (role) {
+    return localStorage.getItem(AUTH_KEYS_BY_ROLE[role].tokenKey) ?? getLegacyAuthToken(role);
+  }
+
+  return localStorage.getItem(ENTERPRISE_AUTH_TOKEN_KEY)
+    ?? localStorage.getItem(ADMIN_AUTH_TOKEN_KEY)
+    ?? localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
-export function getAuthProfile(): AuthProfile | null {
-  const raw = localStorage.getItem(AUTH_PROFILE_KEY);
+export function getAuthProfile(role?: AuthRole): AuthProfile | null {
+  if (role) {
+    return readAuthProfile(AUTH_KEYS_BY_ROLE[role].profileKey) ?? getLegacyAuthProfile(role);
+  }
+
+  return readAuthProfile(ENTERPRISE_AUTH_PROFILE_KEY)
+    ?? readAuthProfile(ADMIN_AUTH_PROFILE_KEY)
+    ?? readAuthProfile(AUTH_PROFILE_KEY);
+}
+
+function getLegacyAuthToken(role: AuthRole): string | null {
+  const profile = readAuthProfile(AUTH_PROFILE_KEY);
+
+  return profile?.roleCode === role ? localStorage.getItem(AUTH_TOKEN_KEY) : null;
+}
+
+function getLegacyAuthProfile(role: AuthRole): AuthProfile | null {
+  const profile = readAuthProfile(AUTH_PROFILE_KEY);
+
+  return profile?.roleCode === role ? profile : null;
+}
+
+function readAuthProfile(key: string): AuthProfile | null {
+  const raw = localStorage.getItem(key);
 
   if (!raw) {
     return null;
@@ -59,22 +107,47 @@ export function getAuthProfile(): AuthProfile | null {
 }
 
 export function saveAuthSession(result: LoginResult): void {
-  localStorage.setItem(AUTH_TOKEN_KEY, result.accessToken);
-  localStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(normalizeProfile(result.profile)));
+  const profile = normalizeProfile(result.profile);
+  const keys = AUTH_KEYS_BY_ROLE[profile.roleCode];
+
+  localStorage.setItem(keys.tokenKey, result.accessToken);
+  localStorage.setItem(keys.profileKey, JSON.stringify(profile));
   notifyAuthSessionChanged();
 }
 
-export function clearAuthSession(): void {
+export function clearAuthSession(role?: AuthRole): void {
+  if (role) {
+    const keys = AUTH_KEYS_BY_ROLE[role];
+    localStorage.removeItem(keys.tokenKey);
+    localStorage.removeItem(keys.profileKey);
+
+    if (getLegacyAuthProfile(role)) {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_PROFILE_KEY);
+    }
+
+    if (role === 'ENTERPRISE') {
+      localStorage.removeItem('portalEnterpriseLoggedIn');
+    }
+
+    notifyAuthSessionChanged();
+    return;
+  }
+
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_PROFILE_KEY);
+  localStorage.removeItem(ADMIN_AUTH_TOKEN_KEY);
+  localStorage.removeItem(ADMIN_AUTH_PROFILE_KEY);
+  localStorage.removeItem(ENTERPRISE_AUTH_TOKEN_KEY);
+  localStorage.removeItem(ENTERPRISE_AUTH_PROFILE_KEY);
   localStorage.removeItem('portalEnterpriseLoggedIn');
   notifyAuthSessionChanged();
 }
 
 export function isLoggedInAs(role?: AuthRole): boolean {
-  const profile = getAuthProfile();
+  const profile = getAuthProfile(role);
 
-  if (!getAuthToken() || !profile) {
+  if (!getAuthToken(role) || !profile) {
     return false;
   }
 

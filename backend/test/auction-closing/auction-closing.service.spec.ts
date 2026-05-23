@@ -14,6 +14,7 @@ type LotRecord = {
   title: string;
   status: LotStatus;
   biddingEndAt: Date;
+  currentHighestPrice: Prisma.Decimal | null;
 };
 
 type BidRecord = {
@@ -30,6 +31,7 @@ function createLot(overrides: Partial<LotRecord> = {}): LotRecord {
     title: '铜精矿竞拍',
     status: LotStatus.BIDDING,
     biddingEndAt: new Date('2026-05-17T09:00:00.000Z'),
+    currentHighestPrice: null,
     ...overrides,
   };
 }
@@ -47,11 +49,13 @@ function createBid(overrides: Partial<BidRecord> = {}): BidRecord {
 
 function createService(options: {
   lot?: LotRecord | null;
+  lots?: LotRecord[];
   bids?: BidRecord[];
   now?: Date;
   existingResult?: unknown;
 } = {}) {
   const lot = options.lot === undefined ? createLot() : options.lot;
+  const lots = options.lots ?? (lot ? [lot] : []);
   const bids = [...(options.bids ?? [createBid()])];
   type PrismaMock = {
     lot: {
@@ -75,7 +79,7 @@ function createService(options: {
 
   Object.assign(prisma, {
     lot: {
-      findMany: jest.fn(() => Promise.resolve(lot ? [lot] : [])),
+      findMany: jest.fn(() => Promise.resolve(lots)),
       update: jest.fn(({ data }) => {
         if (lot) {
           Object.assign(lot, data);
@@ -114,6 +118,7 @@ function createService(options: {
       prisma as never,
       logs as never,
       () => options.now ?? new Date('2026-05-17T09:01:00.000Z'),
+      undefined,
     ),
     prisma,
     logs,
@@ -122,6 +127,10 @@ function createService(options: {
 }
 
 describe('AuctionClosingService', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('creates an auction result for ended bidding lot and moves lot to result announcing', async () => {
     const { service, prisma, lot, logs } = createService({
       bids: [
@@ -164,13 +173,29 @@ describe('AuctionClosingService', () => {
           }),
           expect.objectContaining({
             type: NotificationType.LOSE,
+            channel: NotificationChannel.IN_APP,
             receiverEnterpriseId: 'loser-1',
             sendStatus: NotificationSendStatus.PENDING,
+          }),
+          expect.objectContaining({
+            type: NotificationType.WIN,
+            channel: NotificationChannel.SMS,
+            receiverEnterpriseId: 'winner-1',
+            sendStatus: NotificationSendStatus.FAILED,
+            content: expect.stringContaining('短信供应商未配置，未发送'),
+          }),
+          expect.objectContaining({
+            type: NotificationType.LOSE,
+            channel: NotificationChannel.SMS,
+            receiverEnterpriseId: 'loser-1',
+            sendStatus: NotificationSendStatus.FAILED,
+            content: expect.stringContaining('短信供应商未配置，未发送'),
           }),
         ]),
         skipDuplicates: true,
       }),
     );
+    expect(prisma.notification.createMany.mock.calls[0][0].data).toHaveLength(4);
     expect(logs.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: '竞拍截止确认成交',
@@ -204,5 +229,82 @@ describe('AuctionClosingService', () => {
     expect(result.skippedLots).toBe(1);
     expect(prisma.auctionResult.create).not.toHaveBeenCalled();
     expect(prisma.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  it('lists bidding lots that have ended or will end soon', async () => {
+    const endingSoon = createLot({
+      id: 'lot-2',
+      title: '即将结拍铜矿',
+      biddingEndAt: new Date('2026-05-17T09:20:00.000Z'),
+    });
+    const { service, prisma } = createService({
+      lots: [
+        createLot({ currentHighestPrice: new Prisma.Decimal('1500') }),
+        endingSoon,
+      ],
+      now: new Date('2026-05-17T09:01:00.000Z'),
+    });
+
+    const result = await service.listPendingLots();
+
+    expect(prisma.lot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: LotStatus.BIDDING,
+          biddingEndAt: { lte: new Date('2026-05-17T09:31:00.000Z') },
+        },
+        orderBy: { biddingEndAt: 'asc' },
+      }),
+    );
+    expect(result).toEqual([
+      expect.objectContaining({
+        lotId: 'lot-1',
+        title: '铜精矿竞拍',
+        endAt: new Date('2026-05-17T09:00:00.000Z'),
+        currentHighestPrice: '1500',
+        status: LotStatus.BIDDING,
+      }),
+      expect.objectContaining({
+        lotId: 'lot-2',
+        title: '即将结拍铜矿',
+        currentHighestPrice: null,
+      }),
+    ]);
+  });
+
+  it('records recent manual runs in memory', async () => {
+    const { service } = createService();
+
+    const summary = await service.runClosing('manual');
+    const runs = service.listRecentRuns();
+
+    expect(summary.closedLots).toBe(1);
+    expect(runs.ephemeral).toBe(true);
+    expect(runs.items[0]).toEqual(
+      expect.objectContaining({
+        trigger: 'manual',
+        summary,
+        status: 'SUCCESS',
+      }),
+    );
+  });
+
+  it('starts and stops automatic interval runs', () => {
+    jest.useFakeTimers();
+    const { service } = createService();
+    const runSpy = jest.spyOn(service, 'runClosing').mockResolvedValue({
+      checkedLots: 0,
+      closedLots: 0,
+      endedWithoutBids: 0,
+      skippedLots: 0,
+    });
+
+    service.onModuleInit();
+    jest.advanceTimersByTime(60_000);
+    service.onModuleDestroy();
+    jest.advanceTimersByTime(60_000);
+
+    expect(runSpy).toHaveBeenCalledTimes(1);
+    expect(runSpy).toHaveBeenCalledWith('auto');
   });
 });

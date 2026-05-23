@@ -1,30 +1,34 @@
-import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ButtonRow } from '../components/Button';
 import { SectionHeader } from '../components/Cards';
 import { DataTable } from '../components/DataTable';
-import { FilterBar } from '../components/FilterBar';
+import { FilterBar, type FilterValues } from '../components/FilterBar';
 import { PortalLayout } from '../components/Layouts';
 import { StatusTag } from '../components/StatusTag';
 import { CardSkeleton, EmptyState, ErrorState } from '../components/StatusViews';
 import { navigateTo } from '../navigation';
-import { api, type DepositVoucherPayload, type EnterpriseRegisterPayload, type UploadCategory } from '../services/api';
+import { api, type DepositVoucherPayload, type EnterpriseCertificationPayload, type EnterpriseRegisterPayload, type RegisterMaterialUploadCategory } from '../services/api';
 import { AUTH_SESSION_EVENT, getAuthProfile } from '../services/auth';
 import type { BidRecord, ContentRecord, DepositRecord, Lot, ResultRecord, Stat, TableColumn } from '../types';
 
 type LotWithBiddingEnd = Lot & { biddingEndAt?: string };
 type DepositSubmission = {
+  attachmentId?: string;
   amount: string;
   paidAmount?: string;
   requiredAmount?: string;
   submittedAt: string;
   voucherFileName?: string;
+  voucherFileUrl?: string;
   status: DepositRecord['status'];
 };
 type DepositRecordWithVoucher = DepositRecord & {
+  attachmentId?: string;
   paidAmount?: string;
   requiredAmount?: string;
   voucherFileName?: string;
+  voucherFileUrl?: string;
 };
 type EnterpriseUploadKey = 'businessLicenseFileUrl' | 'qualificationFileUrl' | 'authorizationMaterialUrl';
 type EnterpriseUploadState = 'empty' | 'uploading' | 'success' | 'error';
@@ -33,7 +37,7 @@ type EnterpriseUploadItem = {
   label: string;
   required: boolean;
   helper: string;
-  category: UploadCategory;
+  category: RegisterMaterialUploadCategory;
 };
 type EnterpriseUploadStatus = {
   state: EnterpriseUploadState;
@@ -71,12 +75,22 @@ export function PortalHome() {
   const [results, setResults] = useState<ResultRecord[]>(api.getResults());
   const [contents, setContents] = useState<ContentRecord[]>(api.getContents());
   const [notice, setNotice] = useState('');
-  const liveLots = lots.filter((lot) => lot.status === '竞拍中');
+  const liveLots = sortLotsByBiddingEnd(lots.filter((lot) => lot.status === '竞拍中'));
   const upcomingLots = lots.filter((lot) => lot.status === '公示中');
-  const featuredLot = (liveLots[0] ?? lots[0]) as Lot | undefined;
+  const homeLiveLots = liveLots;
   const resourceLots = lots.slice(0, 4);
   const displayUpcomingLots = upcomingLots.length > 0 ? upcomingLots.slice(0, 3) : lots.slice(0, 3);
   const visibleStats = stats.slice(0, 4);
+  const liveScrollerRef = useRef<HTMLDivElement>(null);
+  const scrollLiveLots = (direction: -1 | 1) => {
+    const scroller = liveScrollerRef.current;
+
+    if (!scroller) {
+      return;
+    }
+
+    scroller.scrollBy({ left: direction * scroller.clientWidth, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     document.title = '华宁矿产资源公共交易与数字服务平台';
@@ -135,38 +149,41 @@ export function PortalHome() {
             <span />
             <h2>正在竞价</h2>
           </div>
-          <button className="text-link" onClick={() => navigateTo('/auctions/live')} type="button">查看全部</button>
-        </div>
-        <div className="latest-home-auction-grid">
-          {featuredLot ? (
-            <article className="latest-home-lot-card">
-              <button className="latest-home-lot-media" onClick={() => navigateTo(`/auctions/live/detail?id=${featuredLot.id}`)} type="button">
-                <span>{featuredLot.status}</span>
-                <strong>{featuredLot.category}</strong>
-              </button>
-              <div className="latest-home-lot-body">
-                <div>
-                  <h3>{featuredLot.title}</h3>
-                  <p>{featuredLot.productInfo || featuredLot.origin}</p>
-                </div>
-                <dl>
-                  <div><dt>当前价</dt><dd>{featuredLot.currentPrice}</dd></div>
-                  <div><dt>资源量</dt><dd>{featuredLot.quantity}</dd></div>
-                </dl>
-                <button className="btn primary" onClick={() => navigateTo(`/auctions/live/detail?id=${featuredLot.id}`)} type="button">参与竞价</button>
+          <div className="latest-home-section-actions">
+            {homeLiveLots.length > 3 ? (
+              <div className="latest-home-auction-controls" aria-label="正在竞价拍品翻页">
+                <button aria-label="查看上一组正在竞价拍品" onClick={() => scrollLiveLots(-1)} type="button">‹</button>
+                <button aria-label="查看下一组正在竞价拍品" onClick={() => scrollLiveLots(1)} type="button">›</button>
               </div>
-            </article>
-          ) : (
-            <EmptyState compact description="当前没有正在竞价的真实标的。" primaryAction={{ label: '查看公告', to: '/announcements/upcoming' }} title="暂无正在竞价" />
-          )}
-          {featuredLot ? [0, 1].map((item) => (
-            <article className="latest-home-skeleton-card" key={item}>
-              <div />
-              <span />
-              <span />
-              <strong />
-            </article>
-          )) : null}
+            ) : null}
+            <button className="text-link" onClick={() => navigateTo('/auctions/live')} type="button">查看全部</button>
+          </div>
+        </div>
+        <div className="latest-home-auction-shell">
+          <div className="latest-home-auction-grid" ref={liveScrollerRef}>
+            {homeLiveLots.length > 0 ? homeLiveLots.map((lot) => (
+              <article className="latest-home-lot-card" key={lot.id}>
+                <button className="latest-home-lot-media" onClick={() => navigateTo(`/auctions/live/detail?id=${lot.id}`)} type="button">
+                  <LotImage imageUrl={getLotImageUrls(lot)[0]} label={lot.category} />
+                  <span>{lot.status}</span>
+                  <strong>{lot.category}</strong>
+                </button>
+                <div className="latest-home-lot-body">
+                  <div>
+                    <h3>{lot.title}</h3>
+                    <p>{lot.productInfo || lot.origin}</p>
+                  </div>
+                  <dl>
+                    <div><dt>当前价</dt><dd>{lot.currentPrice}</dd></div>
+                    <div><dt>资源量</dt><dd>{lot.quantity}</dd></div>
+                  </dl>
+                  <button className="btn primary" onClick={() => navigateTo(`/auctions/live/detail?id=${lot.id}`)} type="button">参与竞价</button>
+                </div>
+              </article>
+            )) : (
+              <EmptyState compact description="当前没有正在竞价的真实拍品。" primaryAction={{ label: '查看公告', to: '/announcements/upcoming' }} title="暂无正在竞价" />
+            )}
+          </div>
         </div>
       </section>
 
@@ -282,7 +299,9 @@ export function PortalHome() {
 
 export function ResourceList() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
+  const [filters, setFilters] = useState<FilterValues>({});
   const [notice, setNotice] = useState('');
+  const filteredLots = filterLots(lots, filters);
 
   useEffect(() => {
     document.title = '矿产资源 - 华宁矿产竞拍平台';
@@ -297,7 +316,7 @@ export function ResourceList() {
       <PortalPageTitle
         breadcrumb={['首页', '矿产资源']}
         meta={`${lots.length} 条资源`}
-        subtitle="汇总平台已发布的矿产资源与拍卖标的，便于按矿种、所在地、状态和交易阶段快速查找。"
+        subtitle="汇总平台已发布的矿产资源与拍品，便于按矿种、所在地、状态和交易阶段快速查找。"
         title="矿产资源"
       />
       {notice ? (
@@ -308,18 +327,19 @@ export function ResourceList() {
           title="资源列表加载失败"
         />
       ) : null}
-      <FilterBar fields={['关键词', '品种/品位', '所在地', '交易状态']} />
+      <FilterBar fields={['关键词', '品种/品位', '所在地', '交易状态']} onSearch={setFilters} />
       <section className="resource-list-layout">
         <aside className="resource-category-panel">
           <h2>资源分类</h2>
           {['全部资源', '金属矿产', '非金属矿产', '能源矿产', '建筑材料'].map((item, index) => (
-            <button className={index === 0 ? 'active' : ''} key={item} type="button">{item}</button>
+            <span className={index === 0 ? 'active' : ''} key={item}>{item}</span>
           ))}
         </aside>
         <div className="resource-card-stack">
-          {lots.map((lot) => (
+          {filteredLots.map((lot) => (
             <article className="resource-list-card" key={lot.id}>
               <button className="resource-thumb" onClick={() => navigateTo(`/resources/detail?id=${lot.id}`)} type="button">
+                <LotImage imageUrl={getLotImageUrls(lot)[0]} label={lot.category} />
                 <span>{lot.category}</span>
               </button>
               <div className="resource-list-main">
@@ -327,7 +347,7 @@ export function ResourceList() {
                   <StatusTag value={lot.status} />
                   <h2>{lot.title}</h2>
                 </div>
-                <p>{lot.productInfo || lot.productDetail || '平台公开发布的矿产资源标的，详情以公告、竞拍规则和检测报告为准。'}</p>
+                <p>{lot.productInfo || lot.productDetail || '平台公开发布的矿产资源拍品，详情以公告、竞拍规则和检测报告为准。'}</p>
                 <dl className="portal-key-grid compact">
                   <div><dt>资源量</dt><dd>{lot.quantity}</dd></div>
                   <div><dt>所在地</dt><dd>{lot.origin}</dd></div>
@@ -343,7 +363,7 @@ export function ResourceList() {
               </aside>
             </article>
           ))}
-          {lots.length === 0 ? (
+          {filteredLots.length === 0 ? (
             <EmptyState
               description="平台暂未发布矿产资源信息，请稍后再试。"
               primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }}
@@ -401,14 +421,7 @@ export function ResourceDetail() {
             <h1>{lot.title}</h1>
             <p>项目编号：{lot.id} · 发布主体：{lot.supplier}</p>
           </header>
-          <div className="resource-gallery" aria-label="矿产资源图片">
-            <div>
-              <span>{lot.category}</span>
-              <strong>矿区资源概览</strong>
-            </div>
-            <div>岩芯样本</div>
-            <div>运输道路</div>
-          </div>
+          <LotImageGallery className="resource-gallery" lot={lot} />
           <dl className="portal-key-grid">
             <div><dt>品种/品位</dt><dd>{lot.category}</dd></div>
             <div><dt>资源数量</dt><dd>{lot.quantity}</dd></div>
@@ -423,14 +436,14 @@ export function ResourceDetail() {
             <h2>交易安排</h2>
             <p>{lot.auctionRule || '平台按公告公示、意向金审核、公开竞价、成交公示和线下履约流程组织交易。'}</p>
             <h2>竞买须知</h2>
-            <p>{lot.customerNotice || '企业需完成认证并按公告提交意向金凭证，审核通过后方可参与对应标的竞价。'}</p>
+            <p>{lot.customerNotice || '企业需完成认证并按公告提交意向金凭证，审核通过后方可参与对应拍品竞价。'}</p>
           </section>
           <section className="attachment-list notice-attachments">
             {['矿产资源勘查报告.pdf', '开发利用方案.pdf', '竞买申请书模板.docx'].map((item) => (
-              <button className="attachment-row" key={item} type="button">
+              <div className="attachment-row static" key={item}>
                 <span>{item}</span>
-                <strong>下载</strong>
-              </button>
+                <strong>待公告提供</strong>
+              </div>
             ))}
           </section>
         </article>
@@ -458,7 +471,10 @@ export function ResourceDetail() {
 
 export function UpcomingList() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
+  const [filters, setFilters] = useState<FilterValues>({});
   const [notice, setNotice] = useState('');
+  const upcomingLots = lots.filter((lot) => lot.status === '公示中');
+  const filteredLots = filterLots(upcomingLots, filters);
 
   useEffect(() => {
     void api.fetchLots().then(setLots).catch((error) => {
@@ -471,13 +487,13 @@ export function UpcomingList() {
     <PortalLayout active="即将拍卖">
       <PortalPageTitle
         breadcrumb={['首页', '即将拍卖']}
-        meta={`${lots.filter((lot) => lot.status === '公示中').length} 条公示中公告`}
-        subtitle="平台发布的矿产标的公示信息，公示期内可查看标的详情并提交意向金凭证。"
+        meta={`${filteredLots.length} 条公示中公告`}
+        subtitle="平台发布的矿产拍品公示信息，公示期内可查看拍品详情并提交意向金凭证。"
         title="即将拍卖公告"
       />
       {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="公告列表加载失败" /> : null}
-      <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '公示状态']} />
-      <DataTable columns={lotColumns} rows={lots.filter((lot) => lot.status === '公示中')} />
+      <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '公示状态']} onSearch={setFilters} />
+      <DataTable columns={lotColumns} rows={filteredLots} />
     </PortalLayout>
   );
 }
@@ -488,7 +504,7 @@ export function UpcomingDetail() {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [voucherStatus, setVoucherStatus] = useState<'idle' | 'uploading' | 'submitted'>('idle');
   const [submittedDeposit, setSubmittedDeposit] = useState<DepositSubmission | null>(null);
-  const [profile, setProfile] = useState(() => getAuthProfile());
+  const [profile, setProfile] = useState(() => getAuthProfile('ENTERPRISE'));
   const voucherInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -513,7 +529,7 @@ export function UpcomingDetail() {
   }, []);
 
   useEffect(() => {
-    const syncProfile = () => setProfile(getAuthProfile());
+    const syncProfile = () => setProfile(getAuthProfile('ENTERPRISE'));
 
     window.addEventListener(AUTH_SESSION_EVENT, syncProfile);
     window.addEventListener('storage', syncProfile);
@@ -540,11 +556,13 @@ export function UpcomingDetail() {
       const mappedDeposit = deposit as DepositRecordWithVoucher;
 
       setSubmittedDeposit({
+        attachmentId: mappedDeposit.attachmentId,
         amount: mappedDeposit.amount,
         paidAmount: mappedDeposit.paidAmount,
         requiredAmount: mappedDeposit.requiredAmount,
         submittedAt: deposit.submittedAt,
         voucherFileName: mappedDeposit.voucherFileName || mappedDeposit.voucher,
+        voucherFileUrl: mappedDeposit.voucherFileUrl,
         status: deposit.status,
       });
       setVoucherStatus('submitted');
@@ -620,11 +638,13 @@ export function UpcomingDetail() {
       const deposit = await api.submitDepositVoucher(lot.id, payload);
       setVoucherStatus('submitted');
       setSubmittedDeposit({
+        attachmentId: (deposit as DepositRecordWithVoucher).attachmentId,
         amount: (deposit as DepositRecordWithVoucher).amount,
         paidAmount: (deposit as DepositRecordWithVoucher).paidAmount,
         requiredAmount: (deposit as DepositRecordWithVoucher).requiredAmount,
         submittedAt: deposit.submittedAt,
         voucherFileName: (deposit as DepositRecordWithVoucher).voucherFileName ?? payload.voucherFileName,
+        voucherFileUrl: (deposit as DepositRecordWithVoucher).voucherFileUrl ?? payload.voucherFileUrl,
         status: deposit.status,
       });
       setNotice('凭证已提交，等待管理员审核。');
@@ -662,7 +682,10 @@ export function UpcomingDetail() {
 
 export function LiveAuctionList() {
   const [lots, setLots] = useState<Lot[]>(api.getLots());
+  const [filters, setFilters] = useState<FilterValues>({});
   const [notice, setNotice] = useState('');
+  const liveLots = lots.filter((lot) => lot.status === '竞拍中');
+  const filteredLots = filterLots(liveLots, filters);
 
   useEffect(() => {
     void api.fetchLots().then(setLots).catch((error) => {
@@ -675,13 +698,13 @@ export function LiveAuctionList() {
     <PortalLayout active="正在竞价">
       <PortalPageTitle
         breadcrumb={['首页', '正在竞价']}
-        meta={`${lots.filter((lot) => lot.status === '竞拍中').length} 个标的竞价中`}
-        subtitle="查看竞拍期标的、当前最高价、竞价时间区间与倒计时。"
-        title="正在竞价标的"
+        meta={`${filteredLots.length} 个拍品竞价中`}
+        subtitle="查看竞拍期拍品、当前最高价、竞价时间区间与倒计时。"
+        title="正在竞价拍品"
       />
       {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="竞价列表加载失败" /> : null}
-      <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '状态']} />
-      <LiveAuctionCards lots={lots.filter((lot) => lot.status === '竞拍中')} />
+      <FilterBar fields={['关键词', '品种/品位', '竞拍时间', '状态']} onSearch={setFilters} />
+      <LiveAuctionCards lots={filteredLots} />
     </PortalLayout>
   );
 }
@@ -695,7 +718,7 @@ export function AuctionDetail() {
   const [isRealLot, setIsRealLot] = useState(false);
   const [bidEligibility, setBidEligibility] = useState<BidEligibility>('unknown');
   const [bidEligibilityLotId, setBidEligibilityLotId] = useState('');
-  const [profile, setProfile] = useState(() => getAuthProfile());
+  const [profile, setProfile] = useState(() => getAuthProfile('ENTERPRISE'));
   const [now, setNow] = useState(() => Date.now());
   const estimatedAmount = lot ? calculateBidAmount(lot, incrementTimes) : '0';
 
@@ -723,7 +746,7 @@ export function AuctionDetail() {
         });
       } else {
         setBidRecords([]);
-        setNotice(nextLot?.id ? '当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。' : '未加载到真实竞价标的，不能提交报价。');
+        setNotice(nextLot?.id ? '当前为本地演示数据，不能提交真实报价，请从正在竞价列表进入真实拍品。' : '未加载到真实竞价拍品，不能提交报价。');
       }
     }).catch((error) => {
       setLot(undefined);
@@ -738,7 +761,7 @@ export function AuctionDetail() {
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
-    const syncProfile = () => setProfile(getAuthProfile());
+    const syncProfile = () => setProfile(getAuthProfile('ENTERPRISE'));
 
     window.addEventListener(AUTH_SESSION_EVENT, syncProfile);
     window.addEventListener('storage', syncProfile);
@@ -793,7 +816,7 @@ export function AuctionDetail() {
       {loadState === 'loading' ? <CardSkeleton count={2} /> : null}
       {loadState === 'empty' ? (
         <EmptyState
-          description={getQueryId() ? '未找到对应的竞价标的，可能已结束、下架或链接参数有误。' : '当前没有可展示的竞价标的。'}
+          description={getQueryId() ? '未找到对应的竞价拍品，可能已结束、下架或链接参数有误。' : '当前没有可展示的竞价拍品。'}
           primaryAction={{ label: '返回竞价列表', to: '/auctions/live' }}
           title="暂无竞价详情"
         />
@@ -806,6 +829,7 @@ export function AuctionDetail() {
         countdownText={countdown.text}
         hasEnded={countdown.ended}
         notice={qualificationNotice}
+        canSubmitDepositVoucher={isRealLot && !canBid}
         isRealLot={canBid}
         onBidSubmit={async () => {
           if (!isRealLot) {
@@ -866,7 +890,9 @@ export function AuctionDetail() {
 
 export function ResultList() {
   const [results, setResults] = useState<ResultRecord[]>(api.getResults());
+  const [filters, setFilters] = useState<FilterValues>({});
   const [notice, setNotice] = useState('');
+  const filteredResults = filterResults(results, filters);
 
   useEffect(() => {
     void api.fetchResults().then(setResults).catch((error) => {
@@ -879,13 +905,13 @@ export function ResultList() {
     <PortalLayout active="成交公示">
       <PortalPageTitle
         breadcrumb={['首页', '成交公示']}
-        meta={`${results.length} 条成交结果`}
-        subtitle="公开展示平台已结束竞价并确认成交的标的结果，接受社会各界监督。"
+        meta={`${filteredResults.length} 条成交结果`}
+        subtitle="公开展示平台已结束竞价并确认成交的拍品结果，接受社会各界监督。"
         title="成交公示"
       />
       {notice ? <ErrorState compact description={notice} primaryAction={{ label: '刷新页面', onClick: () => window.location.reload() }} title="成交公示加载失败" /> : null}
-      <FilterBar fields={['关键词', '成交时间', '品种/品位']} />
-      <DataTable columns={resultColumns} rows={results} />
+      <FilterBar fields={['关键词', '成交时间', '品种/品位']} onSearch={setFilters} />
+      <DataTable columns={resultColumns} rows={filteredResults} />
     </PortalLayout>
   );
 }
@@ -943,7 +969,9 @@ export function ResultDetail() {
 
 export function NewsList() {
   const [contents, setContents] = useState<ContentRecord[]>(api.getContents());
+  const [filters, setFilters] = useState<FilterValues>({});
   const [notice, setNotice] = useState('');
+  const filteredContents = filterContents(contents, filters);
 
   useEffect(() => {
     void api.fetchContents().then(setContents).catch((error) => {
@@ -956,7 +984,7 @@ export function NewsList() {
     <PortalLayout active="信息资讯">
       <PortalPageTitle
         breadcrumb={['首页', '信息资讯']}
-        meta={`${contents.length} 条已发布资讯`}
+        meta={`${filteredContents.length} 条已发布资讯`}
         subtitle="政策法规、交易公告、矿能动态集中公开，便于企业及时了解平台规则和行业动态。"
         title="信息资讯"
       />
@@ -964,12 +992,12 @@ export function NewsList() {
       <div className="content-layout portal-news-layout">
         <aside className="category-list news-category-list">
           <h2>分类导航</h2>
-          {['政策法规', '交易公告', '矿能动态'].map((x, index) => <button className={index === 0 ? 'active' : ''} key={x} type="button">{x}</button>)}
+          {['政策法规', '交易公告', '矿能动态'].map((x, index) => <span className={index === 0 ? 'active' : ''} key={x}>{x}</span>)}
         </aside>
         <div className="news-list-panel">
-          <FilterBar fields={['关键词']} />
+          <FilterBar fields={['关键词']} onSearch={setFilters} />
           <div className="news-card-list">
-            {contents.map((content) => (
+            {filteredContents.map((content) => (
               <article className="news-list-item" key={content.id}>
                 <div>
                   <span className="category-pill">{content.category}</span>
@@ -980,7 +1008,7 @@ export function NewsList() {
                 <button className="link-btn" onClick={() => navigateTo(`/news/detail?id=${content.id}`)} type="button">查看详情</button>
               </article>
             ))}
-            {contents.length === 0 ? (
+            {filteredContents.length === 0 ? (
               <EmptyState
                 compact
                 description="平台暂未发布政策资讯或交易动态，请稍后再试。"
@@ -1067,7 +1095,7 @@ export function DisclosurePage() {
       {disclosure ? <div className="content-layout disclosure-layout">
         <aside className="category-list disclosure-directory">
           <h2>说明目录</h2>
-          {['用户黑名单管理说明', '信息发布审核机制', '竞拍规则说明', '保证金缴纳与退还说明'].map((x, index) => <button className={index === 2 ? 'active' : ''} key={x} type="button">{x}</button>)}
+          {['用户黑名单管理说明', '信息发布审核机制', '竞拍规则说明', '保证金缴纳与退还说明'].map((x, index) => <span className={index === 2 ? 'active' : ''} key={x}>{x}</span>)}
         </aside>
         <article className="article-card disclosure-article">
           <header>
@@ -1130,8 +1158,14 @@ export function LoginPage() {
     try {
       setSubmitting(true);
       setNotice('正在登录...');
-      const result = await api.login(username.trim(), password);
-      navigateTo(result.profile.roleCode === 'ADMIN' ? '/admin/dashboard' : '/account');
+      const result = await api.login(username.trim(), password, 'ENTERPRISE');
+      if (result.profile.roleCode === 'ADMIN') {
+        setNotice('管理员账号请从系统管理后台入口登录。');
+        refreshCaptcha();
+        return;
+      }
+
+      navigateTo('/account');
     } catch (error) {
       setNotice(`登录失败：${getErrorMessage(error)}`);
       refreshCaptcha();
@@ -1139,7 +1173,7 @@ export function LoginPage() {
       setSubmitting(false);
     }
   };
-  const currentProfile = getAuthProfile();
+  const currentProfile = getAuthProfile('ENTERPRISE');
 
   return (
     <div className="login-page">
@@ -1185,7 +1219,9 @@ export function LoginPage() {
 }
 
 export function EnterpriseRegisterPage() {
-  const [notice, setNotice] = useState('请填写企业资料后提交审核。');
+  const currentProfile = getAuthProfile('ENTERPRISE');
+  const isEnterpriseResubmission = currentProfile?.roleCode === 'ENTERPRISE';
+  const [notice, setNotice] = useState(isEnterpriseResubmission ? '请重新填写企业认证资料后提交审核。' : '请填写企业资料后提交审核。');
   const [uploads, setUploads] = useState<Record<EnterpriseUploadKey, EnterpriseUploadStatus>>(() => createEnterpriseUploadStatuses());
   const uploadInputRefs = useRef<Record<EnterpriseUploadKey, HTMLInputElement | null>>({
     authorizationMaterialUrl: null,
@@ -1211,7 +1247,13 @@ export function EnterpriseRegisterPage() {
 
     try {
       const target = ENTERPRISE_UPLOAD_ITEMS.find((item) => item.key === key);
-      const uploaded = await api.uploadFile(file, target?.category ?? 'DEPOSIT_VOUCHER');
+      if (!target) {
+        throw new Error('未找到对应的附件类型，请刷新页面后重试。');
+      }
+
+      const uploaded = isEnterpriseResubmission
+        ? await api.uploadFile(file, target.category)
+        : await api.uploadRegisterMaterialFile(file, target.category);
 
       setUploads((current) => ({
         ...current,
@@ -1243,6 +1285,15 @@ export function EnterpriseRegisterPage() {
       return;
     }
 
+    const formData = new FormData(form);
+    const validation = validateEnterpriseRegisterForm(formData, isEnterpriseResubmission);
+
+    if (!validation.valid) {
+      setNotice(validation.message);
+      focusEnterpriseRegisterField(form, validation.focusName);
+      return;
+    }
+
     const missingRequired = ENTERPRISE_UPLOAD_ITEMS
       .filter((item) => item.required)
       .filter((item) => !uploads[item.key].fileUrl);
@@ -1253,10 +1304,16 @@ export function EnterpriseRegisterPage() {
     }
 
     try {
-      await api.registerEnterprise(buildEnterprisePayload(new FormData(form)));
+      if (isEnterpriseResubmission) {
+        await api.submitAccountCertification(buildEnterpriseCertificationPayload(formData));
+        setNotice('企业认证资料已通过登录接口重新提交，状态为待审核。');
+        return;
+      }
+
+      await api.registerEnterprise(buildEnterprisePayload(formData));
       setNotice('企业入驻资料已通过真实接口提交，状态为待审核。');
     } catch (error) {
-      setNotice(`企业入驻提交失败：${getErrorMessage(error)}`);
+      setNotice(`${isEnterpriseResubmission ? '企业认证重提' : '企业入驻提交'}失败：${getEnterpriseSubmitErrorMessage(error)}`);
     }
   };
 
@@ -1265,7 +1322,7 @@ export function EnterpriseRegisterPage() {
       <div className="register-page">
         <header className="register-head">
           <span className="register-kicker">企业认证材料提交</span>
-          <h1>企业入驻</h1>
+          <h1>{isEnterpriseResubmission ? '企业认证重提' : '企业入驻'}</h1>
           <p>请上传营业执照、企业资质和授权材料。系统会展示上传中、成功、失败和重新上传状态。</p>
           <RegisterSteps />
         </header>
@@ -1274,24 +1331,26 @@ export function EnterpriseRegisterPage() {
           <LongForm
             formId="enterprise-register-form"
             groups={[
-              ['账号信息', [['username', '用户名'], ['password', '设置密码'], ['confirmPassword', '确认密码']]],
+              ...(isEnterpriseResubmission ? [] : [['账号信息', [['username', '用户名'], ['password', '设置密码'], ['confirmPassword', '确认密码']]] as [string, Array<[string, string]>]]),
               ['企业基础信息', [['name', '企业名'], ['unifiedSocialCreditCode', '统一社会信用代码'], ['registeredCapital', '注册资本'], ['mainCategory', '主营分类'], ['userCategory', '用户类别'], ['userType', '用户类型'], ['region', '所属区域'], ['address', '详细地址']]],
               ['法人及联系人', [['contactPerson', '联系人'], ['contactPhone', '联系电话'], ['legalRepresentative', '法人代表'], ['legalRepresentativeIdNo', '身份证号'], ['email', '电子邮件']]],
               ['经营信息', [['companyProfile', '公司简介'], ['businessScope', '经营范围']]],
-              ['付款银行账户', [['paymentBankAccount', '付款银行账户'], ['paymentAccountName', '付款账户名称'], ['paymentBankName', '付款账户开户行'], ['paymentBankLineNo', '付款人行行号'], ['paymentIsBankOfChina', '付款账户是否中行']]],
-              ['收款银行账户', [['receivingBankAccount', '收款银行账户'], ['receivingAccountName', '收款账户名称'], ['receivingBankName', '收款账户开户行'], ['receivingBankLineNo', '收款人行行号'], ['receivingIsBankOfChina', '收款账户是否中行']]],
-              ['协议确认', [['captcha', '图形验证码'], ['agreementAccepted', '入驻协议确认']]],
+              ['付款银行账户', [['paymentBankAccount', '付款银行账户'], ['paymentAccountName', '付款账户名称'], ['paymentBankName', '付款账户开户行'], ['paymentBankLineNo', '付款人行行号']]],
+              ['收款银行账户', [['receivingBankAccount', '收款银行账户'], ['receivingAccountName', '收款账户名称'], ['receivingBankName', '收款账户开户行'], ['receivingBankLineNo', '收款人行行号']]],
+              ['协议确认', [['agreementAccepted', '入驻协议确认']]],
             ]}
             hiddenFields={{
+              authorizationMaterialUrl: uploads.authorizationMaterialUrl.fileUrl,
               businessLicenseFileUrl: uploads.businessLicenseFileUrl.fileUrl,
               qualificationFileUrl: uploads.qualificationFileUrl.fileUrl,
             }}
             onSubmit={submitRegister}
+            requiredFields={getEnterpriseRegisterRequiredFields(isEnterpriseResubmission)}
           />
           <aside className="register-upload-panel">
             <div>
               <h2>附件材料</h2>
-              <p>上传接口当前仅支持既有分类。企业材料分类与授权材料入库字段需后端确认，当前页面标记 NEEDS_REVIEW。</p>
+              <p>营业执照和企业资质为必传材料，授权材料可根据办理情况选择上传。</p>
             </div>
             {ENTERPRISE_UPLOAD_ITEMS.map((item) => (
               <EnterpriseUploadCard
@@ -1305,10 +1364,6 @@ export function EnterpriseRegisterPage() {
                 status={uploads[item.key]}
               />
             ))}
-            <div className="register-review-gap">
-              <strong>NEEDS_REVIEW</strong>
-              <span>POST /api/enterprises/register 当前 payload 仅接收营业执照与企业资质 URL，授权材料字段和企业材料上传分类需后端总控确认。</span>
-            </div>
           </aside>
         </div>
       </div>
@@ -1372,10 +1427,14 @@ function LiveAuctionCards({ lots }: { lots: Lot[] }) {
     <div className="live-list-stack">
       {lots.map((lot) => (
         <article className="live-auction-item" key={lot.id}>
+          <button className="live-auction-thumb" onClick={() => navigateTo(`/auctions/live/detail?id=${lot.id}`)} type="button">
+            <LotImage imageUrl={getLotImageUrls(lot)[0]} label={lot.category} />
+            <span>{lot.category}</span>
+          </button>
           <div className="live-auction-main">
             <StatusTag value={lot.status} />
             <h2>{lot.title}</h2>
-            <p>{lot.productInfo || lot.productDetail || '竞价标的正在公开报价，企业可进入详情页查看当前最高价和竞价规则。'}</p>
+            <p>{lot.productInfo || lot.productDetail || '竞价拍品正在公开报价，企业可进入详情页查看当前最高价和竞价规则。'}</p>
             <dl className="portal-key-grid compact">
               <div><dt>品种/品位</dt><dd>{lot.category}</dd></div>
               <div><dt>资源数量</dt><dd>{lot.quantity}</dd></div>
@@ -1393,7 +1452,7 @@ function LiveAuctionCards({ lots }: { lots: Lot[] }) {
       ))}
       {lots.length === 0 ? (
         <EmptyState
-          description="当前没有正在竞价的标的，请关注即将拍卖公告。"
+          description="当前没有正在竞价的拍品，请关注即将拍卖公告。"
           primaryAction={{ label: '查看公告', to: '/announcements/upcoming' }}
           secondaryAction={{ label: '返回首页', to: '/' }}
           title="暂无相关数据"
@@ -1433,6 +1492,15 @@ function NoticeDetailPage({
       ? '已提交，等待管理员审核'
       : '待上传意向金凭证';
   const statusTone = isApproved ? 'green' : isSubmitted ? 'orange' : 'blue';
+  const depositTarget = `/account/deposits?lotId=${encodeURIComponent(lot.id)}`;
+  const viewDepositVoucher = () => {
+    if (submittedDeposit?.voucherFileUrl) {
+      void api.openFileUrl(submittedDeposit.voucherFileUrl, submittedDeposit.attachmentId).catch(() => navigateTo(depositTarget));
+      return;
+    }
+
+    navigateTo(depositTarget);
+  };
   const qualificationSteps = [
     ['企业认证', '已通过'],
     ['缴纳意向金', isSubmitted ? '已上传' : '待上传'],
@@ -1460,14 +1528,14 @@ function NoticeDetailPage({
           </dl>
           <div className="portal-tabs sticky-tabs">
             {['商品信息', '客户须知', '竞拍规则', '保证金缴纳说明', '检测报告与附件'].map((section, index) => (
-              <button className={index === 0 ? 'active' : ''} key={section} type="button">{section}</button>
+              <span className={index === 0 ? 'active' : ''} key={section}>{section}</span>
             ))}
           </div>
           <section className="portal-article-block">
             <h2>一、 矿区基本情况</h2>
             <p>{lot.productDetail || lot.productInfo || '该拍品由平台公开发布，竞买人需按公告、竞拍规则和保证金缴纳说明完成资格手续后参与报价。'}</p>
             <h2>二、 客户须知</h2>
-            <p>{lot.customerNotice || '竞买企业需完成企业认证，并在公示期结束前提交意向金付款凭证。平台审核通过后，方可参与对应标的竞价。'}</p>
+            <p>{lot.customerNotice || '竞买企业需完成企业认证，并在拍品结束前提交意向金付款凭证。平台审核通过后，方可参与对应拍品竞价。'}</p>
             <h2>三、 竞拍规则</h2>
             <p>{lot.auctionRule || '竞价期内按后台配置的加价幅度和加价次数进行报价，系统以服务器收到报价的时间作为报价顺序。'}</p>
             <h2>四、 保证金缴纳说明</h2>
@@ -1475,10 +1543,10 @@ function NoticeDetailPage({
           </section>
           <section className="attachment-list notice-attachments">
             {['矿产资源勘查报告.pdf', '竞买申请书模板.docx', '保证金缴纳账户说明.pdf'].map((item) => (
-              <button className="attachment-row" key={item} type="button">
+              <div className="attachment-row static" key={item}>
                 <span>{item}</span>
-                <strong>下载</strong>
-              </button>
+                <strong>待公告提供</strong>
+              </div>
             ))}
           </section>
         </article>
@@ -1498,7 +1566,7 @@ function NoticeDetailPage({
           <div className="qualification-alert">
             {isSubmitted
               ? '凭证已进入后台审核队列。管理员将在“后台管理 > 审核管理 > 意向金凭证审核”处理。'
-              : '请在公示期结束前完成保证金缴纳并上传付款凭证，逾期将无法参与竞价。'}
+              : '请在拍品结束前完成保证金缴纳并上传付款凭证，审核通过后即可参与竞价。'}
           </div>
           <dl>
             <div><dt>保证金金额</dt><dd>{lot.deposit}</dd></div>
@@ -1523,7 +1591,7 @@ function NoticeDetailPage({
               {lot.status === '竞拍中' ? '进入正在竞价' : '等待竞拍开始'}
             </button>
           ) : null}
-          {isSubmitted ? <button className="btn primary" onClick={() => navigateTo('/account/deposits')} type="button">查看我的意向金</button> : null}
+          {isSubmitted ? <button className="btn primary" onClick={viewDepositVoucher} type="button">{submittedDeposit?.voucherFileUrl ? '查看我的凭证' : '查看我的意向金'}</button> : null}
           <button className={isSubmitted ? 'btn secondary' : 'btn primary'} disabled={voucherStatus === 'uploading'} onClick={onDepositSelect} type="button">
             {buttonText}
           </button>
@@ -1537,8 +1605,7 @@ function NoticeDetailPage({
             <span>可前往企业中心查看审核进度，也可以留在当前公告继续查看拍品信息。</span>
           </div>
           <div className="button-row">
-            <button className="btn primary" onClick={() => navigateTo('/account/deposits')} type="button">查看我的意向金</button>
-            <button className="btn secondary" type="button">留在当前页面</button>
+            <button className="btn primary" onClick={viewDepositVoucher} type="button">{submittedDeposit?.voucherFileUrl ? '查看我的凭证' : '查看我的意向金'}</button>
           </div>
         </section>
       ) : null}
@@ -1548,6 +1615,7 @@ function NoticeDetailPage({
 
 function AuctionDetailView({
   bidRecords,
+  canSubmitDepositVoucher,
   estimatedAmount,
   countdownText,
   hasEnded,
@@ -1560,6 +1628,7 @@ function AuctionDetailView({
   onRefresh,
 }: {
   bidRecords: BidRecord[];
+  canSubmitDepositVoucher: boolean;
   estimatedAmount: string;
   countdownText: string;
   hasEnded: boolean;
@@ -1603,6 +1672,7 @@ function AuctionDetailView({
           <BiddingPanel
             bidIncrement={bidIncrement}
             bidRecordCount={bidRecords.length}
+            canSubmitDepositVoucher={canSubmitDepositVoucher}
             countdownText={countdownText}
             estimatedAmount={estimatedAmount}
             hasEnded={hasEnded}
@@ -1639,17 +1709,212 @@ function AuctionProcessStepper() {
   );
 }
 
-function AuctionGallery({ lot }: { lot: Lot }) {
-  return (
-    <div className="auction-gallery" aria-label="拍品图片">
-      <div className="gallery-main">
-        <span>{lot.category}</span>
-        <strong>主矿区航拍图</strong>
+function LotImageGallery({ className, lot }: { className: string; lot: Lot }) {
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const imageUrls = getLotImageUrls(lot);
+  const displayUrls = imageUrls;
+  const activePreviewIndex = previewIndex ?? 0;
+  const previewImageUrl = previewIndex === null ? undefined : displayUrls[previewIndex];
+
+  if (displayUrls.length === 0) {
+    return (
+      <div className={className} aria-label="拍品图片">
+        <button className="gallery-main" type="button">
+          <LotImage label={lot.category} />
+          <span>{lot.category}</span>
+          <strong>暂无拍品图片</strong>
+        </button>
       </div>
-      <div className="gallery-thumb core">岩芯样本</div>
-      <div className="gallery-thumb more">查看全部</div>
+    );
+  }
+
+  return (
+    <>
+      <div className={className} aria-label="拍品图片">
+        {displayUrls.map((imageUrl, index) => (
+          <button
+            className={index === 0 ? 'gallery-main' : 'gallery-thumb'}
+            key={imageUrl}
+            onClick={() => setPreviewIndex(index)}
+            type="button"
+          >
+            <LotImage imageUrl={imageUrl} label={`${lot.title}图片${index + 1}`} />
+            {index === 0 ? (
+              <>
+                <span>{lot.category}</span>
+                <strong>{displayUrls.length > 1 ? `共 ${imageUrls.length} 张图片` : '查看大图'}</strong>
+              </>
+            ) : <span>{`图片 ${index + 1}`}</span>}
+          </button>
+        ))}
+      </div>
+      {previewImageUrl ? (
+        <LotImagePreviewModal
+          imageUrl={previewImageUrl}
+          index={activePreviewIndex}
+          label={lot.title || `图片 ${activePreviewIndex + 1}`}
+          onClose={() => setPreviewIndex(null)}
+          total={displayUrls.length}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function LotImagePreviewModal({
+  imageUrl,
+  index,
+  label,
+  onClose,
+  total,
+}: {
+  imageUrl: string;
+  index: number;
+  label: string;
+  onClose: () => void;
+  total: number;
+}) {
+  const title = label || `图片 ${index + 1}`;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="portal-image-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        aria-label={title}
+        aria-modal="true"
+        className="portal-image-modal-panel"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header className="portal-image-modal-head">
+          <div>
+            <span>{index + 1} / {total}</span>
+            <h2>{title}</h2>
+          </div>
+          <button aria-label="关闭图片预览" onClick={onClose} type="button">×</button>
+        </header>
+        <div className="portal-image-modal-body">
+          <LotImage imageUrl={imageUrl} label={title} />
+        </div>
+      </div>
     </div>
   );
+}
+
+function LotImage({ imageUrl, label }: { imageUrl?: string; label: string }) {
+  if (!imageUrl) {
+    return <span className="lot-image-placeholder" aria-hidden="true" />;
+  }
+
+  return <LotImageWithFallback key={imageUrl} imageUrl={imageUrl} label={label} />;
+}
+
+function LotImageWithFallback({ imageUrl, label }: { imageUrl: string; label: string }) {
+  const [currentSrc, setCurrentSrc] = useState(imageUrl);
+  const [fallbackTried, setFallbackTried] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const objectUrlRef = useRef<string | undefined>(undefined);
+  const fallbackRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      fallbackRequestIdRef.current += 1;
+
+      if (objectUrlRef.current) {
+        window.URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = undefined;
+      }
+    };
+  }, []);
+
+  const handleImageError = () => {
+    if (fallbackTried) {
+      setLoadFailed(true);
+      return;
+    }
+
+    const protectedUrl = getProtectedLotImageUrl(imageUrl);
+
+    if (!protectedUrl) {
+      setFallbackTried(true);
+      setLoadFailed(true);
+      return;
+    }
+
+    setFallbackTried(true);
+    const fallbackRequestId = fallbackRequestIdRef.current;
+
+    void api.createFileObjectUrl(protectedUrl, undefined, 'ENTERPRISE').then((objectUrl) => {
+      if (fallbackRequestIdRef.current !== fallbackRequestId) {
+        window.URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      if (objectUrlRef.current) {
+        window.URL.revokeObjectURL(objectUrlRef.current);
+      }
+
+      objectUrlRef.current = objectUrl;
+      setCurrentSrc(objectUrl);
+      setLoadFailed(false);
+    }).catch(() => {
+      if (fallbackRequestIdRef.current === fallbackRequestId) {
+        setLoadFailed(true);
+      }
+    });
+  };
+
+  if (loadFailed) {
+    return <span className="lot-image-placeholder" aria-hidden="true" />;
+  }
+
+  return <img alt={label} className="lot-real-image" onError={handleImageError} src={currentSrc} />;
+}
+
+function getProtectedLotImageUrl(imageUrl?: string): string | undefined {
+  const url = imageUrl?.trim();
+
+  if (!url) {
+    return undefined;
+  }
+
+  if (url.includes('/files/public/')) {
+    return url.replace('/files/public/', '/files/content/');
+  }
+
+  if (url.includes('/files/content/')) {
+    return url;
+  }
+
+  return undefined;
+}
+
+function getLotImageUrls(lot: Lot): string[] {
+  return [
+    ...(lot.imageUrls ?? []),
+    lot.imageOneUrl,
+    lot.imageTwoUrl,
+    ...(lot.attachments ?? [])
+      .filter((item) => item.category === 'LOT_IMAGE')
+      .map((item) => item.fileUrl),
+  ]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .filter((value, index, values) => values.indexOf(value) === index);
+}
+
+function AuctionGallery({ lot }: { lot: Lot }) {
+  return <LotImageGallery className="auction-gallery" lot={lot} />;
 }
 
 function AuctionInfoPanel({ lot }: { lot: Lot }) {
@@ -1664,9 +1929,9 @@ function AuctionInfoPanel({ lot }: { lot: Lot }) {
   return (
     <section className="auction-tabs-card">
       <div className="auction-tabs">
-        <button className="active" type="button">标的物详情</button>
-        <button type="button">相关附件 ({attachments.length})</button>
-        <button type="button">竞买须知</button>
+        <span className="active">拍品详情</span>
+        <span>相关附件 ({attachments.length})</span>
+        <span>竞买须知</span>
       </div>
       <div className="auction-tab-body">
         <div className="auction-key-grid">
@@ -1682,10 +1947,10 @@ function AuctionInfoPanel({ lot }: { lot: Lot }) {
         <h3 className="attachment-title">检测报告及附件下载</h3>
         <div className="attachment-list">
           {attachments.map((item) => (
-            <button className="attachment-row" key={item} type="button">
+            <div className="attachment-row static" key={item}>
               <span>{item}</span>
-              <strong>下载</strong>
-            </button>
+              <strong>待公告提供</strong>
+            </div>
           ))}
         </div>
       </div>
@@ -1696,6 +1961,7 @@ function AuctionInfoPanel({ lot }: { lot: Lot }) {
 function BiddingPanel({
   bidIncrement,
   bidRecordCount,
+  canSubmitDepositVoucher,
   countdownText,
   estimatedAmount,
   hasEnded,
@@ -1709,6 +1975,7 @@ function BiddingPanel({
 }: {
   bidIncrement: string;
   bidRecordCount: number;
+  canSubmitDepositVoucher: boolean;
   countdownText: string;
   estimatedAmount: string;
   hasEnded: boolean;
@@ -1800,6 +2067,11 @@ function BiddingPanel({
           <button className="btn secondary" disabled={!isRealLot} onClick={onRefresh} type="button">刷新当前价</button>
         </div>
       ) : null}
+      {canSubmitDepositVoucher && !hasEnded ? (
+        <div className="bid-next-actions">
+          <button className="btn secondary" onClick={() => navigateTo(`/announcements/upcoming/detail?id=${encodeURIComponent(lot.id)}`)} type="button">提交保证金凭证</button>
+        </div>
+      ) : null}
       <p className="bid-notice">{notice} 提交后不可撤销。</p>
     </section>
   );
@@ -1851,12 +2123,16 @@ function LongForm({
   groups,
   hiddenFields,
   onSubmit,
+  requiredFields = [],
 }: {
   formId: string;
   groups: Array<[string, Array<[string, string]>]>;
   hiddenFields?: Record<string, string>;
   onSubmit: () => void;
+  requiredFields?: Array<[string, string]>;
 }) {
+  const requiredFieldNames = useMemo(() => new Set(requiredFields.map(([name]) => name)), [requiredFields]);
+
   return (
     <form className="long-form" id={formId}>
       {hiddenFields ? Object.entries(hiddenFields).map(([name, value]) => (
@@ -1867,14 +2143,13 @@ function LongForm({
           <legend>{title}</legend>
           <div className="form-grid">
             {fields.map(([name, label]) => (
-              <RegisterField key={name} label={label} name={name} />
+              <RegisterField key={name} label={label} name={name} required={requiredFieldNames.has(name)} />
             ))}
           </div>
         </fieldset>
       ))}
       <div className="sticky-actions">
         <div className="button-row">
-          <button className="btn secondary" type="button">保存草稿</button>
           <button className="btn primary" onClick={onSubmit} type="button">提交审核</button>
           <button className="btn secondary" onClick={() => navigateTo('/login')} type="button">返回登录</button>
         </div>
@@ -1883,12 +2158,12 @@ function LongForm({
   );
 }
 
-function RegisterField({ label, name }: { label: string; name: string }) {
+function RegisterField({ label, name, required }: { label: string; name: string; required: boolean }) {
   if (name === 'agreementAccepted') {
     return (
       <label className="field register-agreement">
-        <input defaultChecked name={name} type="checkbox" value="是" />
-        <span>我已阅读并同意《华宁矿产竞拍平台企业入驻协议》《隐私政策》及相关交易规则。</span>
+        <input name={name} type="checkbox" value="是" />
+        <span>{required ? <b aria-hidden="true">*</b> : null}我已阅读并同意《华宁矿产竞拍平台企业入驻协议》《隐私政策》及相关交易规则。</span>
       </label>
     );
   }
@@ -1897,8 +2172,8 @@ function RegisterField({ label, name }: { label: string; name: string }) {
 
   return (
     <label className="field">
-      <span>{label}</span>
-      <input defaultValue={getEnterpriseDefault(name)} name={name} placeholder={`请输入${label}`} type={inputType} />
+      <span>{label}{required ? <b aria-hidden="true">*</b> : null}</span>
+      <input defaultValue="" name={name} placeholder={`请输入${label}`} type={inputType} />
     </label>
   );
 }
@@ -1909,23 +2184,61 @@ const ENTERPRISE_UPLOAD_ITEMS: EnterpriseUploadItem[] = [
     label: '营业执照',
     required: true,
     helper: '需上传清晰原件扫描件或加盖公章复印件，支持 JPG/PNG/PDF。',
-    category: 'DEPOSIT_VOUCHER',
+    category: 'BUSINESS_LICENSE',
   },
   {
     key: 'qualificationFileUrl',
     label: '企业资质',
     required: true,
     helper: '上传采矿、贸易、供应链等相关资质证明材料。',
-    category: 'DEPOSIT_VOUCHER',
+    category: 'ENTERPRISE_QUALIFICATION',
   },
   {
     key: 'authorizationMaterialUrl',
     label: '授权材料',
     required: false,
-    helper: '法定代表人授权委托书或经办人授权说明；当前注册接口未提供入库字段。',
-    category: 'DEPOSIT_VOUCHER',
+    helper: '法定代表人授权委托书或经办人授权说明，可选上传。',
+    category: 'ENTERPRISE_AUTHORIZATION',
   },
 ];
+
+const ENTERPRISE_ACCOUNT_REQUIRED_FIELDS: Array<[string, string]> = [
+  ['username', '用户名'],
+  ['password', '设置密码'],
+  ['confirmPassword', '确认密码'],
+];
+
+const ENTERPRISE_CERTIFICATION_REQUIRED_FIELDS: Array<[string, string]> = [
+  ['name', '企业名'],
+  ['unifiedSocialCreditCode', '统一社会信用代码'],
+  ['mainCategory', '主营分类'],
+  ['userCategory', '用户类别'],
+  ['userType', '用户类型'],
+  ['region', '所属区域'],
+  ['address', '详细地址'],
+  ['contactPerson', '联系人'],
+  ['contactPhone', '联系电话'],
+  ['legalRepresentative', '法人代表'],
+  ['legalRepresentativeIdNo', '身份证号'],
+  ['email', '电子邮件'],
+  ['companyProfile', '公司简介'],
+  ['businessScope', '经营范围'],
+  ['paymentBankAccount', '付款银行账户'],
+  ['paymentAccountName', '付款账户名称'],
+  ['paymentBankName', '付款账户开户行'],
+  ['paymentBankLineNo', '付款人行行号'],
+  ['receivingBankAccount', '收款银行账户'],
+  ['receivingAccountName', '收款账户名称'],
+  ['receivingBankName', '收款账户开户行'],
+  ['receivingBankLineNo', '收款人行行号'],
+  ['agreementAccepted', '入驻协议确认'],
+];
+
+function getEnterpriseRegisterRequiredFields(isEnterpriseResubmission: boolean) {
+  return isEnterpriseResubmission
+    ? ENTERPRISE_CERTIFICATION_REQUIRED_FIELDS
+    : [...ENTERPRISE_ACCOUNT_REQUIRED_FIELDS, ...ENTERPRISE_CERTIFICATION_REQUIRED_FIELDS];
+}
 
 function EnterpriseUploadCard({
   inputRef,
@@ -2011,6 +2324,15 @@ function createEnterpriseUploadStatus(): EnterpriseUploadStatus {
 
 function buildEnterprisePayload(formData: FormData): EnterpriseRegisterPayload {
   return {
+    username: getFormValue(formData, 'username'),
+    password: getFormValue(formData, 'password'),
+    confirmPassword: getFormValue(formData, 'confirmPassword'),
+    ...buildEnterpriseCertificationPayload(formData),
+  };
+}
+
+function buildEnterpriseCertificationPayload(formData: FormData): EnterpriseCertificationPayload {
+  const payload: EnterpriseCertificationPayload = {
     name: getFormValue(formData, 'name'),
     contactPerson: getFormValue(formData, 'contactPerson'),
     contactPhone: getFormValue(formData, 'contactPhone'),
@@ -2030,57 +2352,102 @@ function buildEnterprisePayload(formData: FormData): EnterpriseRegisterPayload {
     paymentAccountName: getFormValue(formData, 'paymentAccountName'),
     paymentBankName: getFormValue(formData, 'paymentBankName'),
     paymentBankLineNo: getFormValue(formData, 'paymentBankLineNo'),
-    paymentIsBankOfChina: getFormValue(formData, 'paymentIsBankOfChina') !== '否',
+    paymentIsBankOfChina: false,
     receivingBankAccount: getFormValue(formData, 'receivingBankAccount'),
     receivingAccountName: getFormValue(formData, 'receivingAccountName'),
     receivingBankName: getFormValue(formData, 'receivingBankName'),
     receivingBankLineNo: getFormValue(formData, 'receivingBankLineNo'),
-    receivingIsBankOfChina: getFormValue(formData, 'receivingIsBankOfChina') !== '否',
-    agreementAccepted: getFormValue(formData, 'agreementAccepted') !== '否',
+    receivingIsBankOfChina: false,
+    agreementAccepted: getFormValue(formData, 'agreementAccepted') === '是',
     qualificationFileUrl: getFormValue(formData, 'qualificationFileUrl'),
     businessLicenseFileUrl: getFormValue(formData, 'businessLicenseFileUrl'),
-  };
-}
-
-function getEnterpriseDefault(name: string): string {
-  const defaults: Record<string, string> = {
-    username: 'enterprise_demo',
-    password: 'password',
-    confirmPassword: 'password',
-    name: 'T14华宁验收企业',
-    mainCategory: '矿产品贸易',
-    userCategory: '企业',
-    userType: '采购企业',
-    registeredCapital: '10000000',
-    region: '云南省玉溪市华宁县',
-    address: '华宁县验收工业园区1号',
-    unifiedSocialCreditCode: `T14${Date.now()}`,
-    contactPerson: '张三',
-    contactPhone: '13800000000',
-    legalRepresentative: '李四',
-    legalRepresentativeIdNo: '530424199001010000',
-    email: 'enterprise@example.com',
-    companyProfile: 'T14 验收企业资料。',
-    businessScope: '矿产品采购、销售与相关服务。',
-    paymentBankAccount: '6217000000000000001',
-    paymentAccountName: 'T14华宁验收企业',
-    paymentBankName: '中国银行华宁支行',
-    paymentBankLineNo: '104731000001',
-    paymentIsBankOfChina: '是',
-    receivingBankAccount: '6217000000000000002',
-    receivingAccountName: 'T14华宁验收企业',
-    receivingBankName: '中国银行华宁支行',
-    receivingBankLineNo: '104731000001',
-    receivingIsBankOfChina: '是',
-    captcha: '0000',
-    agreementAccepted: '是',
+    authorizationMaterialUrl: getFormValue(formData, 'authorizationMaterialUrl'),
   };
 
-  return defaults[name] ?? '';
+  (['qualificationFileUrl', 'businessLicenseFileUrl', 'authorizationMaterialUrl'] as const).forEach((key) => {
+    if (!payload[key]) {
+      delete payload[key];
+    }
+  });
+
+  return payload;
 }
 
 function getFormValue(formData: FormData, key: string): string {
   return String(formData.get(key) ?? '').trim();
+}
+
+function validateEnterpriseRegisterForm(formData: FormData, isEnterpriseResubmission: boolean): { valid: true } | { valid: false; message: string; focusName: string } {
+  const requiredFields = getEnterpriseRegisterRequiredFields(isEnterpriseResubmission);
+  const missingFields = requiredFields.filter(([name]) => name === 'agreementAccepted'
+    ? getFormValue(formData, name) !== '是'
+    : !getFormValue(formData, name));
+
+  if (missingFields.length > 0) {
+    return {
+      valid: false,
+      message: `请补齐：${formatMissingEnterpriseFields(missingFields)}。`,
+      focusName: missingFields[0][0],
+    };
+  }
+
+  if (!isEnterpriseResubmission && getFormValue(formData, 'password') !== getFormValue(formData, 'confirmPassword')) {
+    return {
+      valid: false,
+      message: '两次输入的密码不一致，请重新填写。',
+      focusName: 'confirmPassword',
+    };
+  }
+
+  return { valid: true };
+}
+
+function formatMissingEnterpriseFields(fields: Array<[string, string]>): string {
+  const labels = fields.slice(0, 4).map(([, label]) => label);
+
+  return fields.length > labels.length ? `${labels.join('、')}等` : labels.join('、');
+}
+
+function focusEnterpriseRegisterField(form: HTMLFormElement, name: string) {
+  const field = form.elements.namedItem(name);
+  const target = field instanceof RadioNodeList ? field[0] : field;
+
+  if (target instanceof HTMLElement) {
+    target.focus();
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+function getEnterpriseSubmitErrorMessage(error: unknown): string {
+  const message = getErrorMessage(error);
+
+  if (isClassValidatorMessage(message)) {
+    return '提交资料校验未通过，请检查必填项和字段格式后重试。';
+  }
+
+  return message;
+}
+
+function isClassValidatorMessage(message: string): boolean {
+  return /must be|should not|is not|property .+ should not exist|MinLength|MaxLength|IsString|class-validator/i.test(message);
+}
+
+function sortLotsByBiddingEnd(lots: Lot[]): Lot[] {
+  return [...lots].sort((left, right) => getBiddingEndTime(left) - getBiddingEndTime(right));
+}
+
+function getBiddingEndTime(lot: Lot): number {
+  const biddingEndAt = typeof (lot as LotWithBiddingEnd).biddingEndAt === 'string'
+    ? (lot as LotWithBiddingEnd).biddingEndAt
+    : '';
+
+  if (!biddingEndAt) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const endTime = new Date(biddingEndAt).getTime();
+
+  return Number.isFinite(endTime) ? endTime : Number.POSITIVE_INFINITY;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -2131,7 +2498,7 @@ function getBidQualificationNotice({
   profile: ReturnType<typeof getAuthProfile>;
 }): string {
   if (!lot?.id) {
-    return '未加载到真实竞价标的，不能提交报价。';
+    return '未加载到真实竞价拍品，不能提交报价。';
   }
 
   if (!isRealLot) {
@@ -2171,7 +2538,7 @@ function getBidEligibilityMessage(status: BidEligibility): string {
   }
 
   if (status === 'missing') {
-    return '当前企业尚未获得该拍品竞价资格，请先在公告详情提交意向金付款凭证。';
+    return '当前企业尚未获得该拍品竞价资格，请在拍品结束前到公告详情提交意向金付款凭证。';
   }
 
   if (status === 'error') {
@@ -2179,6 +2546,84 @@ function getBidEligibilityMessage(status: BidEligibility): string {
   }
 
   return '正在核验竞价资格，通过后方可报价。';
+}
+
+function filterLots(lots: Lot[], filters: FilterValues): Lot[] {
+  const entries = getActiveFilterEntries(filters);
+
+  if (entries.length === 0) {
+    return lots;
+  }
+
+  return lots.filter((lot) => entries.every(([field, value]) => {
+    const haystack = field.includes('品种')
+      ? lot.category
+      : field.includes('所在地')
+        ? lot.origin
+        : field.includes('状态')
+          ? lot.status
+          : field.includes('时间')
+            ? `${lot.publicityPeriod} ${lot.auctionTime}`
+            : [
+              lot.title,
+              lot.category,
+              lot.origin,
+              lot.status,
+              lot.publicityPeriod,
+              lot.auctionTime,
+              lot.productInfo,
+              lot.productDetail,
+              lot.supplier,
+            ].join(' ');
+
+    return normalizeFilterText(haystack).includes(value);
+  }));
+}
+
+function filterResults(results: ResultRecord[], filters: FilterValues): ResultRecord[] {
+  const entries = getActiveFilterEntries(filters);
+
+  if (entries.length === 0) {
+    return results;
+  }
+
+  return results.filter((result) => entries.every(([field, value]) => {
+    const haystack = field.includes('时间')
+      ? result.publicTime
+      : field.includes('品种')
+        ? result.lotTitle
+        : [result.lotTitle, result.winner, result.finalPrice, result.publicTime, result.status, result.lotId].join(' ');
+
+    return normalizeFilterText(haystack).includes(value);
+  }));
+}
+
+function filterContents(contents: ContentRecord[], filters: FilterValues): ContentRecord[] {
+  const entries = getActiveFilterEntries(filters);
+
+  if (entries.length === 0) {
+    return contents;
+  }
+
+  return contents.filter((content) => entries.every(([field, value]) => {
+    const haystack = field.includes('分类')
+      ? content.category
+      : field.includes('状态')
+        ? content.status
+        : [content.title, content.category, content.summary, content.publishedAt, content.status].join(' ');
+
+    return normalizeFilterText(haystack).includes(value);
+  }));
+}
+
+function getActiveFilterEntries(filters: FilterValues): Array<[string, string]> {
+  return Object.entries(filters)
+    .map(([field, value]) => [field, normalizeFilterText(value)] as [string, string])
+    .filter(([, value]) => value.length > 0);
+}
+
+function normalizeFilterText(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase();
 }
 
 function isPositiveInteger(value: string): boolean {

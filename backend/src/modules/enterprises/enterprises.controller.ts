@@ -5,33 +5,32 @@ import { CurrentUser } from '../../auth/current-user.decorator';
 import { Roles } from '../../auth/roles.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
 import {
-  EnterpriseCertificationDto,
+  EnterpriseRegisterDto,
   RejectEnterpriseCertificationDto,
 } from './dto/enterprise-certification.dto';
 import { EnterpriseCertificationResponse } from './enterprise-certification.types';
 import { EnterprisesService } from './enterprises.service';
 
 @Controller()
-@UseGuards(AuthGuard, RolesGuard)
 export class EnterprisesController {
   constructor(private readonly enterprisesService: EnterprisesService) {}
 
   @Post('enterprises/register')
-  @Roles('ENTERPRISE')
   register(
-    @CurrentUser() user: CurrentUser,
-    @Body() dto: EnterpriseCertificationDto,
+    @Body() dto: EnterpriseRegisterDto,
   ): Promise<EnterpriseCertificationResponse> {
-    return this.enterprisesService.submitCertification(user.id, dto);
+    return this.enterprisesService.registerEnterprise(dto);
   }
 
   @Get('admin/reviews/enterprises')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN')
   listForReview(): Promise<EnterpriseCertificationResponse[]> {
     return this.enterprisesService.listForReview();
   }
 
   @Post('admin/reviews/enterprises/:id/approve')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN')
   approve(
     @CurrentUser() user: CurrentUser,
@@ -41,6 +40,7 @@ export class EnterprisesController {
   }
 
   @Post('admin/reviews/enterprises/:id/reject')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN')
   reject(
     @CurrentUser() user: CurrentUser,

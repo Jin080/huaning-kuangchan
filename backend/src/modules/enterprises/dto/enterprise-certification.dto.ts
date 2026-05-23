@@ -3,8 +3,8 @@ import {
   IsOptional,
   IsString,
   IsUrl,
-  MaxLength,
   MinLength,
+  MaxLength,
 } from 'class-validator';
 
 export class EnterpriseCertificationDto {
@@ -138,6 +138,25 @@ export class EnterpriseCertificationDto {
   @IsString()
   @IsUrl({ require_tld: false })
   businessLicenseFileUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_tld: false })
+  authorizationMaterialUrl?: string;
+}
+
+export class EnterpriseRegisterDto extends EnterpriseCertificationDto {
+  @IsString()
+  @MinLength(1)
+  username: string;
+
+  @IsString()
+  @MinLength(1)
+  password: string;
+
+  @IsString()
+  @MinLength(1)
+  confirmPassword: string;
 }
 
 export class RejectEnterpriseCertificationDto {

@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsArray,
   IsDateString,
   IsOptional,
   IsString,
@@ -120,4 +121,9 @@ export class LotMutationDto {
   @IsOptional()
   @IsString()
   extensionRule?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  additionalImageUrls?: string[];
 }

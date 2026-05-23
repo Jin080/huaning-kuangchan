@@ -112,9 +112,9 @@ export function AccountHome() {
       </section>
       <section className="account-kpi-grid">
         <AccountKpi icon="⏳" label="待处理意向金" value={String(pendingDeposits)} unit="笔" helper={`${deposits.length} 条意向金记录`} />
-        <AccountKpi icon="槌" label="进行中竞价" value={String(activeBids)} unit="个标的" helper={`${bids.length} 条历史出价`} tone="orange" />
+        <AccountKpi icon="槌" label="进行中竞价" value={String(activeBids)} unit="个拍品" helper={`${bids.length} 条历史出价`} tone="orange" />
         <AccountKpi icon="信" label="未读通知" value={String(unreadMessages)} unit="条" helper="成交通知 / 失败通知" tone="blue" />
-        <AccountKpi icon="✓" label="已成交标的" value={String(completedBids)} unit="个标的" helper={profile.isBlacklisted ? '账号已被限制' : profile.enterpriseName} tone={profile.certificationStatus === '审核通过' ? 'green' : 'gray'} />
+        <AccountKpi icon="✓" label="已成交拍品" value={String(completedBids)} unit="个拍品" helper={profile.isBlacklisted ? '账号已被限制' : profile.enterpriseName} tone={profile.certificationStatus === '审核通过' ? 'green' : 'gray'} />
       </section>
       <section className="account-dashboard-grid">
         <AccountPanel title="近期意向金" icon="￥" action="查看全部" actionTo="/account/deposits">
@@ -237,11 +237,23 @@ export function MyCertificationPage() {
 }
 
 export function MyDepositsPage() {
+  const queryLotId = getQueryLotId();
+  const initialFilters: Record<string, string> = queryLotId ? { 拍品名称: queryLotId } : {};
   const [deposits, setDeposits] = useState<DepositRecord[]>(api.getDeposits());
   const [notice, setNotice] = useState('');
   const [requestState, setRequestState] = useState<AccountRequestState>('loading');
+  const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
   const latestPending = deposits.find((item) => item.status === '待审核');
   const needsAction = deposits.filter((item) => item.status === '未提交' || item.status === '审核驳回').length;
+  const visibleDeposits = deposits.filter((deposit) => {
+    const keyword = String(filters['拍品名称'] ?? '').trim().toLowerCase();
+    const status = String(filters['意向金状态'] ?? '').trim();
+    const submittedAt = String(filters['提交时间'] ?? '').trim();
+
+    return (!keyword || deposit.lotTitle.toLowerCase().includes(keyword) || deposit.lotId.toLowerCase().includes(keyword))
+      && (!status || deposit.status.includes(status))
+      && (!submittedAt || deposit.submittedAt.includes(submittedAt));
+  });
 
   useEffect(() => {
     void api.fetchAccountDeposits().then((items) => {
@@ -274,7 +286,7 @@ export function MyDepositsPage() {
         <AccountSummary label="已通过凭证" value={`${deposits.filter((item) => item.status === '审核通过').length} 笔`} tone="green" />
         <AccountSummary label="需处理凭证" value={`${needsAction} 笔`} tone={needsAction > 0 ? 'red' : 'gray'} />
       </section> : null}
-      {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '意向金状态', '提交时间']} /> : null}
+      {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '意向金状态', '提交时间']} initialFilters={initialFilters} onChange={setFilters} /> : null}
       {requestState === 'ready' ? <DataTable columns={[
         { key: 'lotTitle', label: '拍品名称', width: '28%', render: (row) => <TitleCell title={row.lotTitle} sub={`编号：${shortId(row.lotId)}`} /> },
         { key: 'amount', label: '保证金金额', render: (row) => {
@@ -287,7 +299,11 @@ export function MyDepositsPage() {
           const deposit = row as DepositRecordWithVoucher;
 
           if (deposit.voucherFileUrl) {
-            return <a className="account-voucher-link" href={deposit.voucherFileUrl} rel="noreferrer" target="_blank">{deposit.voucherFileName || deposit.voucher}</a>;
+            return (
+              <button className="account-voucher-link" onClick={() => void api.openFileUrl(deposit.voucherFileUrl as string, deposit.attachmentId).catch((error: unknown) => setNotice(`凭证文件暂无法打开：${getAccountErrorMessage(error)}`))} type="button">
+                {deposit.voucherFileName || deposit.voucher}
+              </button>
+            );
           }
 
           return (
@@ -305,13 +321,13 @@ export function MyDepositsPage() {
           label: '操作',
           render: (row) => (
             <div className="inline-actions">
-              {(row as DepositRecordWithVoucher).voucherFileUrl ? <button className="link-btn" onClick={() => window.open((row as DepositRecordWithVoucher).voucherFileUrl, '_blank', 'noopener,noreferrer')} type="button">查看凭证</button> : null}
+              {(row as DepositRecordWithVoucher).voucherFileUrl ? <button className="link-btn" onClick={() => void api.openFileUrl((row as DepositRecordWithVoucher).voucherFileUrl as string, (row as DepositRecordWithVoucher).attachmentId).catch((error: unknown) => setNotice(`凭证文件暂无法打开：${getAccountErrorMessage(error)}`))} type="button">查看凭证</button> : null}
               {row.status === '审核驳回' || row.status === '未提交' ? <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row))} type="button">重新上传</button> : null}
               <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row))} type="button">查看公告</button>
             </div>
           ),
         },
-      ]} rows={deposits} emptyDescription="当前企业暂无意向金记录，请从拍卖公告详情页提交真实付款凭证。" emptyText="暂无意向金记录" /> : null}
+      ]} rows={visibleDeposits} emptyDescription="当前筛选条件下没有意向金记录。" emptyText="暂无意向金记录" /> : null}
     </AccountLayout>
   );
 }
@@ -320,7 +336,17 @@ export function MyBidsPage() {
   const [bids, setBids] = useState<BidRecord[]>(api.getBids());
   const [notice, setNotice] = useState('');
   const [requestState, setRequestState] = useState<AccountRequestState>('loading');
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const highestCount = bids.filter((item) => item.isHighest).length;
+  const visibleBids = bids.filter((bid) => {
+    const keyword = String(filters['拍品名称'] ?? '').trim().toLowerCase();
+    const bidTime = String(filters['出价时间'] ?? '').trim();
+    const isHighest = String(filters['当前最高价'] ?? '').trim();
+
+    return (!keyword || bid.lotTitle.toLowerCase().includes(keyword) || bid.lotId.toLowerCase().includes(keyword))
+      && (!bidTime || bid.bidTime.includes(bidTime))
+      && (!isHighest || (bid.isHighest ? '是' : '否').includes(isHighest));
+  });
 
   useEffect(() => {
     void api.fetchAccountBids().then((items) => {
@@ -344,7 +370,7 @@ export function MyBidsPage() {
         <AccountSummary label="当前最高价" value={`${highestCount} 个`} tone="green" />
         <AccountSummary label="进行中竞价" value={`${bids.filter((item) => item.auctionStatus !== '已结束').length} 个`} tone="orange" />
       </section> : null}
-      {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '出价时间', '当前最高价']} /> : null}
+      {requestState === 'ready' ? <AccountFilter fields={['拍品名称', '出价时间', '当前最高价']} onChange={setFilters} /> : null}
       {requestState === 'ready' ? <DataTable columns={[
         { key: 'lotTitle', label: '拍品名称', width: '30%', render: (row) => <TitleCell title={row.lotTitle} sub={`编号：${shortId(row.lotId)}`} /> },
         { key: 'amount', label: '出价金额' },
@@ -353,7 +379,7 @@ export function MyBidsPage() {
         { key: 'isHighest', label: '当前最高价', render: (row) => <StatusTag value={row.isHighest ? '是' : '否'} tone={row.isHighest ? 'green' : 'gray'} /> },
         { key: 'auctionStatus', label: '竞价状态', render: (row) => <StatusTag value={row.auctionStatus || '竞拍中'} tone={row.auctionStatus === '已结束' ? 'gray' : 'blue'} /> },
         { key: 'actions', label: '操作', render: (row) => <button className="link-btn" onClick={() => navigateTo(getLotFallbackTarget(row, '/auctions/live/detail'))} type="button">查看详情</button> },
-      ]} rows={bids} emptyDescription="当前企业暂无真实出价记录。通过竞价详情页提交报价后会在这里展示。" emptyText="暂无出价记录" /> : null}
+      ]} rows={visibleBids} emptyDescription="当前筛选条件下没有出价记录。" emptyText="暂无出价记录" /> : null}
     </AccountLayout>
   );
 }
@@ -362,6 +388,7 @@ export function MyMessagesPage() {
   const [messages, setMessages] = useState<NotificationRecord[]>(api.getNotifications());
   const [notice, setNotice] = useState('');
   const [requestState, setRequestState] = useState<AccountRequestState>('loading');
+  const [typeFilter, setTypeFilter] = useState<'全部' | '成交通知' | '失败通知' | '系统通知'>('全部');
   const [readFilter, setReadFilter] = useState<'全部' | '未读' | '已读'>('全部');
 
   useEffect(() => {
@@ -382,6 +409,10 @@ export function MyMessagesPage() {
   };
 
   const visibleMessages = messages.filter((message) => {
+    if (typeFilter !== '全部' && message.type !== typeFilter) {
+      return false;
+    }
+
     if (readFilter === '未读') {
       return !message.read;
     }
@@ -406,10 +437,9 @@ export function MyMessagesPage() {
       {requestState === 'ready' ? <section className="account-message-filters">
         <div>
           <span>通知类型：</span>
-          <button className="active" type="button">全部</button>
-          <button type="button">成交通知</button>
-          <button type="button">失败通知</button>
-          <button type="button">系统通知</button>
+          {(['全部', '成交通知', '失败通知', '系统通知'] as const).map((filter) => (
+            <button className={typeFilter === filter ? 'active' : ''} key={filter} onClick={() => setTypeFilter(filter)} type="button">{filter}</button>
+          ))}
         </div>
         <div>
           <span>已读状态：</span>
@@ -649,19 +679,36 @@ function WinningFlowStepper({ status }: { status: string }) {
   );
 }
 
-function AccountFilter({ fields }: { fields: string[] }) {
+function AccountFilter({ fields, initialFilters = {}, onChange }: { fields: string[]; initialFilters?: Record<string, string>; onChange: (filters: Record<string, string>) => void }) {
+  const [draftFilters, setDraftFilters] = useState<Record<string, string>>(initialFilters);
+  const updateFilter = (field: string, value: string) => {
+    const nextFilters = { ...draftFilters, [field]: value };
+
+    setDraftFilters(nextFilters);
+    onChange(nextFilters);
+  };
+  const resetFilters = () => {
+    setDraftFilters({});
+    onChange({});
+  };
+
   return (
     <section className="account-filter-panel">
       <div className="account-filter-grid">
         {fields.map((field, index) => (
           <label className="field" key={field}>
             <span>{field}</span>
-            <input placeholder={index === 0 ? '请输入关键词' : `请选择${field}`} type={field.includes('时间') ? 'date' : 'text'} />
+            <input
+              onChange={(event) => updateFilter(field, event.currentTarget.value)}
+              placeholder={index === 0 ? '请输入关键词' : `请选择${field}`}
+              type={field.includes('时间') ? 'date' : 'text'}
+              value={draftFilters[field] ?? ''}
+            />
           </label>
         ))}
         <div className="account-filter-actions">
-          <button type="button">重置</button>
-          <button className="primary" type="button">搜索</button>
+          <button onClick={resetFilters} type="button">重置</button>
+          <button className="primary" onClick={() => onChange(draftFilters)} type="button">搜索</button>
         </div>
       </div>
     </section>
@@ -752,6 +799,10 @@ function getLotFallbackTarget(row: { lotId?: string | null; lotTitle?: string },
 
 function getQueryId() {
   return new URLSearchParams(window.location.search).get('id') ?? undefined;
+}
+
+function getQueryLotId() {
+  return new URLSearchParams(window.location.search).get('lotId') ?? undefined;
 }
 
 function selectWinningResult(results: ResultWorkflowRecord[], bids: BidRecord[], queryId?: string): ResultWorkflowRecord | undefined {

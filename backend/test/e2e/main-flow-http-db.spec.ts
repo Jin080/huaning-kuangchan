@@ -57,8 +57,6 @@ type DashboardResponse = {
 
 const prisma = new PrismaClient();
 let adminHeaders: Record<string, string>;
-let enterpriseAHeaders: Record<string, string>;
-let enterpriseBHeaders: Record<string, string>;
 let app: INestApplication;
 let baseUrl: string;
 
@@ -85,8 +83,6 @@ describe('T14 main flow HTTP/DB acceptance', () => {
     const address = app.getHttpServer().address() as { port: number };
     baseUrl = `http://127.0.0.1:${address.port}`;
     adminHeaders = await loginAs(baseUrl, 't14_e2e_admin');
-    enterpriseAHeaders = await loginAs(baseUrl, 't14_e2e_enterprise_a');
-    enterpriseBHeaders = await loginAs(baseUrl, 't14_e2e_enterprise_b');
   });
 
   afterAll(async () => {
@@ -101,27 +97,29 @@ describe('T14 main flow HTTP/DB acceptance', () => {
     const announced = await post<LotResponse>(`/api/admin/reviews/lots/${lot.id}/approve`, adminHeaders);
     expect(announced.statusCode).toBe(LotStatus.ANNOUNCING);
 
-    const enterpriseA = await registerEnterprise(enterpriseAHeaders, 'A');
-    const enterpriseB = await registerEnterprise(enterpriseBHeaders, 'B');
+    const enterpriseARegistration = await registerEnterprise('A');
+    const enterpriseBRegistration = await registerEnterprise('B');
+    const enterpriseA = enterpriseARegistration.enterprise;
+    const enterpriseB = enterpriseBRegistration.enterprise;
     await post<EnterpriseResponse>(`/api/admin/reviews/enterprises/${enterpriseA.id}/approve`, adminHeaders);
     await post<EnterpriseResponse>(`/api/admin/reviews/enterprises/${enterpriseB.id}/approve`, adminHeaders);
 
-    const depositA = await submitDeposit(lot.id, enterpriseAHeaders, 'A');
-    const depositB = await submitDeposit(lot.id, enterpriseBHeaders, 'B');
+    const depositA = await submitDeposit(lot.id, enterpriseARegistration.headers, 'A');
+    const depositB = await submitDeposit(lot.id, enterpriseBRegistration.headers, 'B');
     await post<DepositResponse>(`/api/admin/reviews/deposits/${depositA.id}/approve`, adminHeaders);
     await post<DepositResponse>(`/api/admin/reviews/deposits/${depositB.id}/approve`, adminHeaders);
 
     const biddingLot = await post<LotResponse>(`/api/admin/lots/${lot.id}/advance-to-bidding`, adminHeaders);
     expect(biddingLot.statusCode).toBe(LotStatus.BIDDING);
 
-    await post('/api/lots/' + lot.id + '/bids', enterpriseAHeaders, { amount: '100' }, 400);
-    const bidA = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseAHeaders, { amount: '110' });
+    await post('/api/lots/' + lot.id + '/bids', enterpriseARegistration.headers, { amount: '100' }, 400);
+    const bidA = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseARegistration.headers, { amount: '110' });
     expect(bidA.currentHighestPrice).toBe('110');
     expect(bidA.incrementCount).toBe(1);
-    const bidB = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseBHeaders, { amount: '130' });
+    const bidB = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseBRegistration.headers, { amount: '130' });
     expect(bidB.currentHighestPrice).toBe('130');
     expect(bidB.incrementCount).toBe(2);
-    const finalBid = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseAHeaders, { amount: '150' });
+    const finalBid = await post<BidResponse>(`/api/lots/${lot.id}/bids`, enterpriseARegistration.headers, { amount: '150' });
     expect(finalBid.currentHighestPrice).toBe('150');
     expect(finalBid.incrementCount).toBe(2);
 
@@ -185,10 +183,13 @@ async function createLot(): Promise<LotResponse> {
 }
 
 async function registerEnterprise(
-  headers: Record<string, string>,
   suffix: string,
-): Promise<EnterpriseResponse> {
-  return post<EnterpriseResponse>('/api/enterprises/register', headers, {
+): Promise<{ enterprise: EnterpriseResponse; headers: Record<string, string> }> {
+  const username = `t14_e2e_registered_${suffix.toLowerCase()}`;
+  const enterprise = await post<EnterpriseResponse>('/api/enterprises/register', {}, {
+    username,
+    password: 'e2e-test-password',
+    confirmPassword: 'e2e-test-password',
     name: `T14-E2E-验收企业${suffix}`,
     contactPerson: '张三',
     contactPhone: '13800000000',
@@ -218,6 +219,11 @@ async function registerEnterprise(
     qualificationFileUrl: 'https://files.example.com/qualification.pdf',
     businessLicenseFileUrl: 'https://files.example.com/license.pdf',
   });
+
+  return {
+    enterprise,
+    headers: await loginAs(baseUrl, username),
+  };
 }
 
 async function submitDeposit(

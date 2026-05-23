@@ -3,15 +3,26 @@ import {
   AttachmentCategory,
   Enterprise,
   EnterpriseCertificationStatus,
+  NotificationChannel,
+  NotificationSendStatus,
+  NotificationType,
   Prisma,
+  RoleCode,
 } from '@prisma/client';
 
+import { PasswordService } from '../../auth/password.service';
 import { AppError } from '../../common/errors/app-error';
 import { ERROR_CODES } from '../../common/errors/error-codes';
 import { OperationLogService } from '../../logging/operation-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EnterpriseCertificationDto } from './dto/enterprise-certification.dto';
-import { EnterpriseCertificationResponse } from './enterprise-certification.types';
+import {
+  EnterpriseCertificationDto,
+  EnterpriseRegisterDto,
+} from './dto/enterprise-certification.dto';
+import {
+  EnterpriseCertificationMaterialResponse,
+  EnterpriseCertificationResponse,
+} from './enterprise-certification.types';
 
 const STATUS_LABELS: Record<EnterpriseCertificationStatus, string> = {
   [EnterpriseCertificationStatus.NOT_SUBMITTED]: '未提交',
@@ -19,13 +30,117 @@ const STATUS_LABELS: Record<EnterpriseCertificationStatus, string> = {
   [EnterpriseCertificationStatus.APPROVED]: '审核通过',
   [EnterpriseCertificationStatus.REJECTED]: '审核驳回',
 };
+const CERTIFICATION_MATERIAL_LABELS: Partial<Record<AttachmentCategory, string>> = {
+  [AttachmentCategory.BUSINESS_LICENSE]: '营业执照',
+  [AttachmentCategory.ENTERPRISE_QUALIFICATION]: '企业资质',
+  [AttachmentCategory.ENTERPRISE_AUTHORIZATION]: '授权材料',
+};
+const CERTIFICATION_MATERIAL_CATEGORIES = [
+  AttachmentCategory.BUSINESS_LICENSE,
+  AttachmentCategory.ENTERPRISE_QUALIFICATION,
+  AttachmentCategory.ENTERPRISE_AUTHORIZATION,
+];
 
 @Injectable()
 export class EnterprisesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly operationLog?: OperationLogService,
+    private readonly passwordService?: PasswordService,
   ) {}
+
+  async registerEnterprise(
+    dto: EnterpriseRegisterDto,
+  ): Promise<EnterpriseCertificationResponse> {
+    if (dto.password !== dto.confirmPassword) {
+      throw new AppError(
+        ERROR_CODES.INTERNAL_ERROR,
+        '确认密码与密码不一致',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const role = await this.prisma.role.findUnique({
+      where: { code: RoleCode.ENTERPRISE },
+    });
+
+    if (!role) {
+      throw new AppError(
+        ERROR_CODES.INTERNAL_ERROR,
+        '企业角色不存在',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    const { enterprise, materials, userId } = await this.prisma.$transaction(
+      async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { username: dto.username },
+      });
+
+      if (existingUser) {
+        throw new AppError(
+          ERROR_CODES.INTERNAL_ERROR,
+          '用户名已存在',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const existingEnterprise = await tx.enterprise.findUnique({
+        where: { unifiedSocialCreditCode: dto.unifiedSocialCreditCode },
+      });
+
+      if (existingEnterprise) {
+        throw new AppError(
+          ERROR_CODES.INTERNAL_ERROR,
+          '统一社会信用代码已存在',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const passwordHash = await this.passwordService?.hash(dto.password);
+
+      if (!passwordHash) {
+        throw new AppError(
+          ERROR_CODES.INTERNAL_ERROR,
+          '密码服务不可用',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      const enterprise = await tx.enterprise.create({
+        data: {
+          ...this.toEnterpriseData(dto),
+          certificationStatus: EnterpriseCertificationStatus.PENDING,
+          certificationSubmittedAt: new Date(),
+          certificationReviewerId: null,
+          certificationReviewedAt: null,
+          certificationRejectReason: null,
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          username: dto.username,
+          passwordHash,
+          roleId: role.id,
+          enterpriseId: enterprise.id,
+        },
+      });
+
+      await this.createCertificationAttachments(tx, enterprise.id, user.id, dto);
+
+      return {
+        enterprise,
+        materials: await this.findCertificationMaterials(enterprise.id, tx),
+        userId: user.id,
+      };
+    });
+
+    await this.record(userId, '企业公开注册提交认证', enterprise.id).catch(() => undefined);
+
+    return this.toResponse(enterprise, materials);
+  }
 
   async submitCertification(
     userId: string,
@@ -52,10 +167,10 @@ export class EnterprisesService {
       where: { id: userId },
       data: { enterpriseId: enterprise.id },
     });
-    await this.createCertificationAttachments(enterprise.id, userId, dto);
+    await this.createCertificationAttachments(this.prisma, enterprise.id, userId, dto);
     await this.record(userId, '提交企业认证', enterprise.id);
 
-    return this.toResponse(enterprise);
+    return this.toResponse(enterprise, await this.findCertificationMaterials(enterprise.id));
   }
 
   async getMyCertification(
@@ -70,7 +185,7 @@ export class EnterprisesService {
       };
     }
 
-    return this.toResponse(enterprise);
+    return this.toResponse(enterprise, await this.findCertificationMaterials(enterprise.id));
   }
 
   async resubmitMyCertification(
@@ -100,7 +215,13 @@ export class EnterprisesService {
       orderBy: [{ certificationSubmittedAt: 'desc' }, { updatedAt: 'desc' }],
     });
 
-    return enterprises.map((enterprise) => this.toResponse(enterprise));
+    const materialsByEnterpriseId = await this.findCertificationMaterialsByEnterpriseIds(
+      enterprises.map((enterprise) => enterprise.id),
+    );
+
+    return enterprises.map((enterprise) =>
+      this.toResponse(enterprise, materialsByEnterpriseId.get(enterprise.id) ?? []),
+    );
   }
 
   async approveCertification(
@@ -121,7 +242,7 @@ export class EnterprisesService {
 
     await this.record(reviewerId, '企业认证审核通过', enterprise.id);
 
-    return this.toResponse(enterprise);
+    return this.toResponse(enterprise, await this.findCertificationMaterials(enterprise.id));
   }
 
   async rejectCertification(
@@ -142,8 +263,18 @@ export class EnterprisesService {
     });
 
     await this.record(reviewerId, '企业认证审核驳回', enterprise.id);
+    await this.prisma.notification.create({
+      data: {
+        type: NotificationType.LOSE,
+        channel: NotificationChannel.IN_APP,
+        receiverEnterpriseId: enterprise.id,
+        lotTitle: '企业认证审核驳回',
+        content: `企业认证审核驳回，驳回原因：${rejectReason}`,
+        sendStatus: NotificationSendStatus.PENDING,
+      },
+    });
 
-    return this.toResponse(enterprise);
+    return this.toResponse(enterprise, await this.findCertificationMaterials(enterprise.id));
   }
 
   private async updateCertification(
@@ -163,10 +294,10 @@ export class EnterprisesService {
       },
     });
 
-    await this.createCertificationAttachments(enterprise.id, userId, dto);
+    await this.createCertificationAttachments(this.prisma, enterprise.id, userId, dto);
     await this.record(userId, '重新提交企业认证', enterprise.id);
 
-    return this.toResponse(enterprise);
+    return this.toResponse(enterprise, await this.findCertificationMaterials(enterprise.id));
   }
 
   private async findByUserId(userId: string): Promise<Enterprise | null> {
@@ -196,6 +327,7 @@ export class EnterprisesService {
   }
 
   private async createCertificationAttachments(
+    prisma: Pick<Prisma.TransactionClient, 'attachment'> | Pick<PrismaService, 'attachment'>,
     enterpriseId: string,
     userId: string,
     dto: EnterpriseCertificationDto,
@@ -224,8 +356,19 @@ export class EnterprisesService {
       });
     }
 
+    if (dto.authorizationMaterialUrl) {
+      attachments.push({
+        category: AttachmentCategory.ENTERPRISE_AUTHORIZATION,
+        fileName: '授权材料',
+        fileUrl: dto.authorizationMaterialUrl,
+        isSensitive: true,
+        enterpriseId,
+        uploadedById: userId,
+      });
+    }
+
     if (attachments.length > 0) {
-      await this.prisma.attachment.createMany({ data: attachments });
+      await prisma.attachment.createMany({ data: attachments });
     }
   }
 
@@ -264,7 +407,65 @@ export class EnterprisesService {
     };
   }
 
-  private toResponse(enterprise: Enterprise): EnterpriseCertificationResponse {
+  private async findCertificationMaterials(
+    enterpriseId: string,
+    prisma: Pick<Prisma.TransactionClient, 'attachment'> | Pick<PrismaService, 'attachment'> = this.prisma,
+  ): Promise<EnterpriseCertificationMaterialResponse[]> {
+    const materialsByEnterpriseId = await this.findCertificationMaterialsByEnterpriseIds([
+      enterpriseId,
+    ], prisma);
+
+    return materialsByEnterpriseId.get(enterpriseId) ?? [];
+  }
+
+  private async findCertificationMaterialsByEnterpriseIds(
+    enterpriseIds: string[],
+    prisma: Pick<Prisma.TransactionClient, 'attachment'> | Pick<PrismaService, 'attachment'> = this.prisma,
+  ): Promise<Map<string, EnterpriseCertificationMaterialResponse[]>> {
+    const result = new Map<string, EnterpriseCertificationMaterialResponse[]>();
+
+    if (enterpriseIds.length === 0) {
+      return result;
+    }
+
+    const attachments = await prisma.attachment.findMany({
+      where: {
+        enterpriseId: { in: enterpriseIds },
+        category: { in: CERTIFICATION_MATERIAL_CATEGORIES },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      select: {
+        id: true,
+        enterpriseId: true,
+        category: true,
+        fileName: true,
+        fileUrl: true,
+      },
+    });
+
+    attachments.forEach((attachment) => {
+      if (!attachment.enterpriseId) {
+        return;
+      }
+
+      const materials = result.get(attachment.enterpriseId) ?? [];
+      materials.push({
+        id: attachment.id,
+        category: attachment.category,
+        label: CERTIFICATION_MATERIAL_LABELS[attachment.category] ?? '企业材料',
+        fileName: attachment.fileName,
+        fileUrl: attachment.fileUrl,
+      });
+      result.set(attachment.enterpriseId, materials);
+    });
+
+    return result;
+  }
+
+  private toResponse(
+    enterprise: Enterprise,
+    materials: EnterpriseCertificationMaterialResponse[],
+  ): EnterpriseCertificationResponse {
     return {
       id: enterprise.id,
       name: enterprise.name,
@@ -299,6 +500,7 @@ export class EnterprisesService {
       reviewedAt: enterprise.certificationReviewedAt,
       reviewerId: enterprise.certificationReviewerId,
       rejectReason: enterprise.certificationRejectReason,
+      materials,
     };
   }
 

@@ -121,6 +121,22 @@ function createPrismaMock() {
       updatedAt: new Date('2026-05-17T10:30:00.000Z'),
       lot: { id: 'lot-2', title: '铅锌矿竞拍' },
     },
+    {
+      id: 'sms-1',
+      type: NotificationType.WIN,
+      channel: NotificationChannel.SMS,
+      receiverEnterpriseId: 'enterprise-1',
+      lotId: 'lot-1',
+      lotTitle: '铜精矿竞拍',
+      content:
+        '短信供应商未配置，未发送。您参与的铜精矿竞拍已结束，已中标，请办理签约与尾款手续。',
+      sendStatus: NotificationSendStatus.FAILED,
+      sentAt: null,
+      readAt: null,
+      createdAt: new Date('2026-05-17T10:01:00.000Z'),
+      updatedAt: new Date('2026-05-17T10:01:00.000Z'),
+      lot: { id: 'lot-1', title: '铜精矿竞拍' },
+    },
   ];
 
   return {
@@ -171,7 +187,8 @@ function createPrismaMock() {
             notifications
               .filter(
                 (item) =>
-                  item.receiverEnterpriseId === where.receiverEnterpriseId,
+                  item.receiverEnterpriseId === where.receiverEnterpriseId &&
+                  (!where.channel || item.channel === where.channel),
               )
               .slice(skip, skip + take),
           ),
@@ -180,7 +197,8 @@ function createPrismaMock() {
           Promise.resolve(
             notifications.filter(
               (item) =>
-                item.receiverEnterpriseId === where.receiverEnterpriseId,
+                item.receiverEnterpriseId === where.receiverEnterpriseId &&
+                (!where.channel || item.channel === where.channel),
             ).length,
           ),
         ),
@@ -294,7 +312,10 @@ describe('AccountService', () => {
 
     expect(prisma.notification.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { receiverEnterpriseId: 'enterprise-1' },
+        where: {
+          receiverEnterpriseId: 'enterprise-1',
+          channel: NotificationChannel.IN_APP,
+        },
       }),
     );
     expect(result.items.map((item: { id: string }) => item.id)).toEqual([

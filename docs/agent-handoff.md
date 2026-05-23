@@ -4733,3 +4733,119 @@
 - 需要总控确认：
   - 是否按 T48 结论进入发布提交/PR 准备。
   - 是否在发布说明保留“结拍通过管理员 HTTP 入口或运维定时触发”的操作口径。
+
+## 2026-05-21 - 总控操作约定补充
+
+- 子代理使用纪律：凡是由总控派出的 subagent / worker，在其任务结束后必须立即关闭并清理，不得长期保留在上下文中；新会话不得依赖历史悬挂 agent。
+- 处理方式：优先把可派发任务交给 subagent 执行，但完成后总控必须做文件 / diff / 命令输出复核，然后立刻 close_agent。
+
+## 2026-05-22 - 总控启动项目排错记录
+
+- 任务名称：启动项目并记录下次快速启动口径
+- 负责模块：总控 / 本地启动
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`（仅追加本记录）
+- 是否修改业务代码：否
+- 是否修改 Prisma schema：否
+- 启动时遇到的问题：
+  - 初始 `http://127.0.0.1:3101/api/health` 与 `http://127.0.0.1:5173` 均拒绝连接。
+  - 机器上已有 PostgreSQL 服务监听 `5432`，但不是项目固定连接；`postgres/postgres` 登录失败。
+  - 后端首次启动失败，Prisma 报 `P1001: Can't reach database server at 127.0.0.1:55432`。
+  - 项目独立 PostgreSQL 数据目录与脚本存在于 `C:/Users/JM/.kuangchan/postgres-55432/`，但当时 `55432` 未监听。
+  - `backend/.env` 仍含 `PORT=3000`；如果裸跑后端或 PowerShell 内联环境变量写错，后端会启动到 `3000`，导致前端 Vite `/api/**` 代理 `3101` 继续报 `ECONNREFUSED`。
+- 下次推荐启动顺序：
+  - 先检查 `55432`：`Get-NetTCPConnection -LocalPort 55432 -State Listen -ErrorAction SilentlyContinue`。
+  - 若未监听，运行：`C:/Users/JM/.kuangchan/postgres-55432/start-postgres.cmd`。
+  - 只读确认数据库：`$env:PGPASSWORD='postgres'; D:/postgresql/bin/psql.exe -h 127.0.0.1 -p 55432 -U postgres -d huaning_mineral_auction -tAc "SELECT current_database(), inet_server_port();"`；期望输出 `huaning_mineral_auction|55432`。
+  - 后端固定 3101 启动：`Set-Location E:/kuangchan/backend; cmd /c set "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/huaning_mineral_auction?schema=public"&& set "PORT=3101"&& npm run start`。
+  - 前端固定 5173 启动：`Set-Location E:/kuangchan/frontend; npm run dev -- --host 127.0.0.1 --port 5173`。
+  - 验证：`Invoke-WebRequest http://127.0.0.1:3101/api/health -UseBasicParsing` 与 `Invoke-WebRequest http://127.0.0.1:5173 -UseBasicParsing`。
+- 本次实际验证结果：
+  - `psql` 只读确认输出 `huaning_mineral_auction|55432`。
+  - `GET http://127.0.0.1:3101/api/health` 返回 `200 {"status":"ok","service":"huaning-mineral-auction-backend"}`。
+  - `GET http://127.0.0.1:5173` 返回 `200`。
+  - 端口监听确认：`3101` 为后端固定入口，`5173` 为 Vite 前端，`55432` 为项目独立 PostgreSQL。
+- 风险与注意：
+  - 本次排错过程中曾误启动一个后端到 `3000`；因总控边界要求“不停止已有服务”，未擅自清理。后续如需释放 `3000`，需用户明确授权。
+  - `.tmp/dev-logs/` 为本地启动日志目录，不得提交。
+  - 下次不要把 `5432` 的系统 PostgreSQL 当作项目数据库；项目固定口径仍是 `127.0.0.1:55432`。
+
+## 2026-05-22 - 总控接管基线复核
+
+- 任务名称：总控新会话接管与真实基线复核
+- 负责模块：总控 / 只读核对 / 文档记账
+- 修改文件：
+  - `docs/task-board.md`
+  - `docs/agent-handoff.md`
+- 新增文件：无
+- 删除文件：无
+- 接口变更：无
+- 状态枚举变更：无
+- 数据模型变更：无；未修改 `backend/prisma/schema.prisma`，但实检确认该文件当前存在未提交差异
+- 验证命令：
+  - `Set-Location E:/kuangchan; git status --short --branch`
+  - `Set-Location E:/kuangchan; git log --oneline --decorate -8`
+  - `Set-Location E:/kuangchan; git diff --name-status`
+  - `Set-Location E:/kuangchan; git diff --cached --name-status`
+  - `Set-Location E:/kuangchan; git diff -- backend/prisma/schema.prisma`
+  - `rg -n "总控快速读取区|T48|T53|BLOCKER|未完成事项|需要总控确认|子代理纪律|T47B" docs/task-board.md docs/qa/main-flow-acceptance.md docs/agent-handoff.md docs/api-contract.md docs/frontend-backend-integration-checklist.md docs/huaning-mineral-auction-customer-proposal.md docs/huaning-mineral-auction-pc-prd.md .gitignore`
+- 验证结果：
+  - 当前分支为 `main...origin/main`，工作树处于大面积未提交状态，包含 backend/frontend/docs 多处已跟踪改动以及 `output/`、`stitch_add/`、`stitch_document_to_webpage_generator*/`、`test-results/` 等未跟踪目录。
+  - `git diff --cached --name-status` 无输出，当前无暂存内容。
+  - `git diff -- backend/prisma/schema.prisma` 显示 `AttachmentCategory` 新增 `ENTERPRISE_AUTHORIZATION @map("授权材料")`；这与 T47B/T48 历史记录中的“schema 无 diff”不再一致。
+  - `docs/task-board.md` 当前仍以 T48 作为最近发布前结论，但未覆盖上述新增工作树差异；本次已补记“历史结论不等于当前工作区结论”。
+  - 按要求搜索后，指定文档中未发现 `T53` 新记录；当前总控应继续以 T47B/T48 历史记录为最近已完成验收基线，并以本次实检结果覆盖其已失效前提。
+- 未完成事项：
+  - 尚未执行新的 lint/build/test/浏览器验收，本会话不得复用历史“通过”作为当前通过结论。
+  - T49 提交范围审计前置条件“`backend/prisma/schema.prisma` 无 diff”当前不满足。
+  - 工作树中存在明确禁止提交目录与产物，后续任何提交准备都必须精确排除。
+- 阻塞问题：无新增业务阻塞；当前主要问题为文档基线与实际工作树状态不一致。
+- 需要总控确认：
+  - 后续若进入提交整理，应先把当前 backend/frontend/docs 变更按主题重新分批审计，而不是直接沿用 T48 时点的发布判断。
+
+## 2026-05-23 - T49 式提交范围审计与成交后履约推进页合入
+
+- 任务名称：成交后履约推进页合入、T49 式提交范围审计、提交前验证
+- 负责模块：总控调度 / 前端履约推进 / 提交范围审计
+- 修改文件：
+  - `frontend/src/pages/AdminPages.tsx`
+  - `frontend/src/index.css`
+  - 以及当前工作树内已通过验证的 backend/frontend/docs 既有混合改动
+- 新增文件：
+  - `backend/prisma/migrations/20260521120000_add_enterprise_authorization_attachment_category/migration.sql`
+  - `backend/prisma/migrations/20260521120100_update_enterprise_authorization_attachment_category/migration.sql`
+  - `backend/src/modules/notifications/sms-provider.ts`
+  - `backend/test/enterprises/enterprises.controller.spec.ts`
+  - `docs/qa/t54-2/*`
+- 删除文件：无
+- 接口变更：
+  - 前端 `/admin/lots/progress` 继续复用现有路由与真实 API，页面定位调整为“成交后履约推进”。
+  - 当前提交候选还包含既有企业公开注册、企业授权材料上传、结拍调度/短信占位、附件公开访问兜底等相关改动。
+- 状态枚举变更：
+  - 当前提交候选包含 `AttachmentCategory.ENTERPRISE_AUTHORIZATION @map("授权材料")` 及对应 migration。该 schema 差异为接管前既有差异，本轮总控仅审计并成组纳入，避免代码与 schema 脱节。
+- 数据模型变更：
+  - 新增附件分类枚举值 `授权材料`；未新增结构化延时竞价字段。
+- 验证命令：
+  - `Set-Location E:/kuangchan/frontend; npm run lint`
+  - `Set-Location E:/kuangchan/frontend; npm run build`
+  - `Set-Location E:/kuangchan/backend; npm run lint`
+  - `Set-Location E:/kuangchan/backend; npm run typecheck`
+  - `Set-Location E:/kuangchan/backend; npm test`
+  - `Set-Location E:/kuangchan; git diff --check`
+  - `Set-Location E:/kuangchan; git diff --name-status`
+  - `Set-Location E:/kuangchan; git diff --cached --name-status`
+- 验证结果：
+  - `frontend npm run lint` 通过。
+  - `frontend npm run build` 通过。
+  - `backend npm run lint` 通过。
+  - `backend npm run typecheck` 通过。
+  - `backend npm test` 第二次通过，27 个测试套件、116 个用例通过；第一次失败原因是项目 PostgreSQL `127.0.0.1:55432` 未监听，启动项目独立 PostgreSQL 后重跑通过。
+  - `git diff --check` 通过，无 whitespace error，仅 LF/CRLF warning。
+  - worker 已完成并关闭；总控已复核实际文件与 diff。
+- 未完成事项：
+  - `stitch(4)/`、`stitch_add/`、`stitch_document_to_webpage_generator*/`、`output/`、`test-results/`、`.playwright-cli/` 等仍仅作本地参考或临时产物，不得提交。
+  - 未重新跑完整浏览器人工验收；本轮提交前验证以 lint/build/typecheck/test/diff check 为准。
+- 阻塞问题：无。
+- 需要总控确认：
+  - 本轮已按用户授权准备精确 stage、commit 并 push；提交后需以 `git status --short --branch` 和远端 push 输出为准。

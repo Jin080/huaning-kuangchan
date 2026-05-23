@@ -36,8 +36,6 @@ interface FileContentResponse {
 }
 
 @Controller()
-@UseGuards(AuthGuard, RolesGuard)
-@Roles('ADMIN', 'ENTERPRISE')
 export class FilesController {
   constructor(
     private readonly filePolicyService: FilePolicyService,
@@ -45,6 +43,7 @@ export class FilesController {
   ) {}
 
   @Get('admin/files')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN')
   listAdmin(
     @Query() query: FileQueryDto,
@@ -53,6 +52,7 @@ export class FilesController {
   }
 
   @Post('files/upload')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN', 'ENTERPRISE')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   upload(
@@ -63,7 +63,18 @@ export class FilesController {
     return this.filesService.upload(body, file, user.id, user.role);
   }
 
+  @Post('files/register-materials/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadRegisterMaterial(
+    @Body() body: FileUploadDto,
+    @UploadedFile() file: UploadedFilePayload | undefined,
+  ): Promise<FileUploadResponse> {
+    return this.filesService.uploadRegisterMaterial(body, file);
+  }
+
   @Get('files/content/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ENTERPRISE')
   async getFileContent(
     @CurrentUser() user: CurrentUser,
     @Param('id') id: string,
@@ -72,6 +83,23 @@ export class FilesController {
     await this.filePolicyService.getAccessibleFile(id, user);
     const file = await this.filesService.getStoredFile(id);
 
+    this.sendStoredFile(response, file);
+  }
+
+  @Get('files/public/:id')
+  async getPublicFileContent(
+    @Param('id') id: string,
+    @Res() response: FileContentResponse,
+  ): Promise<void> {
+    const file = await this.filesService.getPublicStoredFile(id);
+
+    this.sendStoredFile(response, file);
+  }
+
+  private sendStoredFile(
+    response: FileContentResponse,
+    file: { path: string; fileName: string; mimeType: string | null },
+  ): void {
     if (file.mimeType) {
       response.setHeader('Content-Type', file.mimeType);
     }
@@ -83,6 +111,8 @@ export class FilesController {
   }
 
   @Get('files/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ENTERPRISE')
   getFile(
     @CurrentUser() user: CurrentUser,
     @Param('id') id: string,

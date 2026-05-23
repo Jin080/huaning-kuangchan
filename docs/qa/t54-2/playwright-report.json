@@ -1,0 +1,90 @@
+[
+  {
+    "path": "/enterprise/register",
+    "viewport": "1440x1000",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\enterprise-register-desktop.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "bodyText": "华宁矿产竞拍平台\n首页\n矿产资源\n即将拍卖\n正在竞价\n成交公示\n信息资讯\n公开说明\n⌕\n登录\n企业入驻\n企业认证材料提交\n企业入驻\n\n请上传营业执照、企业资质和授权材料。系统会展示上传中、成功、失败和重新上传状态。\n\n1\n填写资料\n2\n提交审核\n3\n平台审核\n4\n认证通过\n\n请填写企业资料后提交审核。\n\n账号信息\n用户名\n设置密码\n确认密码\n企业基础信息\n企业名\n统一社会信用代码\n注册资本\n主营分类\n用户类别\n用户类型\n所属区域\n详细地址\n法人及联系人\n联系人\n联系电话\n法人代表\n身份证号\n电子邮件\n经营信息\n公司"
+  },
+  {
+    "path": "/enterprise/register",
+    "viewport": "390x900",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\enterprise-register-mobile.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "bodyText": "华宁矿产竞拍平台\n首页\n矿产资源\n即将拍卖\n正在竞价\n成交公示\n信息资讯\n公开说明\n⌕\n登录\n企业入驻\n企业认证材料提交\n企业入驻\n\n请上传营业执照、企业资质和授权材料。系统会展示上传中、成功、失败和重新上传状态。\n\n1\n填写资料\n2\n提交审核\n3\n平台审核\n4\n认证通过\n\n请填写企业资料后提交审核。\n\n账号信息\n用户名\n设置密码\n确认密码\n企业基础信息\n企业名\n统一社会信用代码\n注册资本\n主营分类\n用户类别\n用户类型\n所属区域\n详细地址\n法人及联系人\n联系人\n联系电话\n法人代表\n身份证号\n电子邮件\n经营信息\n公司"
+  },
+  {
+    "path": "/account/winning-detail",
+    "viewport": "1440x1000",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\account-winning-detail-desktop.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "bodyText": "华宁矿产竞拍平台\n首页\n矿产资源\n即将拍卖\n正在竞价\n成交公示\n信息资讯\n公开说明\n⌕\n华宁验收企业\n审核通过\n退出\n企\n企业中心\n华宁矿产竞拍\n▦\n中心首页\n✓\n我的企业认证\n￥\n我的意向金\n槌\n我的出价记录\n信\n我的通知\n华宁验收企业\n审核通过\n首页 / 企业中心\n中标后办理详情\n\n查看线下签约、尾款支付说明及完成确认进度。系统不做线上金钱交易。\n\n返回成交公示\n✓\n浏览公告\n✓\n参与报名\n✓\n缴纳保证金\n✓\n出价竞拍\n✓\n竞拍成功\n6\n线下签约\n7\n支付尾款\n8\n完成确认\n当前办理状态\n待线下签约\n\n请携带所"
+  },
+  {
+    "path": "/account/winning-detail",
+    "viewport": "390x900",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\account-winning-detail-mobile.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "bodyText": "华宁矿产竞拍平台\n首页\n矿产资源\n即将拍卖\n正在竞价\n成交公示\n信息资讯\n公开说明\n⌕\n华宁验收企业\n审核通过\n退出\n▦\n中心首页\n✓\n我的企业认证\n￥\n我的意向金\n槌\n我的出价记录\n信\n我的通知\n首页 / 企业中心\n中标后办理详情\n\n查看线下签约、尾款支付说明及完成确认进度。系统不做线上金钱交易。\n\n返回成交公示\n✓\n浏览公告\n✓\n参与报名\n✓\n缴纳保证金\n✓\n出价竞拍\n✓\n竞拍成功\n6\n线下签约\n7\n支付尾款\n8\n完成确认\n当前办理状态\n待线下签约\n\n请携带所需材料前往指定地点办理线下签约，签约后再按说明支付尾"
+  },
+  {
+    "path": "/admin/contracts",
+    "viewport": "1440x1000",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\admin-contracts-desktop.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "bodyText": "华\n华宁矿产\n系统管理后台\n▦\n首页看板\n◆\n拍品管理\n✓\n审核管理\n拍品发布审核\n企业认证审核\n意向金凭证审核\n￥\n交易管理\n企\n企业管理\n文\n内容运营\n盾\n系统审计\n结拍调度\n操作日志\nA\nadmin管理员\n首页 › 交易管理 › 合同状态管理\n合同状态管理\n通知退出\n合同履约核验\n\n管理全平台线下签约、尾款确认等流程状态。系统仅记录管理员已线下核验相关凭证。\n\n已加载合同列表，详情抽屉展示当前选中合同。\n\n待签约\n1\n需跟进线下合同\n已签约\n0\n等待尾款核验\n已完成\n0\n计入成交额看板\n筛选条件\n按业务字段快"
+  },
+  {
+    "path": "/admin/contracts",
+    "viewport": "390x900",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\admin-contracts-mobile.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "bodyText": "华\n华宁矿产\n系统管理后台\n▦\n首页看板\n◆\n拍品管理\n✓\n审核管理\n拍品发布审核\n企业认证审核\n意向金凭证审核\n￥\n交易管理\n企\n企业管理\n文\n内容运营\n盾\n系统审计\n结拍调度\n操作日志\nA\nadmin管理员\n首页 › 交易管理 › 合同状态管理\n合同状态管理\n通知退出\n合同履约核验\n\n管理全平台线下签约、尾款确认等流程状态。系统仅记录管理员已线下核验相关凭证。\n\n已加载合同列表，详情抽屉展示当前选中合同。\n\n待签约\n1\n需跟进线下合同\n已签约\n0\n等待尾款核验\n已完成\n0\n计入成交额看板\n筛选条件\n按业务字段快"
+  },
+  {
+    "path": "/admin/auction-closing",
+    "viewport": "1440x1000",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\admin-auction-closing-desktop.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "bodyText": "华\n华宁矿产\n系统管理后台\n▦\n首页看板\n◆\n拍品管理\n✓\n审核管理\n拍品发布审核\n企业认证审核\n意向金凭证审核\n￥\n交易管理\n企\n企业管理\n文\n内容运营\n盾\n系统审计\n结拍调度\n操作日志\nA\nadmin管理员\n首页 › 系统审计 › 结拍调度\n结拍调度\n通知退出\n结拍调度\n\n运维任务入口仅触发既有结拍服务，不新增后端接口。\n\n返回流程进度\n\n已加载拍品列表；待结拍队列为前端根据状态与竞拍结束时间筛选。NEEDS_REVIEW：后端暂无独立待结拍列表接口。\n\n执行逻辑提示\n结拍逻辑由运维定时任务自动触发。手动执行前"
+  },
+  {
+    "path": "/admin/auction-closing",
+    "viewport": "390x900",
+    "screenshot": "E:\\kuangchan\\docs\\qa\\t54-2\\admin-auction-closing-mobile.png",
+    "consoleErrorCount": 0,
+    "consoleErrors": [],
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "bodyText": "华\n华宁矿产\n系统管理后台\n▦\n首页看板\n◆\n拍品管理\n✓\n审核管理\n拍品发布审核\n企业认证审核\n意向金凭证审核\n￥\n交易管理\n企\n企业管理\n文\n内容运营\n盾\n系统审计\n结拍调度\n操作日志\nA\nadmin管理员\n首页 › 系统审计 › 结拍调度\n结拍调度\n通知退出\n结拍调度\n\n运维任务入口仅触发既有结拍服务，不新增后端接口。\n\n返回流程进度\n\n已加载拍品列表；待结拍队列为前端根据状态与竞拍结束时间筛选。NEEDS_REVIEW：后端暂无独立待结拍列表接口。\n\n执行逻辑提示\n结拍逻辑由运维定时任务自动触发。手动执行前"
+  }
+]

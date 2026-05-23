@@ -105,6 +105,7 @@ function createService(options: {
     lot: {
       findUnique: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
     bidRecord: {
       findFirst: jest.Mock;
@@ -142,6 +143,20 @@ function createService(options: {
 
         Object.assign(lot, data);
         return Promise.resolve(lot);
+      }),
+      updateMany: jest.fn(({ where, data }) => {
+        if (
+          lot &&
+          where.id === lot.id &&
+          where.status === lot.status &&
+          lot.biddingStartAt <= where.biddingStartAt.lte &&
+          lot.biddingEndAt > where.biddingEndAt.gt
+        ) {
+          Object.assign(lot, data);
+          return Promise.resolve({ count: 1 });
+        }
+
+        return Promise.resolve({ count: 0 });
       }),
     },
     bidRecord: {
@@ -273,11 +288,12 @@ describe('BidsService', () => {
   });
 
   it('rejects bidding when deposit qualification is not approved', async () => {
-    const { service } = createService({ qualified: false });
+    const { service, prisma } = createService({ qualified: false });
 
     await expect(
       service.placeBid('user-1', 'lot-1', { amount: '1300' }),
     ).rejects.toMatchObject({ code: 'DEPOSIT_NOT_APPROVED' });
+    expect(prisma.lot.findUnique).not.toHaveBeenCalled();
   });
 
   it('rejects blacklisted enterprises before checking deposit qualification', async () => {
@@ -291,14 +307,45 @@ describe('BidsService', () => {
     expect(deposits.hasBiddingQualification).not.toHaveBeenCalled();
   });
 
-  it('rejects bids when lot is not in bidding status', async () => {
+  it('rejects bids when an announcing lot is not due for bidding yet', async () => {
     const { service } = createService({
-      lot: createLot({ status: LotStatus.ANNOUNCING }),
+      lot: createLot({
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: new Date('2026-05-17T09:30:00.000Z'),
+      }),
     });
 
     await expect(
       service.placeBid('user-1', 'lot-1', { amount: '1300' }),
     ).rejects.toMatchObject({ code: 'AUCTION_ENDED' });
+  });
+
+  it('activates a due announcing lot before accepting a qualified bid', async () => {
+    const { service, prisma, lot } = createService({
+      lot: createLot({
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: new Date('2026-05-17T08:30:00.000Z'),
+        biddingEndAt: new Date('2026-05-17T10:00:00.000Z'),
+      }),
+      qualified: true,
+      now: new Date('2026-05-17T09:00:00.000Z'),
+    });
+
+    const result = await service.placeBid('user-1', 'lot-1', {
+      amount: '1300',
+    });
+
+    expect(prisma.lot.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'lot-1',
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: { lte: new Date('2026-05-17T09:00:00.000Z') },
+        biddingEndAt: { gt: new Date('2026-05-17T09:00:00.000Z') },
+      },
+      data: { status: LotStatus.BIDDING },
+    });
+    expect(lot?.status).toBe(LotStatus.BIDDING);
+    expect(result.currentHighestPrice).toBe('1300');
   });
 
   it('rejects bids outside bidding time', async () => {

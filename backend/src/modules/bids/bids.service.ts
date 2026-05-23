@@ -73,6 +73,8 @@ export class BidsService {
     }
 
     const bid = await this.prisma.$transaction(async (tx) => {
+      await this.activateDueBiddingLot(tx, lotId, bidAt);
+
       const lot = await tx.lot.findUnique({ where: { id: lotId } });
 
       this.ensureLotCanReceiveBid(lot, bidAt);
@@ -238,6 +240,22 @@ export class BidsService {
     return enterprise;
   }
 
+  private async activateDueBiddingLot(
+    tx: PrismaServiceLike,
+    lotId: string,
+    bidAt: Date,
+  ): Promise<void> {
+    await tx.lot.updateMany({
+      where: {
+        id: lotId,
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: { lte: bidAt },
+        biddingEndAt: { gt: bidAt },
+      },
+      data: { status: LotStatus.BIDDING },
+    });
+  }
+
   private ensureLotCanReceiveBid(
     lot: Lot | null,
     bidAt: Date,
@@ -359,6 +377,7 @@ type PrismaServiceLike = {
   lot: {
     findUnique(args: Prisma.LotFindUniqueArgs): Promise<Lot | null>;
     update(args: Prisma.LotUpdateArgs): Promise<Lot>;
+    updateMany(args: Prisma.LotUpdateManyArgs): Promise<Prisma.BatchPayload>;
   };
   bidRecord: {
     findFirst(args: Prisma.BidRecordFindFirstArgs): Promise<BidRecord | null>;

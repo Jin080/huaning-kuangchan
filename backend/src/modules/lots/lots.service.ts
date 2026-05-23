@@ -66,6 +66,7 @@ export class LotsService {
     const [items, total] = await Promise.all([
       this.prisma.lot.findMany({
         where,
+        include: { attachments: true },
         orderBy: [{ updatedAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -74,7 +75,7 @@ export class LotsService {
     ]);
 
     return createListResponse(
-      items.map((lot) => this.toResponse(lot)),
+      items.map((lot) => this.toDetailResponse(lot)),
       total,
       page,
       pageSize,
@@ -82,6 +83,8 @@ export class LotsService {
   }
 
   async listPublic(query: LotQueryDto): Promise<ListResponse<LotResponse>> {
+    await this.activateDueBiddingLots();
+
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
     const where = {
@@ -91,6 +94,7 @@ export class LotsService {
     const [items, total] = await Promise.all([
       this.prisma.lot.findMany({
         where,
+        include: { attachments: true },
         orderBy: [{ announcementStartAt: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -99,7 +103,7 @@ export class LotsService {
     ]);
 
     return createListResponse(
-      items.map((lot) => this.toResponse(lot)),
+      items.map((lot) => this.toDetailResponse(lot)),
       total,
       page,
       pageSize,
@@ -107,6 +111,8 @@ export class LotsService {
   }
 
   async getPublicDetail(id: string): Promise<LotDetailResponse> {
+    await this.activateDueBiddingLots();
+
     const lot = await this.prisma.lot.findUnique({
       where: { id },
       include: { attachments: true },
@@ -123,6 +129,17 @@ export class LotsService {
     return this.toDetailResponse(lot);
   }
 
+  async activateDueBiddingLots(now = new Date()): Promise<Prisma.BatchPayload> {
+    return this.prisma.lot.updateMany({
+      where: {
+        status: LotStatus.ANNOUNCING,
+        biddingStartAt: { lte: now },
+        biddingEndAt: { gt: now },
+      },
+      data: { status: LotStatus.BIDDING },
+    });
+  }
+
   async createDraft(
     dto: LotMutationDto,
     actorId?: string,
@@ -135,6 +152,7 @@ export class LotsService {
       },
     });
 
+    await this.claimAdditionalImages(lot.id, dto.additionalImageUrls);
     await this.record(actorId, '创建拍品草稿', lot.id);
 
     return this.toResponse(lot);
@@ -148,6 +166,7 @@ export class LotsService {
       data: this.toMutationData(dto),
     });
 
+    await this.claimAdditionalImages(lot.id, dto.additionalImageUrls);
     await this.record(undefined, '编辑拍品', lot.id);
 
     return this.toResponse(lot);
@@ -283,6 +302,33 @@ export class LotsService {
       extensionEnabled: dto.extensionEnabled ?? false,
       extensionRule: dto.extensionRule,
     };
+  }
+
+  private async claimAdditionalImages(
+    lotId: string,
+    imageUrls?: string[],
+  ): Promise<void> {
+    const ids = (imageUrls ?? [])
+      .map((fileUrl) => this.extractContentFileId(fileUrl))
+      .filter((id): id is string => Boolean(id));
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    await this.prisma.attachment.updateMany({
+      where: {
+        id: { in: Array.from(new Set(ids)) },
+        category: AttachmentCategory.LOT_IMAGE,
+      },
+      data: { lotId },
+    });
+  }
+
+  private extractContentFileId(fileUrl: string): string | undefined {
+    const match = fileUrl.match(/\/files\/content\/([^/?#]+)/);
+
+    return match?.[1];
   }
 
   private toResponse(lot: Lot): LotResponse {

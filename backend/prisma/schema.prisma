@@ -99,6 +99,7 @@ enum AttachmentCategory {
   LOT_IMAGE              @map("拍品图片")
   INSPECTION_REPORT      @map("检测报告")
   ENTERPRISE_QUALIFICATION @map("企业资质")
+  ENTERPRISE_AUTHORIZATION @map("授权材料")
   BUSINESS_LICENSE       @map("营业执照")
   DEPOSIT_VOUCHER        @map("意向金凭证")
   CONTENT_IMAGE          @map("内容图片")

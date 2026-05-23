@@ -43,10 +43,17 @@ type ListResponse<T> = {
 };
 
 type MaybeListResponse<T> = ListResponse<T> | T[];
+type ApiRequestInit = RequestInit & {
+  auth?: boolean;
+  authRole?: AuthRole;
+  rawResponse?: boolean;
+};
 
 type ApiLot = {
   id: string;
   title: string;
+  imageOneUrl?: string | null;
+  imageTwoUrl?: string | null;
   startPrice: string;
   quantity: string;
   quantityUnit: string;
@@ -77,6 +84,24 @@ type ApiLot = {
     depositRatio: string | null;
     depositAmount: string;
   };
+  attachments?: Array<{
+    id: string;
+    category: UploadCategory | string;
+    fileName: string;
+    fileUrl: string;
+    mimeType?: string | null;
+    fileSize?: number | null;
+    isSensitive?: boolean;
+  }>;
+  inspectionReports?: Array<{
+    id: string;
+    category: UploadCategory | string;
+    fileName: string;
+    fileUrl: string;
+    mimeType?: string | null;
+    fileSize?: number | null;
+    isSensitive?: boolean;
+  }>;
 };
 
 type MappedLot = Lot & {
@@ -158,6 +183,22 @@ type ApiAccountDeposit = {
   rejectReason: string | null;
 };
 
+type FileAccessResponse = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  fileSize?: number | null;
+};
+
+type EnterpriseMaterialResponse = {
+  id: string;
+  category: string;
+  label: string;
+  fileName: string;
+  fileUrl: string;
+};
+
 type ApiAccountBid = {
   id: string;
   lotId: string;
@@ -217,6 +258,7 @@ type ApiAccountCertification = {
   reviewedAt?: string | null;
   reviewerId?: string | null;
   rejectReason?: string | null;
+  materials?: EnterpriseMaterialResponse[];
 };
 
 type ApiAdminNotification = ApiAccountMessage & {
@@ -235,6 +277,7 @@ type ApiEnterprise = {
   status: Enterprise['status'];
   submittedAt: string | null;
   rejectReason: string | null;
+  materials?: EnterpriseMaterialResponse[];
 };
 
 type ApiAdminDeposit = {
@@ -245,6 +288,7 @@ type ApiAdminDeposit = {
   enterpriseName?: string | null;
   requiredAmount: string;
   paidAmount: string | null;
+  attachmentId?: string | null;
   voucherFileName?: string | null;
   voucherFileUrl?: string | null;
   status: DepositRecord['status'];
@@ -261,9 +305,33 @@ type AdminTodoCounts = {
 };
 
 export type AuctionClosingRunSummary = {
-  processed: number;
-  succeeded: number;
-  failed: number;
+  checkedLots: number;
+  closedLots: number;
+  endedWithoutBids: number;
+  skippedLots: number;
+};
+
+export type AuctionClosingPendingLot = {
+  lotId: string;
+  title: string;
+  endAt: string;
+  currentHighestPrice: string | null;
+  status: Lot['status'] | string;
+};
+
+export type AuctionClosingRunRecord = {
+  id: string;
+  trigger: 'manual' | 'auto';
+  status: 'SUCCESS' | 'FAILED';
+  startedAt: string;
+  finishedAt: string;
+  summary: AuctionClosingRunSummary;
+  errorMessage: string | null;
+};
+
+export type AuctionClosingRunsResponse = {
+  ephemeral: true;
+  items: AuctionClosingRunRecord[];
 };
 
 type ApiAdminBid = {
@@ -371,7 +439,8 @@ export class ApiError extends Error {
   }
 }
 
-export type UploadCategory = 'LOT_IMAGE' | 'INSPECTION_REPORT' | 'DEPOSIT_VOUCHER';
+export type UploadCategory = 'LOT_IMAGE' | 'INSPECTION_REPORT' | 'ENTERPRISE_QUALIFICATION' | 'BUSINESS_LICENSE' | 'ENTERPRISE_AUTHORIZATION' | 'DEPOSIT_VOUCHER' | 'OTHER';
+export type RegisterMaterialUploadCategory = 'ENTERPRISE_QUALIFICATION' | 'BUSINESS_LICENSE' | 'ENTERPRISE_AUTHORIZATION';
 
 export type FileUploadResponse = {
   id: string;
@@ -387,6 +456,7 @@ export type LotMutationPayload = {
   title: string;
   imageOneUrl: string;
   imageTwoUrl: string;
+  additionalImageUrls?: string[];
   startPrice: string;
   quantity: string;
   quantityUnit?: string;
@@ -415,6 +485,9 @@ export type LotMutationPayload = {
 };
 
 export type EnterpriseRegisterPayload = {
+  username: string;
+  password: string;
+  confirmPassword: string;
   name: string;
   contactPerson: string;
   contactPhone: string;
@@ -443,7 +516,9 @@ export type EnterpriseRegisterPayload = {
   agreementAccepted: boolean;
   qualificationFileUrl?: string;
   businessLicenseFileUrl?: string;
+  authorizationMaterialUrl?: string;
 };
+export type EnterpriseCertificationPayload = Omit<EnterpriseRegisterPayload, 'username' | 'password' | 'confirmPassword'>;
 
 export type DepositVoucherPayload = {
   voucherFileName: string;
@@ -561,14 +636,16 @@ function createBlockedFallbackError(error: unknown): Error {
   return new Error('真实 API 请求失败，mock fallback 默认关闭。仅本地开发可设置 VITE_ENABLE_MOCK_FALLBACK=true 启用 dev fixture。', { cause: error });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getAuthToken();
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
+async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
+  const { auth = true, authRole, rawResponse, ...fetchInit } = init ?? {};
+  const token = auth ? getAuthToken(authRole) : null;
+  const url = /^https?:\/\//.test(path) ? path : `${API_BASE}${path}`;
+  const response = await fetch(url, {
+    ...fetchInit,
     headers: {
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
+      Accept: rawResponse ? '*/*' : 'application/json',
+      ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
+      ...fetchInit.headers,
     },
   });
 
@@ -584,11 +661,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       // Keep the status-based message when backend returns a non-JSON error.
     }
 
-    if (response.status === 401) {
-      clearAuthSession();
+    if (auth && response.status === 401) {
+      clearAuthSession(authRole);
     }
 
     throw new ApiError(message, response.status, code);
+  }
+
+  if (rawResponse) {
+    return response as T;
   }
 
   return response.json() as Promise<T>;
@@ -676,7 +757,7 @@ function money(value: string, suffix = '元'): string {
 }
 
 function getEnterpriseHeaders(): Record<string, string> {
-  if (getAuthToken() || !DEV_AUTH_HEADERS_ENABLED) {
+  if (getAuthToken('ENTERPRISE') || !DEV_AUTH_HEADERS_ENABLED) {
     return {};
   }
 
@@ -687,7 +768,7 @@ function getEnterpriseHeaders(): Record<string, string> {
 }
 
 function getAdminHeaders(): Record<string, string> {
-  if (getAuthToken() || !DEV_AUTH_HEADERS_ENABLED) {
+  if (getAuthToken('ADMIN') || !DEV_AUTH_HEADERS_ENABLED) {
     return {};
   }
 
@@ -699,6 +780,7 @@ function getAdminHeaders(): Record<string, string> {
 
 function adminPost<T>(path: string, body?: Record<string, unknown>) {
   return request<T>(path, {
+    authRole: 'ADMIN',
     method: 'POST',
     headers: {
       ...getAdminHeaders(),
@@ -708,8 +790,16 @@ function adminPost<T>(path: string, body?: Record<string, unknown>) {
   });
 }
 
+function adminGet<T>(path: string) {
+  return request<T>(path, {
+    authRole: 'ADMIN',
+    headers: getAdminHeaders(),
+  });
+}
+
 function adminPut<T>(path: string, body: Record<string, unknown>) {
   return request<T>(path, {
+    authRole: 'ADMIN',
     method: 'PUT',
     headers: {
       ...getAdminHeaders(),
@@ -721,6 +811,7 @@ function adminPut<T>(path: string, body: Record<string, unknown>) {
 
 function enterprisePost<T>(path: string, body: Record<string, unknown>) {
   return request<T>(path, {
+    authRole: 'ENTERPRISE',
     method: 'POST',
     headers: {
       ...getEnterpriseHeaders(),
@@ -730,14 +821,42 @@ function enterprisePost<T>(path: string, body: Record<string, unknown>) {
   });
 }
 
-async function uploadFile(file: File, category: UploadCategory) {
+function enterprisePut<T>(path: string, body: Record<string, unknown>) {
+  return request<T>(path, {
+    authRole: 'ENTERPRISE',
+    method: 'PUT',
+    headers: {
+      ...getEnterpriseHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function publicPost<T>(path: string, body: Record<string, unknown>) {
+  return request<T>(path, {
+    auth: false,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function uploadFile(file: File, category: UploadCategory, lotId?: string) {
   const formData = new FormData();
   formData.append('category', category);
+  if (lotId) {
+    formData.append('lotId', lotId);
+  }
   formData.append('file', file);
+  const adminUploadCategories = new Set<UploadCategory>(['LOT_IMAGE', 'INSPECTION_REPORT']);
 
   const uploaded = await request<FileUploadResponse>('/files/upload', {
+    authRole: adminUploadCategories.has(category) ? 'ADMIN' : 'ENTERPRISE',
     method: 'POST',
-    headers: category === 'DEPOSIT_VOUCHER' ? getEnterpriseHeaders() : getAdminHeaders(),
+    headers: adminUploadCategories.has(category) ? getAdminHeaders() : getEnterpriseHeaders(),
     body: formData,
   });
 
@@ -745,6 +864,68 @@ async function uploadFile(file: File, category: UploadCategory) {
     ...uploaded,
     fileUrl: resolveApiFileUrl(uploaded.fileUrl),
   };
+}
+
+async function uploadRegisterMaterialFile(file: File, category: RegisterMaterialUploadCategory) {
+  const formData = new FormData();
+  formData.append('category', category);
+  formData.append('file', file);
+
+  const uploaded = await request<FileUploadResponse>('/files/register-materials/upload', {
+    auth: false,
+    method: 'POST',
+    body: formData,
+  });
+
+  return {
+    ...uploaded,
+    fileUrl: resolveApiFileUrl(uploaded.fileUrl),
+  };
+}
+
+async function createFileObjectUrl(fileUrl: string, attachmentId?: string, authRole: AuthRole = 'ADMIN') {
+  if (attachmentId && (!fileUrl || !fileUrl.includes('/files/content/'))) {
+    const file = await request<FileAccessResponse>(`/files/${attachmentId}`, { authRole });
+
+    if (file.fileUrl && file.fileUrl !== fileUrl) {
+      return createFileObjectUrl(file.fileUrl, file.id, authRole);
+    }
+  }
+
+  if (!fileUrl) {
+    throw new Error('当前记录未返回可预览的文件链接。');
+  }
+
+  const response = await request<Response>(fileUrl, {
+    authRole,
+    rawResponse: true,
+  });
+  const blob = await response.blob();
+
+  return window.URL.createObjectURL(blob);
+}
+
+async function openFileUrl(fileUrl: string, attachmentId?: string, authRole: AuthRole = 'ENTERPRISE') {
+  if (attachmentId && (!fileUrl || !fileUrl.includes('/files/content/'))) {
+    const file = await request<FileAccessResponse>(`/files/${attachmentId}`, { authRole });
+
+    if (file.fileUrl && file.fileUrl !== fileUrl) {
+      return openFileUrl(file.fileUrl, file.id, authRole);
+    }
+  }
+
+  if (!fileUrl) {
+    throw new Error('当前记录未返回可预览的文件链接。');
+  }
+
+  const response = await request<Response>(fileUrl, {
+    authRole,
+    rawResponse: true,
+  });
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  window.open(objectUrl, '_blank', 'noopener,noreferrer');
+  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60_000);
 }
 
 function resolveApiFileUrl(fileUrl: string): string {
@@ -755,6 +936,14 @@ function resolveApiFileUrl(fileUrl: string): string {
   const base = /^https?:\/\//.test(API_BASE) ? API_BASE : window.location.origin;
 
   return new URL(fileUrl, base).toString();
+}
+
+function resolvePublicLotImageUrl(fileUrl?: string | null): string | undefined {
+  if (!fileUrl?.trim()) {
+    return undefined;
+  }
+
+  return resolveApiFileUrl(fileUrl.replace('/files/content/', '/files/public/'));
 }
 
 function mapDashboard(data: ApiPortalDashboard): Stat[] {
@@ -770,10 +959,38 @@ function mapLot(lot: ApiLot): MappedLot {
   const category = [lot.mineralCategory, lot.grade].filter(Boolean).join(' / ') || lot.mineralCategory || '矿产资源';
   const bidIncrement = lot.auctionRule?.bidIncrement ?? lot.bidIncrement;
   const depositAmount = lot.depositInstruction?.depositAmount ?? lot.depositAmount;
+  const attachments = (lot.attachments ?? []).map((item) => ({
+    id: item.id,
+    category: item.category,
+    fileName: item.fileName,
+    fileUrl: resolveApiFileUrl(item.fileUrl),
+  }));
+  const inspectionReports = (lot.inspectionReports ?? []).map((item) => ({
+    id: item.id,
+    category: item.category,
+    fileName: item.fileName,
+    fileUrl: resolveApiFileUrl(item.fileUrl),
+  }));
+  const imageUrls = [
+    lot.imageOneUrl,
+    lot.imageTwoUrl,
+    ...attachments
+      .filter((item) => item.category === 'LOT_IMAGE')
+      .map((item) => item.fileUrl),
+  ]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map(resolvePublicLotImageUrl)
+    .filter((value): value is string => Boolean(value))
+    .filter((value, index, values) => values.indexOf(value) === index);
 
   return {
     id: lot.id,
     title: lot.title,
+    imageOneUrl: resolvePublicLotImageUrl(lot.imageOneUrl),
+    imageTwoUrl: resolvePublicLotImageUrl(lot.imageTwoUrl),
+    imageUrls,
+    attachments,
+    inspectionReports,
     startPrice: money(lot.startPrice),
     currentPrice: money(lot.currentHighestPrice ?? lot.startPrice),
     quantity: `${lot.quantity} ${lot.quantityUnit}`,
@@ -886,8 +1103,8 @@ function mapDeposit(deposit: ApiAccountDeposit): MappedDepositRecord {
     amount: paidAmount || requiredAmount,
     requiredAmount,
     paidAmount,
-    attachmentId: deposit.attachmentId ?? undefined,
     voucher: deposit.voucherFileName || '查看凭证',
+    attachmentId: deposit.attachmentId ?? undefined,
     voucherFileName: deposit.voucherFileName ?? undefined,
     voucherFileUrl: deposit.voucherFileUrl ?? undefined,
     status: deposit.status,
@@ -899,6 +1116,11 @@ function mapDeposit(deposit: ApiAccountDeposit): MappedDepositRecord {
 }
 
 function mapEnterprise(enterprise: ApiEnterprise): Enterprise {
+  const materials = enterprise.materials ?? [];
+  const license = materials.find((material) => material.category === 'BUSINESS_LICENSE');
+  const qualification = materials.find((material) => material.category === 'ENTERPRISE_QUALIFICATION');
+  const authorization = materials.find((material) => material.category === 'ENTERPRISE_AUTHORIZATION');
+
   return {
     id: enterprise.id,
     name: enterprise.name,
@@ -910,6 +1132,16 @@ function mapEnterprise(enterprise: ApiEnterprise): Enterprise {
     status: enterprise.status,
     submittedAt: formatDate(enterprise.submittedAt),
     rejectReason: enterprise.rejectReason ?? undefined,
+    businessLicenseFileName: license?.fileName,
+    businessLicenseFileUrl: license?.fileUrl,
+    businessLicenseAttachmentId: license?.id,
+    qualificationFileName: qualification?.fileName,
+    qualificationFileUrl: qualification?.fileUrl,
+    qualificationAttachmentId: qualification?.id,
+    authorizationMaterialFileName: authorization?.fileName,
+    authorizationMaterialUrl: authorization?.fileUrl,
+    authorizationMaterialAttachmentId: authorization?.id,
+    materials,
   };
 }
 
@@ -926,6 +1158,7 @@ function mapAdminDeposit(deposit: ApiAdminDeposit): MappedDepositRecord {
     requiredAmount,
     paidAmount,
     voucher: deposit.voucherFileName || '查看凭证',
+    attachmentId: deposit.attachmentId ?? undefined,
     voucherFileName: deposit.voucherFileName ?? undefined,
     voucherFileUrl: deposit.voucherFileUrl ?? undefined,
     status: deposit.status,
@@ -943,9 +1176,9 @@ function isPendingReviewStatus(row: { status?: string; statusCode?: string }): b
 async function fetchAdminTodoCounts(): Promise<AdminTodoCounts> {
   const headers = getAdminHeaders();
   const [lotReviewData, enterpriseReviewData, depositReviewData] = await Promise.all([
-    request<MaybeListResponse<ApiLot>>('/admin/reviews/lots?pageSize=100', { headers }),
-    request<MaybeListResponse<ApiEnterprise>>('/admin/reviews/enterprises?pageSize=100', { headers }),
-    request<MaybeListResponse<ApiAdminDeposit>>('/admin/reviews/deposits?pageSize=100', { headers }),
+    request<MaybeListResponse<ApiLot>>('/admin/reviews/lots?pageSize=100', { authRole: 'ADMIN', headers }),
+    request<MaybeListResponse<ApiEnterprise>>('/admin/reviews/enterprises?pageSize=100', { authRole: 'ADMIN', headers }),
+    request<MaybeListResponse<ApiAdminDeposit>>('/admin/reviews/deposits?pageSize=100', { authRole: 'ADMIN', headers }),
   ]);
 
   return {
@@ -1136,45 +1369,49 @@ export const api = {
   getBlacklist: () => devFixtureRows(blacklist),
   getFiles: () => devFixtureRows(files),
   getLogs: () => devFixtureRows(logs),
-  login: async (username: string, password: string) => {
+  login: async (username: string, password: string, expectedRole?: AuthRole) => {
     const result = await request<LoginResult>('/auth/login', {
+      auth: false,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
 
-    saveAuthSession(result);
+    if (!expectedRole || result.profile.roleCode === expectedRole) {
+      saveAuthSession(result);
+    }
+
     return result;
   },
-  logout: async () => {
+  logout: async (role?: AuthRole) => {
     try {
-      await request<{ success: true; message: string }>('/auth/logout', { method: 'POST' });
+      await request<{ success: true; message: string }>('/auth/logout', { authRole: role, method: 'POST' });
     } finally {
-      clearAuthSession();
+      clearAuthSession(role);
     }
   },
   fetchStats: () =>
     withFallback(
-      async () => mapDashboard(await request<ApiPortalDashboard>('/portal/dashboard')),
+      async () => mapDashboard(await request<ApiPortalDashboard>('/portal/dashboard', { auth: false })),
       stats,
     ),
   fetchLots: () =>
     withFallback(
       async () => {
-        const data = await request<ListResponse<ApiLot>>('/lots?pageSize=100');
+        const data = await request<ListResponse<ApiLot>>('/lots?pageSize=100', { auth: false });
         return data.items.map(mapLot);
       },
       lots,
     ),
   fetchLot: (id?: string) =>
     withFallback(
-      async () => mapLot(await request<ApiLot>(`/lots/${id ?? lots[0].id}`)),
+      async () => mapLot(await request<ApiLot>(`/lots/${id ?? lots[0].id}`, { auth: false })),
       lots.find((lot) => lot.id === id) ?? lots[0],
     ),
   fetchBidRecords: (lotId?: string, lotTitle = '') =>
     withFallback(
       async () => {
-        const data = await request<ListResponse<ApiPublicBid>>(`/lots/${lotId ?? lots[0].id}/bid-records?pageSize=100`);
+        const data = await request<ListResponse<ApiPublicBid>>(`/lots/${lotId ?? lots[0].id}/bid-records?pageSize=100`, { auth: false });
         return data.items.map((bid) => mapPublicBid(bid, lotTitle));
       },
       bids,
@@ -1182,28 +1419,28 @@ export const api = {
   fetchResults: () =>
     withFallback(
       async () => {
-        const data = await request<ListResponse<ApiResult>>('/results?pageSize=100');
+        const data = await request<ListResponse<ApiResult>>('/results?pageSize=100', { auth: false });
         return data.items.map(mapResult);
       },
       results,
     ),
   fetchResultDetail: (id: string) =>
     withFallback(
-      async () => mapResult(await request<ApiResult>(`/results/${id}`)),
+      async () => mapResult(await request<ApiResult>(`/results/${id}`, { auth: false })),
       results.find((result) => result.id === id || result.lotId === id) ?? results[0],
     ),
   fetchContents: (category?: string) =>
     withFallback(
       async () => {
         const query = category ? `?category=${category}&pageSize=100` : '?pageSize=100';
-        const data = await request<ListResponse<ApiContent>>(`/contents${query}`);
+        const data = await request<ListResponse<ApiContent>>(`/contents${query}`, { auth: false });
         return data.items.map(mapContent);
       },
       contents,
     ),
   fetchAccountProfile: () =>
     withPublicFallback(
-      async () => mapProfile(await request<ApiAccountProfile>('/account/profile', { headers: getEnterpriseHeaders() })),
+      async () => mapProfile(await request<ApiAccountProfile>('/account/profile', { authRole: 'ENTERPRISE', headers: getEnterpriseHeaders() })),
       {
         id: 'dev-fixture-account',
         username: 'dev-fixture',
@@ -1214,7 +1451,7 @@ export const api = {
     ),
   fetchAccountCertification: () =>
     withPublicFallback(
-      async () => mapCertification(await request<ApiAccountCertification>('/account/certification', { headers: getEnterpriseHeaders() })),
+      async () => mapCertification(await request<ApiAccountCertification>('/account/certification', { authRole: 'ENTERPRISE', headers: getEnterpriseHeaders() })),
       mapCertification({
         id: enterprises[0]?.id,
         name: enterprises[0]?.name ?? '示例企业',
@@ -1249,7 +1486,7 @@ export const api = {
   fetchAccountDeposits: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAccountDeposit>>('/account/deposit-vouchers?pageSize=100', { headers: getEnterpriseHeaders() });
+        const data = await request<ListResponse<ApiAccountDeposit>>('/account/deposit-vouchers?pageSize=100', { authRole: 'ENTERPRISE', headers: getEnterpriseHeaders() });
         return data.items.map(mapDeposit);
       },
       deposits,
@@ -1257,7 +1494,7 @@ export const api = {
   fetchAccountBids: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAccountBid>>('/account/bids?pageSize=100', { headers: getEnterpriseHeaders() });
+        const data = await request<ListResponse<ApiAccountBid>>('/account/bids?pageSize=100', { authRole: 'ENTERPRISE', headers: getEnterpriseHeaders() });
         return data.items.map(mapAccountBid);
       },
       bids,
@@ -1265,20 +1502,20 @@ export const api = {
   fetchAccountMessages: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAccountMessage>>('/account/messages?pageSize=100', { headers: getEnterpriseHeaders() });
+        const data = await request<ListResponse<ApiAccountMessage>>('/account/messages?pageSize=100', { authRole: 'ENTERPRISE', headers: getEnterpriseHeaders() });
         return data.items.map(mapMessage);
       },
       notifications,
     ),
   markMessageRead: (id: string) =>
     withPublicFallback(
-      async () => mapMessage(await request<ApiAccountMessage>(`/account/messages/${id}/read`, { method: 'POST', headers: getEnterpriseHeaders() })),
+      async () => mapMessage(await request<ApiAccountMessage>(`/account/messages/${id}/read`, { authRole: 'ENTERPRISE', method: 'POST', headers: getEnterpriseHeaders() })),
       notifications.find((message) => message.id === id) ?? notifications[0],
     ),
   fetchAdminLots: () =>
     withPublicFallback(
       async () => {
-        const data = await request<MaybeListResponse<ApiLot>>('/admin/lots?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<MaybeListResponse<ApiLot>>('/admin/lots?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return listItems(data).map(mapLot);
       },
       lots,
@@ -1286,7 +1523,7 @@ export const api = {
   fetchAdminLotReviews: () =>
     withPublicFallback(
       async () => {
-        const data = await request<MaybeListResponse<ApiLot>>('/admin/reviews/lots?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<MaybeListResponse<ApiLot>>('/admin/reviews/lots?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return listItems(data).map(mapLot);
       },
       lots.filter((x) => ['待发布复核', '公示中', '发布驳回'].includes(x.status)),
@@ -1294,7 +1531,7 @@ export const api = {
   fetchAdminEnterpriseReviews: () =>
     withPublicFallback(
       async () => {
-        const data = await request<MaybeListResponse<ApiEnterprise>>('/admin/reviews/enterprises?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<MaybeListResponse<ApiEnterprise>>('/admin/reviews/enterprises?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return listItems(data).map(mapEnterprise);
       },
       enterprises,
@@ -1302,7 +1539,7 @@ export const api = {
   fetchAdminDepositReviews: () =>
     withPublicFallback(
       async () => {
-        const data = await request<MaybeListResponse<ApiAdminDeposit>>('/admin/reviews/deposits?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<MaybeListResponse<ApiAdminDeposit>>('/admin/reviews/deposits?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return listItems(data).map(mapAdminDeposit);
       },
       deposits,
@@ -1310,7 +1547,7 @@ export const api = {
   fetchAdminBids: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAdminBid>>('/admin/bids?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiAdminBid>>('/admin/bids?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapAdminBid);
       },
       bids,
@@ -1318,7 +1555,7 @@ export const api = {
   fetchAdminResults: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiResult>>('/admin/results?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiResult>>('/admin/results?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapResult);
       },
       results,
@@ -1326,7 +1563,7 @@ export const api = {
   fetchAdminContracts: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiContract>>('/admin/contracts?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiContract>>('/admin/contracts?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapContract);
       },
       contracts,
@@ -1334,7 +1571,7 @@ export const api = {
   fetchAdminRefunds: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiRefund>>('/admin/refunds?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiRefund>>('/admin/refunds?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapRefund);
       },
       refunds,
@@ -1342,7 +1579,7 @@ export const api = {
   fetchAdminBlacklist: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiBlacklist>>('/admin/blacklist?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiBlacklist>>('/admin/blacklist?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapBlacklist);
       },
       blacklist,
@@ -1350,7 +1587,7 @@ export const api = {
   fetchAdminContents: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiContent>>('/admin/contents?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiContent>>('/admin/contents?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapContent);
       },
       contents,
@@ -1358,7 +1595,7 @@ export const api = {
   fetchAdminNotifications: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAdminNotification>>('/admin/notifications?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiAdminNotification>>('/admin/notifications?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapAdminNotification);
       },
       notifications,
@@ -1366,7 +1603,7 @@ export const api = {
   fetchAdminFiles: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAdminFile>>('/admin/files?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiAdminFile>>('/admin/files?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapAdminFile);
       },
       files,
@@ -1374,7 +1611,7 @@ export const api = {
   fetchAdminLogs: () =>
     withPublicFallback(
       async () => {
-        const data = await request<ListResponse<ApiAdminLog>>('/admin/logs?pageSize=100', { headers: getAdminHeaders() });
+        const data = await request<ListResponse<ApiAdminLog>>('/admin/logs?pageSize=100', { authRole: 'ADMIN', headers: getAdminHeaders() });
         return data.items.map(mapAdminLog);
       },
       logs,
@@ -1385,10 +1622,14 @@ export const api = {
   createLot: (payload: LotMutationPayload) => adminPost<ApiLot>('/admin/lots', payload),
   updateLot: (id: string, payload: LotMutationPayload) => adminPut<ApiLot>(`/admin/lots/${id}`, payload),
   uploadFile,
+  uploadRegisterMaterialFile,
+  createFileObjectUrl,
+  openFileUrl,
   advanceLotToBidding: (id: string) => adminPost<ApiLot>(`/admin/lots/${id}/advance-to-bidding`),
   approveLotReview: (id: string) => adminPost<ApiLot>(`/admin/reviews/lots/${id}/approve`),
   rejectLotReview: (id: string, rejectReason: string) => adminPost<ApiLot>(`/admin/reviews/lots/${id}/reject`, { rejectReason }),
-  registerEnterprise: (payload: EnterpriseRegisterPayload) => enterprisePost<ApiEnterprise>('/enterprises/register', payload),
+  registerEnterprise: (payload: EnterpriseRegisterPayload) => publicPost<ApiEnterprise>('/enterprises/register', payload),
+  submitAccountCertification: (payload: EnterpriseCertificationPayload) => enterprisePut<ApiAccountCertification>('/account/certification', payload),
   submitDepositVoucher: async (lotId: string, payload: DepositVoucherPayload) =>
     mapAdminDeposit(await enterprisePost<ApiAdminDeposit>(`/lots/${lotId}/deposit-vouchers`, payload)),
   submitBid: (lotId: string, amount: string) => enterprisePost<ApiPublicBid>(`/lots/${lotId}/bids`, { amount }),
@@ -1400,6 +1641,8 @@ export const api = {
   markContractSigned: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-signed`),
   markContractCompleted: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-completed`),
   markContractDefaulted: (id: string) => adminPost<ApiContract>(`/admin/contracts/${id}/mark-defaulted`),
+  fetchAuctionClosingPending: () => adminGet<AuctionClosingPendingLot[]>('/admin/auction-closing/pending'),
+  fetchAuctionClosingRuns: () => adminGet<AuctionClosingRunsResponse>('/admin/auction-closing/runs'),
   runAuctionClosing: () => adminPost<AuctionClosingRunSummary>('/admin/auction-closing/run'),
   markRefundReviewing: (id: string) => adminPost<ApiRefund>(`/admin/refunds/${id}/mark-reviewing`),
   markRefundRefunded: (id: string) => adminPost<ApiRefund>(`/admin/refunds/${id}/mark-refunded`),

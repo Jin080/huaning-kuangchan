@@ -4,6 +4,8 @@ import {
   DepositVoucher,
   DepositVoucherStatus,
   EnterpriseCertificationStatus,
+  Lot,
+  LotStatus,
   Prisma,
 } from '@prisma/client';
 
@@ -17,6 +19,7 @@ import { DepositVoucherDto } from './dto/deposit-voucher.dto';
 type DepositVoucherWithNames = DepositVoucher & {
   enterprise?: { name: string } | null;
   lot?: { title: string } | null;
+  attachment?: { id: string; fileName: string; fileUrl: string } | null;
 };
 
 const STATUS_LABELS: Record<DepositVoucherStatus, string> = {
@@ -48,6 +51,8 @@ export class DepositsService {
         HttpStatus.NOT_FOUND,
       );
     }
+
+    this.ensureLotAcceptsDeposit(lot);
 
     const attachment = await this.prisma.attachment.create({
       data: {
@@ -100,6 +105,7 @@ export class DepositsService {
   async listForReview(): Promise<DepositVoucherResponse[]> {
     const vouchers = await this.prisma.depositVoucher.findMany({
       include: {
+        attachment: { select: { id: true, fileName: true, fileUrl: true } },
         enterprise: { select: { name: true } },
         lot: { select: { title: true } },
       },
@@ -229,6 +235,21 @@ export class DepositsService {
     return enterprise;
   }
 
+  private ensureLotAcceptsDeposit(lot: Lot): void {
+    const now = new Date();
+    const acceptsDeposit =
+      (lot.status === LotStatus.ANNOUNCING || lot.status === LotStatus.BIDDING) &&
+      lot.biddingEndAt > now;
+
+    if (!acceptsDeposit) {
+      throw new AppError(
+        ERROR_CODES.AUCTION_ENDED,
+        '拍品已结束，不能提交意向金凭证',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   private async ensureVoucherExists(voucherId: string): Promise<void> {
     const voucher = await this.prisma.depositVoucher.findUnique({
       where: { id: voucherId },
@@ -250,6 +271,9 @@ export class DepositsService {
       lotTitle: voucher.lot?.title ?? null,
       enterpriseId: voucher.enterpriseId,
       enterpriseName: voucher.enterprise?.name ?? null,
+      attachmentId: voucher.attachment?.id ?? voucher.attachmentId,
+      voucherFileName: voucher.attachment?.fileName ?? null,
+      voucherFileUrl: voucher.attachment?.fileUrl ?? null,
       requiredAmount: voucher.requiredAmount.toString(),
       paidAmount: voucher.paidAmount?.toString() ?? null,
       status: STATUS_LABELS[voucher.status],

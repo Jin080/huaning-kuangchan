@@ -49,6 +49,7 @@ const adminReviewLinks = [
   { label: '企业认证审核', path: '/admin/reviews/enterprises', countKey: 'enterpriseReviews' },
   { label: '意向金凭证审核', path: '/admin/reviews/deposits', countKey: 'depositReviews' },
 ] as const;
+const ADMIN_LIST_REFRESH_EVENT = 'admin-list-refresh';
 const adminAuditLinks = [
   { label: '结拍调度', path: '/admin/auction-closing' },
   { label: '操作日志', path: '/admin/logs' },
@@ -120,7 +121,7 @@ export function PortalLayout({ active, children }: { active: string; children: R
   }, []);
 
   const logout = () => {
-    void api.logout();
+    void api.logout('ENTERPRISE');
     navigateTo('/');
   };
 
@@ -177,13 +178,13 @@ export function PortalLayout({ active, children }: { active: string; children: R
 }
 
 export function AdminLayout({ active, subActive, children }: { active: string; subActive?: string; children: ReactNode }) {
-  const [profile, setProfile] = useState<AuthProfile | null>(() => getAuthProfile());
+  const [profile, setProfile] = useState<AuthProfile | null>(() => getAuthProfile('ADMIN'));
   const [reviewCounts, setReviewCounts] = useState({ lotReviews: 0, enterpriseReviews: 0, depositReviews: 0 });
-  const isAuthenticated = Boolean(getAuthToken() && profile);
+  const isAuthenticated = Boolean(getAuthToken('ADMIN') && profile);
   const isAdmin = isAuthenticated && profile?.roleCode === 'ADMIN';
 
   useEffect(() => {
-    const syncProfile = () => setProfile(getAuthProfile());
+    const syncProfile = () => setProfile(getAuthProfile('ADMIN'));
 
     window.addEventListener(AUTH_SESSION_EVENT, syncProfile);
     window.addEventListener('storage', syncProfile);
@@ -198,7 +199,14 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
       return;
     }
 
-    void api.fetchAdminTodoCounts().then(setReviewCounts).catch(() => undefined);
+    const loadReviewCounts = () => {
+      void api.fetchAdminTodoCounts().then(setReviewCounts).catch(() => undefined);
+    };
+
+    loadReviewCounts();
+    window.addEventListener(ADMIN_LIST_REFRESH_EVENT, loadReviewCounts);
+
+    return () => window.removeEventListener(ADMIN_LIST_REFRESH_EVENT, loadReviewCounts);
   }, [isAdmin]);
 
   if (!isAuthenticated || !isAdmin) {
@@ -214,8 +222,8 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
   }
 
   const logout = () => {
-    void api.logout();
-    navigateTo('/login');
+    void api.logout('ADMIN');
+    navigateTo('/admin/login');
   };
 
   return (
@@ -276,7 +284,7 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
             <strong>{subActive ?? active}</strong>
           </div>
           <div>
-            <button type="button">通知</button>
+            <button onClick={() => navigateTo('/admin/notifications')} type="button">通知</button>
             <button onClick={logout} type="button">退出</button>
           </div>
         </header>
@@ -287,12 +295,12 @@ export function AdminLayout({ active, subActive, children }: { active: string; s
 }
 
 export function AccountLayout({ active, children }: { active: string; children: ReactNode }) {
-  const [profile, setProfile] = useState<AuthProfile | null>(() => getAuthProfile());
-  const isAuthenticated = Boolean(getAuthToken() && profile);
+  const [profile, setProfile] = useState<AuthProfile | null>(() => getAuthProfile('ENTERPRISE'));
+  const isAuthenticated = Boolean(getAuthToken('ENTERPRISE') && profile);
   const isEnterprise = isAuthenticated && profile?.roleCode === 'ENTERPRISE';
 
   useEffect(() => {
-    const syncProfile = () => setProfile(getAuthProfile());
+    const syncProfile = () => setProfile(getAuthProfile('ENTERPRISE'));
 
     window.addEventListener(AUTH_SESSION_EVENT, syncProfile);
     window.addEventListener('storage', syncProfile);
@@ -344,9 +352,9 @@ export function AccountLayout({ active, children }: { active: string; children: 
 }
 
 function getPortalSession(): PortalSession {
-  const profile = getAuthProfile();
+  const profile = getAuthProfile('ENTERPRISE');
 
-  if (!getAuthToken() || !profile) {
+  if (!getAuthToken('ENTERPRISE') || !profile) {
     return defaultPortalSession;
   }
 

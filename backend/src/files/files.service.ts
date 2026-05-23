@@ -45,6 +45,7 @@ type PrismaServiceLike = {
       fileName: string;
       fileUrl: string;
       mimeType: string | null;
+      isSensitive: boolean;
       storagePath?: string;
     } | null>;
   };
@@ -54,6 +55,7 @@ const categoryLabels: Record<AttachmentCategory, string> = {
   LOT_IMAGE: '拍品图片',
   INSPECTION_REPORT: '检测报告',
   ENTERPRISE_QUALIFICATION: '企业资质',
+  ENTERPRISE_AUTHORIZATION: '授权材料',
   BUSINESS_LICENSE: '营业执照',
   DEPOSIT_VOUCHER: '意向金凭证',
   CONTENT_IMAGE: '内容图片',
@@ -65,13 +67,30 @@ const uploadPathPrefix = '/api/files/content/';
 const allowedUploadCategories: AttachmentCategory[] = [
   AttachmentCategory.LOT_IMAGE,
   AttachmentCategory.INSPECTION_REPORT,
+  AttachmentCategory.ENTERPRISE_QUALIFICATION,
+  AttachmentCategory.ENTERPRISE_AUTHORIZATION,
+  AttachmentCategory.BUSINESS_LICENSE,
   AttachmentCategory.DEPOSIT_VOUCHER,
+  AttachmentCategory.OTHER,
 ];
+const enterpriseUploadCategories = new Set<AttachmentCategory>([
+  AttachmentCategory.ENTERPRISE_QUALIFICATION,
+  AttachmentCategory.ENTERPRISE_AUTHORIZATION,
+  AttachmentCategory.BUSINESS_LICENSE,
+  AttachmentCategory.DEPOSIT_VOUCHER,
+]);
+const registerMaterialCategories = new Set<AttachmentCategory>([
+  AttachmentCategory.ENTERPRISE_QUALIFICATION,
+  AttachmentCategory.ENTERPRISE_AUTHORIZATION,
+  AttachmentCategory.BUSINESS_LICENSE,
+]);
 const sensitiveCategories = new Set<AttachmentCategory>([
   AttachmentCategory.INSPECTION_REPORT,
   AttachmentCategory.ENTERPRISE_QUALIFICATION,
+  AttachmentCategory.ENTERPRISE_AUTHORIZATION,
   AttachmentCategory.BUSINESS_LICENSE,
   AttachmentCategory.DEPOSIT_VOUCHER,
+  AttachmentCategory.OTHER,
 ]);
 const extensionByMimeType: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -120,35 +139,47 @@ export class FilesService {
     uploadedByRole = 'ADMIN',
   ): Promise<FileUploadResponse> {
     this.assertCanUpload(dto.category, uploadedByRole);
-    this.assertValidFile(file);
-
-    const id = randomUUID();
-    const storedFileName = `${id}${extensionByMimeType[file.mimetype]}`;
-    const storagePath = path.join(uploadRoot, storedFileName);
-
-    await fs.mkdir(uploadRoot, { recursive: true });
-    await fs.writeFile(storagePath, file.buffer);
-
-    const attachment = await this.prisma.attachment.create({
-      data: {
-        id,
-        category: dto.category,
-        fileName: file.originalname,
-        fileUrl: `${uploadPathPrefix}${id}`,
-        mimeType: file.mimetype,
-        fileSize: file.size,
-        isSensitive: sensitiveCategories.has(dto.category),
-        lotId: dto.lotId,
-        enterpriseId: dto.enterpriseId,
-        uploadedById,
-      },
+    return this.storeUploadedFile(dto, file, {
+      uploadedById,
+      lotId: dto.lotId,
+      enterpriseId: dto.enterpriseId,
     });
+  }
 
-    return this.toUploadResponse(attachment);
+  async uploadRegisterMaterial(
+    dto: FileUploadDto,
+    file: UploadedFilePayload | undefined,
+  ): Promise<FileUploadResponse> {
+    if (!registerMaterialCategories.has(dto.category)) {
+      throw new AppError(
+        ERROR_CODES.FORBIDDEN,
+        '注册前仅支持上传企业认证材料',
+        403,
+      );
+    }
+
+    return this.storeUploadedFile(dto, file, {
+      uploadedById: null,
+      lotId: null,
+      enterpriseId: null,
+    });
   }
 
   async getStoredFile(
     id: string,
+  ): Promise<{ path: string; fileName: string; mimeType: string | null }> {
+    return this.getStoredAttachmentFile(id);
+  }
+
+  async getPublicStoredFile(
+    id: string,
+  ): Promise<{ path: string; fileName: string; mimeType: string | null }> {
+    return this.getStoredAttachmentFile(id, true);
+  }
+
+  private async getStoredAttachmentFile(
+    id: string,
+    publicOnly = false,
   ): Promise<{ path: string; fileName: string; mimeType: string | null }> {
     const attachment = await this.prisma.attachment.findUnique({
       where: { id },
@@ -157,6 +188,7 @@ export class FilesService {
         fileName: true,
         fileUrl: true,
         mimeType: true,
+        isSensitive: true,
       },
     });
 
@@ -165,6 +197,14 @@ export class FilesService {
         ERROR_CODES.INTERNAL_ERROR,
         '附件文件不存在',
         404,
+      );
+    }
+
+    if (publicOnly && attachment.isSensitive) {
+      throw new AppError(
+        ERROR_CODES.FILE_FORBIDDEN,
+        '附件无查看权限',
+        403,
       );
     }
 
@@ -213,10 +253,10 @@ export class FilesService {
       );
     }
 
-    if (uploadedByRole === 'ENTERPRISE' && category !== AttachmentCategory.DEPOSIT_VOUCHER) {
+    if (uploadedByRole === 'ENTERPRISE' && !enterpriseUploadCategories.has(category)) {
       throw new AppError(
         ERROR_CODES.FORBIDDEN,
-        '企业账号仅支持上传意向金付款凭证',
+        '企业账号仅支持上传企业认证材料或意向金付款凭证',
         403,
       );
     }
@@ -239,6 +279,42 @@ export class FilesService {
     if (file.size > 10 * 1024 * 1024) {
       throw new AppError(ERROR_CODES.INTERNAL_ERROR, '文件大小不能超过 10MB');
     }
+  }
+
+  private async storeUploadedFile(
+    dto: FileUploadDto,
+    file: UploadedFilePayload | undefined,
+    owner: {
+      uploadedById: string | null;
+      lotId?: string | null;
+      enterpriseId?: string | null;
+    },
+  ): Promise<FileUploadResponse> {
+    this.assertValidFile(file);
+
+    const id = randomUUID();
+    const storedFileName = `${id}${extensionByMimeType[file.mimetype]}`;
+    const storagePath = path.join(uploadRoot, storedFileName);
+
+    await fs.mkdir(uploadRoot, { recursive: true });
+    await fs.writeFile(storagePath, file.buffer);
+
+    const attachment = await this.prisma.attachment.create({
+      data: {
+        id,
+        category: dto.category,
+        fileName: file.originalname,
+        fileUrl: `${uploadPathPrefix}${id}`,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        isSensitive: sensitiveCategories.has(dto.category),
+        lotId: owner.lotId,
+        enterpriseId: owner.enterpriseId,
+        uploadedById: owner.uploadedById,
+      },
+    });
+
+    return this.toUploadResponse(attachment);
   }
 
   private toUploadResponse(attachment: {

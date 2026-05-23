@@ -1,6 +1,7 @@
 import {
   DepositVoucherStatus,
   EnterpriseCertificationStatus,
+  LotStatus,
 } from '@prisma/client';
 
 import { DepositsService } from '../../src/modules/deposits/deposits.service';
@@ -45,6 +46,8 @@ describe('DepositsService', () => {
     prisma.lot.findUnique.mockResolvedValue({
       id: 'lot-1',
       depositAmount: { toString: () => '50000' },
+      status: LotStatus.ANNOUNCING,
+      biddingEndAt: new Date(Date.now() + 60_000),
     });
     prisma.attachment.create.mockResolvedValue({ id: 'attachment-1' });
     prisma.depositVoucher.upsert.mockResolvedValue({
@@ -78,6 +81,62 @@ describe('DepositsService', () => {
       }),
     );
     expect(result.status).toBe('待审核');
+  });
+
+  it('accepts voucher submission while a lot is already bidding and not ended', async () => {
+    const { service, prisma } = createService();
+    prisma.enterprise.findFirst.mockResolvedValue({
+      id: 'enterprise-1',
+      certificationStatus: EnterpriseCertificationStatus.APPROVED,
+    });
+    prisma.lot.findUnique.mockResolvedValue({
+      id: 'lot-1',
+      depositAmount: { toString: () => '50000' },
+      status: LotStatus.BIDDING,
+      biddingEndAt: new Date(Date.now() + 60_000),
+    });
+    prisma.attachment.create.mockResolvedValue({ id: 'attachment-1' });
+    prisma.depositVoucher.upsert.mockResolvedValue({
+      id: 'voucher-1',
+      lotId: 'lot-1',
+      enterpriseId: 'enterprise-1',
+      requiredAmount: { toString: () => '50000' },
+      paidAmount: { toString: () => '50000' },
+      status: DepositVoucherStatus.PENDING,
+      rejectReason: null,
+    });
+
+    const result = await service.submitVoucher('user-1', 'lot-1', {
+      voucherFileName: '付款凭证.pdf',
+      voucherFileUrl: 'https://files.example.com/deposit.pdf',
+      paidAmount: '50000',
+    });
+
+    expect(result.status).toBe('待审核');
+  });
+
+  it('rejects voucher submission after bidding has ended', async () => {
+    const { service, prisma } = createService();
+    prisma.enterprise.findFirst.mockResolvedValue({
+      id: 'enterprise-1',
+      certificationStatus: EnterpriseCertificationStatus.APPROVED,
+    });
+    prisma.lot.findUnique.mockResolvedValue({
+      id: 'lot-1',
+      depositAmount: { toString: () => '50000' },
+      status: LotStatus.BIDDING,
+      biddingEndAt: new Date(Date.now() - 60_000),
+    });
+
+    await expect(
+      service.submitVoucher('user-1', 'lot-1', {
+        voucherFileName: '付款凭证.pdf',
+        voucherFileUrl: 'https://files.example.com/deposit.pdf',
+      }),
+    ).rejects.toMatchObject({
+      code: 'AUCTION_ENDED',
+    });
+    expect(prisma.attachment.create).not.toHaveBeenCalled();
   });
 
   it('rejects voucher submission when enterprise certification is not approved', async () => {
@@ -147,6 +206,12 @@ describe('DepositsService', () => {
         reviewedAt: null,
         reviewerId: null,
         rejectReason: null,
+        attachmentId: 'attachment-1',
+        attachment: {
+          id: 'attachment-1',
+          fileName: '付款凭证.pdf',
+          fileUrl: 'https://files.example.com/deposit.pdf',
+        },
         enterprise: { name: '华宁矿业有限公司' },
         lot: { title: '高品位磷矿石' },
       },
@@ -156,6 +221,7 @@ describe('DepositsService', () => {
 
     expect(prisma.depositVoucher.findMany).toHaveBeenCalledWith({
       include: {
+        attachment: { select: { id: true, fileName: true, fileUrl: true } },
         enterprise: { select: { name: true } },
         lot: { select: { title: true } },
       },
@@ -166,6 +232,9 @@ describe('DepositsService', () => {
       enterpriseName: '华宁矿业有限公司',
       lotId: 'lot-1',
       lotTitle: '高品位磷矿石',
+      attachmentId: 'attachment-1',
+      voucherFileName: '付款凭证.pdf',
+      voucherFileUrl: 'https://files.example.com/deposit.pdf',
     });
   });
 });
